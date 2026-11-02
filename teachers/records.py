@@ -40,7 +40,11 @@ STATE_INFO = {
 
 def roster(assignment, include_inactive=True):
     """Learners of the class for matching: active ones, and those who left (so a stray row is explained)."""
-    qs = Enrollment.objects.filter(section=assignment.section, school_year=assignment.school_year).select_related('student')
+    return section_roster(assignment.section, assignment.school_year, include_inactive)
+
+
+def section_roster(section, school_year, include_inactive=True):
+    qs = Enrollment.objects.filter(section=section, school_year=school_year).select_related('student')
     if not include_inactive:
         qs = qs.filter(status__in=ACTIVE)
     people = []

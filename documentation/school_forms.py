@@ -5,14 +5,19 @@ workbook; core.xlsx_patch writes the values into their cells and adds rows when 
 longer than the printed form, so logos, borders, print setup and guidelines stay as DepEd made
 them. Junior High (Grades 7 to 10) and Senior High have their own versions where DepEd has two.
 
-  SF1  School Register                        per section (Senior High: per semester)
-  SF2  Daily Attendance Report                per section and month
-  SF3  Books Issued and Returned              per section (names and subjects; books are not in ARMS)
-  SF4  Monthly Learner Movement & Attendance  whole school, per month
-  SF5  Promotion and Learning Progress        per section (Senior High: SF5A per semester, SF5B completers)
+  SF1  School Register                        per section (Senior High: per semester or term)
+  SF2  Daily Attendance Report                per section and month; the adviser's upload fills it
+  SF3  Books Issued and Returned              per section; the adviser's upload fills the dates
+  SF4  Monthly Learner Movement & Attendance  whole school, per month, from every section's SF2
+  SF5  Promotion and Learning Progress        per section (Senior High: SF5A per semester or term, SF5B completers)
   SF6  Summarized Promotion Report            whole school
   SF7  Personnel Assignment List              whole school
-  Summary of final grades (Grades 7 to 10, per section) and MAPEH final grades (per MAPEH class).
+  SF8  Learner's Basic Health and Nutrition   per section; the adviser's upload fills weight and height
+  SF9  Report card                            DepEd's workbook for the class, or for one learner (documentation.sf9)
+  Summary of final grades (Grades 7 to 10, per section) and MAPEH final grades (per MAPEH class), in quarterly years.
+
+A school year's own grading periods decide what the forms say: a three-term year prints terms where a
+quarterly year prints quarters and semesters. In a three-term year DepEd's summaries are the TERM sheets of SF9.
 
 Figures that the templates format oddly (a percent format on one cell of a column, zero-padded
 totals) are written as text in the form's own way of showing them.
@@ -24,10 +29,13 @@ import zipfile
 from datetime import date
 from pathlib import Path
 
+from core import grading_policy
+from core import periods as P
 from core import xlsx_patch
 from core.xlsx_patch import Rows
 
 from . import form_data as FD
+from . import sf9 as SF9
 
 TEMPLATES = Path(__file__).resolve().parent / 'sf_templates'
 ECR_TEMPLATES = Path(__file__).resolve().parent.parent / 'grades' / 'ecr_templates'
@@ -47,6 +55,8 @@ FORMS = {
     'SF5B': {'title': 'Learners with Complete SHS Requirements', 'scope': 'section', 'shs': True, 'grade12': True},
     'SF6': {'title': 'Summarized Report on Promotion and Learning Progress', 'scope': 'school'},
     'SF7': {'title': 'School Personnel Assignment List and Basic Profile', 'scope': 'school'},
+    'SF8': {'title': "Learner's Basic Health and Nutrition Report", 'scope': 'section'},
+    'SF9': {'title': "SF9 Workbook", 'scope': 'section'},
     'SUMMARY': {'title': 'Summary of Final Grades', 'scope': 'section', 'jhs': True},
 }
 
@@ -96,20 +106,8 @@ def _file_name(code, section=None, extra='', sy=None):
     return '_'.join(parts) + '.xlsx'
 
 
-def _date_text(d):
-    return d.strftime('%m/%d/%Y') if d else ''
-
-
 def _grade_text(section):
     return str(section.grade_level.grade_number or section.grade_level.grade_name)
-
-
-def _track_strand(section):
-    s = section.strand
-    if not s:
-        return ''
-    track = s.track.track_name if s.track_id else ''
-    return f'{track} - {s.strand_code}'.strip(' -').upper() if track else s.strand_code
 
 
 def _course(section):
@@ -120,7 +118,13 @@ def _course(section):
 
 
 def _semester_label(semester):
-    return f'{semester.semester_label} Semester' if semester else ''
+    if not semester:
+        return ''
+    return semester.semester_label if getattr(semester, 'is_term', False) else f'{semester.semester_label} Semester'
+
+
+def _is_term(semester):
+    return getattr(semester, 'is_term', False)
 
 
 def _counts(people, test=lambda p: True):
@@ -157,6 +161,7 @@ class _DerivedSemester:
     """A semester of a school year that has quarters but no semester records: Q1-Q2 and Q3-Q4."""
     id = None
     is_current_semester = False
+    is_term = False
 
     def __init__(self, number, quarters):
         self.semester_number = number
@@ -164,12 +169,26 @@ class _DerivedSemester:
         self.date_start, self.date_end = quarters[0].date_start, quarters[-1].date_end
 
 
+class _Term(_DerivedSemester):
+    """One term of a three-term year, in the place a semester has on the Senior High forms."""
+    is_term = True
+
+    def __init__(self, period, current):
+        self.semester_number = period.quarter_number
+        self.semester_label = P.name(period)
+        self.date_start, self.date_end = period.date_start, period.date_end
+        self.is_current_semester = period == current
+
+
 def semesters(sy):
-    from academics.models import Quarter, Semester
+    from academics.models import Semester
+    quarters = FD.periods_of(sy)
+    if P.prefix(None, quarters) == 'T':
+        current = P.current(quarters)
+        return [_Term(q, current) for q in quarters]
     sems = list(Semester.objects.filter(school_year=sy).order_by('semester_number'))
     if sems:
         return sems
-    quarters = list(Quarter.objects.filter(school_year=sy).order_by('quarter_number'))
     half = len(quarters) // 2
     return [_DerivedSemester(1, quarters[:half]), _DerivedSemester(2, quarters[half:])] if half else []
 
@@ -183,7 +202,7 @@ def month_param(text):
 def semester_param(sy, text):
     """The semester (1 or 2) a request parameter names, or None."""
     text = str(text or '').strip()
-    return semester_of(sy, text) if text in ('1', '2') else None
+    return semester_of(sy, text) if text in ('1', '2', '3') else None
 
 
 def semester_of(sy, number=None):
@@ -213,7 +232,7 @@ def sf1(section, sy, semester=None):
     r = 10
 
     def learner(p, r):
-        cells.update({f'B{r}': p['lrn'], f'C{r}': p['name'], f'G{r}': p['sex'], f'H{r}': _date_text(p['birth_date']),
+        cells.update({f'B{r}': p['lrn'], f'C{r}': p['name'], f'G{r}': p['sex'], f'H{r}': FD.date_text(p['birth_date']),
                       f'I{r}': p['age'], f'J{r}': p['birth_place'], f'L{r}': p['mother_tongue'], f'M{r}': p['ip'],
                       f'N{r}': p['religion'], f'O{r}': p['street'], f'P{r}': p['barangay'], f'Q{r}': p['city'],
                       f'R{r}': p['province'], f'T{r}': p['father'], f'V{r}': p['mother'], f'X{r}': p['guardian'],
@@ -258,11 +277,11 @@ def _sf1_shs(section, sy, semester):
     rows.grow(52, 40, len(females))
     cells = {'F3': info['school_name'], 'M3': info['school_id'], 'U3': info['district'], 'Z3': info['division'],
              'AF3': info['region'], 'F5': _semester_label(semester), 'M5': sy.year_label, 'W5': _grade_text(section),
-             'AC5': _track_strand(section), 'F7': section.section_name.upper(), 'P7': _course(section)}
+             'AC5': FD.track_strand(section), 'F7': section.section_name.upper(), 'P7': _course(section)}
     merges = []
 
     def learner(p, r):
-        cells.update({f'A{r}': p['lrn'], f'C{r}': p['name'], f'G{r}': p['sex'], f'H{r}': _date_text(p['birth_date']),
+        cells.update({f'A{r}': p['lrn'], f'C{r}': p['name'], f'G{r}': p['sex'], f'H{r}': FD.date_text(p['birth_date']),
                       f'J{r}': _fmt(p['age']), f'L{r}': p['religion'], f'M{r}': p['street'], f'N{r}': p['barangay'],
                       f'R{r}': p['city'], f'U{r}': p['province'], f'W{r}': p['father'], f'X{r}': p['mother'],
                       f'Z{r}': p['guardian'], f'AC{r}': p['relationship'], f'AD{r}': p['contact'], f'AE{r}': p['remarks']})
@@ -283,6 +302,9 @@ def _sf1_shs(section, sy, semester):
         cells[f'U{rows.at(row)}'] = _fmt(b)
         cells[f'W{rows.at(row)}'] = _fmt(e)
     cells[f'Y{rows.at(96)}'] = FD.adviser_of(section)
+    if _is_term(semester):
+        cells.update({'D5': 'Term', f'U{rows.at(95)}': 'Beginning of the Term', f'W{rows.at(95)}': 'End of the Term',
+                      f'Y{rows.at(99)}': 'Beginning of the Term Date:', f'AD{rows.at(99)}': 'End of the Term Date:'})
     return (_render(_template('shs/SHSF-1.xlsx'), cells, rows, merges=merges),
             _file_name('SF1', section, _semester_label(semester), sy))
 
@@ -370,9 +392,18 @@ def _sf2_summary(cells, rows, s, cols, layout):
         _put3(cells, cols, rows.at(row), triplet, pct)
 
 
+def _term_of_month(sy, month):
+    """The term a month starts in (a three-term year), else None."""
+    year, _ = FD.month_of(sy, month)
+    first = date(year, month, 1)
+    last = date(year, month, calendar.monthrange(year, month)[1])
+    terms = [t for t in semesters(sy) if _is_term(t)]
+    return next((t for t in terms if t.date_start <= last and t.date_end >= first), None)
+
+
 def sf2(section, sy, month, semester=None):
     if is_senior(section):
-        return _sf2_shs(section, sy, month, semester or semester_of(sy))
+        return _sf2_shs(section, sy, month, _term_of_month(sy, month) or semester or semester_of(sy))
     info = FD.school_info(section.school, sy)
     people = FD.learners(section, sy)
     s = _attendance_month(section, sy, month, people)
@@ -431,7 +462,7 @@ def _sf2_shs(section, sy, month, semester):
     rows.grow(30, 27, len(females))
     cells = {'F3': info['school_name'], 'V3': info['school_id'], 'AF3': info['district'], 'AR3': info['division'],
              'AX3': info['region'], 'F5': _semester_label(semester), 'V5': sy.year_label, 'AH5': _grade_text(section),
-             'AV5': _track_strand(section), 'F7': section.section_name.upper(), 'W7': _course(section),
+             'AV5': FD.track_strand(section), 'F7': section.section_name.upper(), 'W7': _course(section),
              'AV7': f'{s["month"]} {s["year"]}'}
     columns = _day_columns(s['days'], _SHS_DAY_COLS)
     for d, col in columns.items():
@@ -446,12 +477,39 @@ def _sf2_shs(section, sy, month, semester):
                                                        ('to', 71), ('ti', 72), ('shift_out', 73), ('shift_in', 74)))
     cells[f'AS{rows.at(79)}'] = FD.adviser_of(section)
     cells[f'AS{rows.at(84)}'] = info['head']
+    if _is_term(semester):
+        cells.update({'E5': 'Term', f'AR{rows.at(62)}': '* Enrolment  (as of 1st Friday of the term)'})
     return _render(_template('shs/SHSF-2.xlsx'), cells, rows), _file_name('SF2', section, f'{s["month"]}-{s["year"]}', sy)
 
 
 # ---------------------------------------------------------------------------------------------
 # SF3 Books
 # ---------------------------------------------------------------------------------------------
+
+_SF3_JHS_DATES = (('D', 'E'), ('F', 'G'), ('H', 'I'), ('J', 'K'), ('L', 'M'), ('N', 'O'), ('P', 'Q'), ('R', 'S'))
+_SF3_SHS_DATES = (('D', 'E'), ('F', 'G'), ('I', 'J'), ('K', 'M'), ('N', 'O'), ('P', 'Q'), ('R', 'S'), ('T', 'U'), ('W', 'X'), ('Z', 'AA'))
+
+
+def _book_titles(people, classes):
+    """The columns of SF3: the titles the adviser recorded, else the section's subjects. Also {(enrollment, title): record}."""
+    from documentation.models import BookRecord
+    records = list(BookRecord.objects.filter(enrollment__in=[p['enrollment'] for p in people]))
+    titles = sorted({r.title for r in records}) or [a.subject.subject_name for a in classes]
+    return titles, {(r.enrollment_id, r.title): r for r in records}
+
+
+def _book_cells(cells, p, row, titles, records, columns, remark_col):
+    notes = []
+    for title, (issued, returned) in zip(titles, columns):
+        record = records.get((p['enrollment'].id, title))
+        if record:
+            cells[f'{issued}{row}'] = FD.date_text(record.date_issued) or None
+            cells[f'{returned}{row}'] = FD.date_text(record.date_returned) or None
+            if record.remarks and record.remarks not in notes:
+                notes.append(record.remarks)
+    if notes:
+        cells[f'{remark_col}{row}'] = '; '.join(notes)
+
 
 def sf3(section, sy, semester=None):
     info = FD.school_info(section.school, sy)
@@ -465,26 +523,34 @@ def sf3(section, sy, semester=None):
         rows.grow(54, 38, len(females))
         cells = {'D3': info['school_name'], 'M3': info['school_id'], 'Q3': info['district'], 'Y3': info['division'],
                  'AD3': info['region'], 'D5': _semester_label(semester), 'M5': sy.year_label, 'R5': _grade_text(section),
-                 'Y5': _track_strand(section), 'D7': section.section_name.upper(), 'N7': _course(section)}
-        for col, a in zip(('D', 'F', 'I', 'K', 'N', 'P', 'R', 'T', 'W', 'Z'), classes):
-            cells[f'{col}9'] = a.subject.subject_name
+                 'Y5': FD.track_strand(section), 'D7': section.section_name.upper(), 'N7': _course(section)}
+        titles, records = _book_titles(people, classes)
+        for (col, _), title in zip(_SF3_SHS_DATES, titles):
+            cells[f'{col}9'] = title
         for i, p in enumerate(males):
             cells[f'B{13 + i}'] = p['name']
+            _book_cells(cells, p, 13 + i, titles, records, _SF3_SHS_DATES, 'AB')
         for i, p in enumerate(females):
             cells[f'B{rows.at(54) + i}'] = p['name']
+            _book_cells(cells, p, rows.at(54) + i, titles, records, _SF3_SHS_DATES, 'AB')
         cells[f'T{rows.at(95)}'] = FD.adviser_of(section)
+        if _is_term(semester):
+            cells['A5'] = 'Term'
         return _render(_template('shs/SHSF-3.xlsx'), cells, rows), _file_name('SF3', section, _semester_label(semester), sy)
     classes = FD.class_assignments(section, sy)
     rows.grow(12, 24, len(males))
     rows.grow(37, 23, len(females))
     cells = {'C5': info['school_id'], 'K5': sy.year_label, 'C7': info['school_name'], 'K7': _grade_text(section),
              'N7': section.section_name.upper()}
-    for col, a in zip(('D', 'F', 'H', 'J', 'L', 'N', 'P', 'R'), classes):
-        cells[f'{col}9'] = a.subject.subject_name
+    titles, records = _book_titles(people, classes)
+    for (col, _), title in zip(_SF3_JHS_DATES, titles):
+        cells[f'{col}9'] = title
     for i, p in enumerate(males):
         cells.update({f'A{12 + i}': i + 1, f'B{12 + i}': p['name']})
+        _book_cells(cells, p, 12 + i, titles, records, _SF3_JHS_DATES, 'T')
     for i, p in enumerate(females):
         cells.update({f'A{rows.at(37) + i}': i + 1, f'B{rows.at(37) + i}': p['name']})
+        _book_cells(cells, p, rows.at(37) + i, titles, records, _SF3_JHS_DATES, 'T')
     cells[f'R{rows.at(64)}'] = FD.adviser_of(section)
     return _render(_template('jhs/SF3.xlsx'), cells, rows), _file_name('SF3', section, sy=sy)
 
@@ -533,20 +599,27 @@ def _sum_month(items):
 _COLS = [xlsx_patch.col_letters(n) for n in range(1, 60)]
 
 
-def sf4(school, sy, month, *, senior=False, semester=None):
+def _level_sections(school, sy, senior, elementary):
+    """The sections of a whole-school form: Elementary, Junior High or Senior High, each on its own report."""
     from academics.models import Section
+    rows = Section.objects.filter(school=school, school_year=sy, is_active=True, grade_level__is_senior_high=senior)
+    if not senior:
+        rows = rows.filter(grade_level__grade_number__lt=7) if elementary else rows.filter(grade_level__grade_number__gte=7)
+    sections = list(rows.select_related('grade_level', 'adviser', 'strand', 'strand__track').order_by('grade_level__grade_number', 'section_name'))
+    if not sections:
+        level = 'Senior High' if senior else 'Elementary' if elementary else 'Junior High'
+        raise FormUnavailable(f'There is no {level} section in SY {sy.year_label}.')
+    return sections
+
+
+def sf4(school, sy, month, *, senior=False, semester=None, elementary=False):
     info = FD.school_info(school, sy)
     year, _ = FD.month_of(sy, month)
-    sections = list(Section.objects.filter(school=school, school_year=sy, is_active=True,
-                                           grade_level__is_senior_high=senior)
-                    .select_related('grade_level', 'adviser', 'strand', 'strand__track')
-                    .order_by('grade_level__grade_number', 'section_name'))
-    if not sections:
-        raise FormUnavailable(f'There is no {"Senior High" if senior else "Junior High"} section in SY {sy.year_label}.')
+    sections = _level_sections(school, sy, senior, elementary)
     data = [_section_month(s, sy, month) for s in sections]
     label = f'{calendar.month_name[month]} {year}'
     if senior:
-        return _sf4_shs(info, sy, data, label, semester or semester_of(sy))
+        return _sf4_shs(info, sy, data, label, _term_of_month(sy, month) or semester or semester_of(sy))
     rows = Rows()
     rows.grow(12, 18, len(data))
     cells = {'D5': info['school_id'], 'I5': info['region'], 'N5': info['division'], 'Y5': info['district'],
@@ -554,13 +627,13 @@ def sf4(school, sy, month, *, senior=False, semester=None):
     cols = _COLS[4:40]                                     # E .. AN
     for i, d in enumerate(data):
         r = 12 + i
-        cells.update({f'A{r}': d['section'].grade_level.grade_number, f'B{r}': d['section'].section_name,
+        cells.update({f'A{r}': d['section'].grade_level.grade_number or 'K', f'B{r}': d['section'].section_name,
                       f'C{r}': FD.adviser_of(d['section'])})
         _movement_cells(cells, r, d, cols)
     by_grade = {}
     for d in data:
         by_grade.setdefault(d['section'].grade_level.grade_number, []).append(d)
-    for number, row in ((7, 32), (8, 33), (9, 34), (10, 35)):
+    for number, row in ((0, 31), (1, 32), (2, 33), (3, 34), (4, 35), (5, 36), (6, 37)) if elementary else ((7, 32), (8, 33), (9, 34), (10, 35)):
         if number in by_grade:
             _movement_cells(cells, rows.at(row), _sum_month(by_grade[number]), cols)
     _movement_cells(cells, rows.at(39), _sum_month(data), cols)
@@ -589,6 +662,8 @@ def _sf4_shs(info, sy, data, label, semester):
             _movement_cells(cells, rows.at(total_row), _sum_month([d for v in groups[grade].values() for d in v]), cols)
     _movement_cells(cells, rows.at(36), _sum_month(data), cols)
     cells[f'AA{rows.at(41)}'] = info['head']
+    if _is_term(semester):
+        cells['K6'] = 'Term'
     return _render(_template('shs/SHSF-4.xlsx'), cells, rows), _file_name('SF4-SHS', extra=label, sy=sy)
 
 
@@ -596,13 +671,15 @@ def _sf4_shs(info, sy, data, label, semester):
 # SF5 Promotion (Grades 7 to 10), SF5A / SF5B (Senior High)
 # ---------------------------------------------------------------------------------------------
 
-def _progress_counts(people):
-    """Learners per descriptor of their general average, (male, female, total)."""
-    bands = {}
-    for low, name in FD.DESCRIPTOR_BANDS:
-        bands[name] = _counts(people, lambda p, low=low, name=name: p.get('general_average') is not None
-                              and FD.descriptor(p['general_average']) == name)
-    return bands
+def _progress_counts(people, school):
+    """Learners per descriptor of their general average, (male, female, total), lowest descriptor first."""
+    return [(name, span, _counts(people, lambda p, name=name: p.get('general_average') is not None
+                                 and FD.descriptor(p['general_average'], school) == name))
+            for name, span in FD.levels_of(school)]
+
+
+def _order_line(school):
+    return f'Revised to conform with the instructions of {grading_policy.for_school(school)["name"]}'
 
 
 def _general_average_text(p):
@@ -640,24 +717,31 @@ def sf5(section, sy, semester=None):
     cells[f'A{rows.at(61)}'] = _fmt(len(people))
     for row, action in ((15, 'PROMOTED'), (17, 'CONDITIONAL'), (19, 'RETAINED')):
         _put3(cells, ('M', 'N', 'O'), row, _counts(people, lambda p, action=action: p['action'] == action))
-    bands = _progress_counts(people)
-    for row, name in ((24, 'Did Not Meet Expectations'), (26, 'Fairly Satisfactory'), (28, 'Satisfactory'),
-                      (30, 'Very Satisfactory'), (32, 'Outstanding')):
-        _put3(cells, ('M', 'N', 'O'), row, bands[name])
+    for row, (name, span, counts) in zip((24, 26, 28, 30, 32), _progress_counts(people, section.school)):
+        cells[f'L{row}'] = f'{name} ({span})'
+        _put3(cells, ('M', 'N', 'O'), row, counts)
+    cells['A2'] = _order_line(section.school)
     cells['L36'] = FD.adviser_of(section)
     cells['L41'] = info['head']
     return _render(_template('jhs/SF5.xlsx'), cells, rows), _file_name('SF5', section, sy=sy)
 
 
-def _year_status(section, sy, people, semester):
-    """Regular / Irregular at the end of the year: both semesters complete. Needs the first semester's status."""
-    first = semester_of(sy, 1)
-    earlier = {p['enrollment'].id: p for p in FD.shs_semester(section, sy, first, [dict(p) for p in people])['people']} if first else {}
+def _is_last(sy, semester):
+    return bool(semester) and semester.semester_number == len(semesters(sy))
+
+
+def _status_of(section, sy, semester, people):
+    return {p['enrollment'].id: p for p in FD.shs_semester(section, sy, semester, [dict(p) for p in people])['people']}
+
+
+def _year_status(section, sy, people):
+    """Regular / Irregular at the end of the year: every semester or term complete."""
+    runs = [_status_of(section, sy, s, people) for s in semesters(sy)]
     for p in people:
-        one = earlier.get(p['enrollment'].id)
-        p['first_status'] = one['semester_status'] if one else ''
-        if p['semester_status'] and one and one['semester_status']:
-            p['year_status'] = 'Regular' if p['semester_complete'] and one['semester_complete'] else 'Irregular'
+        mine = [run.get(p['enrollment'].id) for run in runs]
+        p['first_status'] = mine[0]['semester_status'] if mine and mine[0] else ''
+        if mine and all(m and m['semester_status'] for m in mine):
+            p['year_status'] = 'Regular' if all(m['semester_complete'] for m in mine) else 'Irregular'
         else:
             p['year_status'] = ''
 
@@ -676,16 +760,17 @@ def sf5a(section, sy, semester):
     info = FD.school_info(section.school, sy)
     people = [p for p in FD.learners(section, sy) if p['status'] not in FD.LEFT]
     FD.shs_semester(section, sy, semester, people)
-    second = semester.semester_number == 2
-    if second:
-        _year_status(section, sy, people, semester)
+    term = _is_term(semester)
+    last = _is_last(sy, semester)
+    if last:
+        _year_status(section, sy, people)
     males, females = FD.split_sex(people)
     rows = Rows()
     rows.grow(13, 31, len(males))
     rows.grow(45, 22, len(females))
     cells = {'F3': info['school_name'], 'M3': info['school_id'], 'O3': info['district'], 'R3': info['division'],
              'U3': info['region'], 'E5': _semester_label(semester), 'L5': sy.year_label, 'O5': _grade_text(section),
-             'R5': section.section_name.upper(), 'E7': _track_strand(section), 'P7': _course(section)}
+             'R5': section.section_name.upper(), 'E7': FD.track_strand(section), 'P7': _course(section)}
     styles = {}
 
     def learner(p, i, r):
@@ -696,14 +781,23 @@ def sf5a(section, sy, semester):
         learner(p, i, 13 + i)
     for i, p in enumerate(females):
         learner(p, i, rows.at(45) + i)
-    tables = [(21 if second else 15, 'semester_status')]
-    if second:
+    tables = [(21 if last and not term else 15, 'semester_status')]
+    if last and not term:
         tables.append((15, 'first_status'))
+    if term:
+        cells.update({'B1': ' School Form 5A End of Term and School Year Status of Learners', 'D5': 'Term',
+                      'N10': 'END OF TERM STATUS\n(Complete/ Incomplete)', 'Q13': f'SUMMARY TABLE ({_semester_label(semester).upper()})',
+                      'Q19': 'SUMMARY TABLE (PREVIOUS TERM)'})
+        if semester.semester_number > 1:
+            before = _status_of(section, sy, semesters(sy)[semester.semester_number - 2], people)
+            for p in people:
+                p['previous_status'] = before.get(p['enrollment'].id, {}).get('semester_status', '')
+            tables.append((21, 'previous_status'))
     for top, key in tables:
         for offset, test in ((0, lambda p, key=key: p.get(key) == 'Complete'), (1, lambda p, key=key: p.get(key) == 'Incomplete'),
                              (2, lambda p, key=key: bool(p.get(key)))):
             _put3(cells, ('R', 'S', 'T'), top + offset, _counts(people, test))
-    if second:
+    if last:
         for offset, test in ((0, lambda p: p.get('year_status') == 'Regular'), (1, lambda p: p.get('year_status') == 'Irregular'),
                              (2, lambda p: bool(p.get('year_status')))):
             _put3(cells, ('R', 'S', 'T'), 27 + offset, _counts(people, test))
@@ -738,7 +832,7 @@ def sf5b(section, sy, semester=None):
     semester = semester or (sems[-1] if sems else None)
     cells = {'E3': info['school_name'], 'Q3': info['school_id'], 'T3': info['district'], 'X3': info['division'],
              'Z3': info['region'], 'E5': _semester_label(semester), 'Q5': sy.year_label, 'T5': section.section_name.upper(),
-             'E7': _track_strand(section), 'T7': _course(section)}
+             'E7': FD.track_strand(section), 'T7': _course(section)}
     for block, first in ((males, 15), (females, rows.at(45))):
         for i, p in enumerate(block):
             r = first + i
@@ -746,6 +840,8 @@ def sf5b(section, sy, semester=None):
     _put3(cells, ('X', 'Y', 'Z'), 17, _counts(done, lambda p: p['two_years'] == 'Y'))
     _put3(cells, ('X', 'Y', 'Z'), 21, _counts(done, lambda p: p['two_years'] != 'Y'))
     _put3(cells, ('X', 'Y', 'Z'), 25, _counts(done))
+    if _is_term(semester):
+        cells['B5'] = 'Term'
     cells[f'W{rows.at(47)}'] = FD.adviser_of(section)
     cells[f'W{rows.at(54)}'] = info['head']
     return _render(_template('shs/SHSF-5B.xlsx'), cells, rows), _file_name('SF5B', section, sy=sy)
@@ -755,13 +851,9 @@ def sf5b(section, sy, semester=None):
 # SF6 Summarized promotion (whole school)
 # ---------------------------------------------------------------------------------------------
 
-def sf6(school, sy, *, senior=False, semester=None):
-    from academics.models import Section
+def sf6(school, sy, *, senior=False, semester=None, elementary=False):
     info = FD.school_info(school, sy)
-    sections = list(Section.objects.filter(school=school, school_year=sy, is_active=True, grade_level__is_senior_high=senior)
-                    .select_related('grade_level', 'strand', 'strand__track').order_by('grade_level__grade_number', 'section_name'))
-    if not sections:
-        raise FormUnavailable(f'There is no {"Senior High" if senior else "Junior High"} section in SY {sy.year_label}.')
+    sections = _level_sections(school, sy, senior, elementary)
     if senior:
         return _sf6_shs(info, sy, sections, semester or semester_of(sy))
     by_grade = {}
@@ -771,29 +863,30 @@ def sf6(school, sy, *, senior=False, semester=None):
         by_grade.setdefault(s.grade_level.grade_number, []).extend(people)
     cells = {'E5': info['school_id'], 'J5': info['region'], 'O5': info['division'], 'D7': info['school_name'],
              'O7': info['district'], 'V7': sy.year_label}
-    columns = {7: ('C', 'D', 'E'), 8: ('F', 'G', 'H'), 9: ('I', 'J', 'K'), 10: ('L', 'M', 'N'), 11: ('O', 'P', 'Q'), 12: ('R', 'S', 'T')}
-    everyone = [p for v in by_grade.values() for p in v]
+    columns = dict(zip((1, 2, 3, 4, 5, 6) if elementary else (7, 8, 9, 10, 11, 12),
+                       (('C', 'D', 'E'), ('F', 'G', 'H'), ('I', 'J', 'K'), ('L', 'M', 'N'), ('O', 'P', 'Q'), ('R', 'S', 'T'))))
+    everyone = [p for grade, v in by_grade.items() if grade in columns for p in v]
     groups = [(cols, by_grade[g]) for g, cols in columns.items() if g in by_grade] + [(('U', 'V', 'W'), everyone)]
     for cols, people in groups:
         for row, action in ((11, 'PROMOTED'), (12, 'CONDITIONAL'), (13, 'RETAINED')):
             _put3(cells, cols, row, _counts(people, lambda p, action=action: p['action'] == action))
-        bands = _progress_counts(people)
-        for row, name in ((15, 'Did Not Meet Expectations'), (17, 'Fairly Satisfactory'), (19, 'Satisfactory'),
-                          (22, 'Very Satisfactory'), (24, 'Outstanding')):
-            _put3(cells, cols, row, bands[name])
+        for row, (name, span, counts) in zip((15, 17, 19, 22, 24), _progress_counts(people, school)):
+            cells[f'A{row}'] = f'{name} ({span})'
+            _put3(cells, cols, row, counts)
         _put3(cells, cols, 26, _counts(people, lambda p: p.get('general_average') is not None))
     cells['D29'] = info['head']
+    cells['A3'] = _order_line(school)
     return _render(_template('jhs/SF6.xlsx'), cells), _file_name('SF6', sy=sy)
 
 
 def _sf6_shs(info, sy, sections, semester):
-    second = bool(semester) and semester.semester_number == 2
+    last = _is_last(sy, semester)
     groups = {11: {}, 12: {}}
     for s in sections:
         people = [p for p in FD.learners(s, sy) if p['status'] not in FD.LEFT]
         FD.shs_semester(s, sy, semester, people)
-        if second:
-            _year_status(s, sy, people, semester)
+        if last:
+            _year_status(s, sy, people)
         key = (s.strand.track.track_name if s.strand_id and s.strand.track_id else '') + \
             (f' - {s.strand.strand_code}' if s.strand_id else '')
         groups.setdefault(s.grade_level.grade_number, {}).setdefault(key.strip(' -') or s.section_name, []).extend(people)
@@ -807,7 +900,7 @@ def _sf6_shs(info, sy, sections, semester):
         _put3(cells, ('D', 'E', 'F'), row, _counts(people, lambda p: p['semester_status'] == 'Complete'))
         _put3(cells, ('G', 'H', 'I'), row, _counts(people, lambda p: p['semester_status'] == 'Incomplete'))
         _put3(cells, ('J', 'K', 'L'), row, _counts(people, lambda p: bool(p['semester_status'])))
-        if second:
+        if last:
             _put3(cells, ('M', 'N', 'O'), row, _counts(people, lambda p: p.get('year_status') == 'Regular'))
             _put3(cells, ('P', 'Q', 'R'), row, _counts(people, lambda p: p.get('year_status') == 'Irregular'))
             _put3(cells, ('S', 'T', 'U'), row, _counts(people, lambda p: bool(p.get('year_status'))))
@@ -823,6 +916,8 @@ def _sf6_shs(info, sy, sections, semester):
         everyone += members
     line(rows.at(34), everyone)
     cells[f'D{rows.at(36)}'] = info['head']
+    if _is_term(semester):
+        cells.update({'C5': 'Term', 'D8': 'END OF TERM STATUS', 'M8': 'END OF SCHOOL YEAR\n(Fill up only at the end of the third term)'})
     return _render(_template('shs/SHSF-6.xlsx'), cells, rows), _file_name('SF6-SHS', extra=_semester_label(semester), sy=sy)
 
 
@@ -926,15 +1021,20 @@ def _sf7_shs(info, school, sy, semester):
         cells.update({f'F{12 + i}': title, f'I{12 + i}': _fmt(n)})
     merges = [f'{a}{12 + i}:{b}{12 + i}' for i in range(max(4, len(teaching), len(other)))
               for a, b in (('A', 'B'), ('C', 'D'), ('F', 'H'), ('K', 'N'), ('O', 'P'), ('Q', 'R'))]
-    number = semester.semester_number if semester else 1
+    term = _is_term(semester)
+    number = 1 if term or not semester else semester.semester_number      # a term year's classes run under one heading
     styles = {}
     base = rows.at(first_block)
+    if term:
+        cells['B7'] = 'Term'
     for k, person in enumerate(staff):
         top = base + k * size
         cells.update({f'A{top}': person['employee_no'], f'B{top}': person['name'], f'D{top}': person['fund'],
                       f'F{top}': person['position'], f'G{top}': person['appointment'], f'H{top}': person['degree'],
                       f'I{top}': person['major'], f'K{top}': person['minor'],
                       f'S{top}': f'JHS load: {person["other_minutes"]} min/week' if person['other_minutes'] else None})
+        if term:
+            cells.update({f'M{top}': 'School Year:', f'M{top + 7}': None})
         for start, sem in ((top + 1, 1), (top + 8, 2)):
             # the form is for one semester: whole-year classes go under it; the other lists only its own classes
             mine = [c for c in person['classes'] if (c['assignment'].semester.semester_number == sem if c['assignment'].semester
@@ -953,20 +1053,89 @@ def _sf7_shs(info, school, sy, semester):
 
 
 # ---------------------------------------------------------------------------------------------
+# SF8 Learner's basic health and nutrition
+# ---------------------------------------------------------------------------------------------
+
+STAGES = {'BOSY': 'Beginning of School Year', 'EOSY': 'End of School Year'}
+_BMI_NAMES = ('Severely Wasted', 'Wasted', 'Normal', 'Overweight', 'Obese')
+_HFA_NAMES = ('Severely Stunted', 'Stunted', 'Normal', 'Tall')
+
+
+def _same_word(value, name):
+    return (value or '').strip().lower() == name.lower()
+
+
+def sf8(section, sy, stage='BOSY'):
+    """Weight and height from the adviser's upload; height squared and BMI worked out here. BMI category and
+    height for age are read from WHO's tables, which ARMS does not hold, so they stay as the adviser wrote them."""
+    from documentation.models import LearnerNutrition
+    stage = stage if stage in STAGES else 'BOSY'
+    info = FD.school_info(section.school, sy)
+    people = FD.learners(section, sy, include_left=False)
+    males, females = FD.split_sex(people)
+    if len(males) > 50 or len(females) > 46:
+        raise FormUnavailable('SF8 has room for 50 male and 46 female learners.')
+    records = {r.enrollment_id: r for r in LearnerNutrition.objects.filter(enrollment__in=[p['enrollment'] for p in people], stage=stage)}
+    junior = not is_senior(section)
+    cells = {'E5': info['school_name'], 'I5': info['district'], 'L5': info['division'], 'O5': info['region'], 'C7': info['school_id'],
+             'F7': _grade_text(section), 'H7': section.section_name.upper(), 'L7': FD.track_strand(section), 'O7': sy.year_label,
+             'A4': f'(For All Grade Levels) {STAGES[stage]}'}
+    if junior:
+        cells['A3'] = "School Form 8 Learner's Basic Health and Nutrition Report (SF8)"
+
+    def learner(p, r, number):
+        cells.update({f'A{r}': number, f'B{r}': p['lrn'], f'C{r}': p['name'], f'G{r}': FD.date_text(p['birth_date']), f'H{r}': p['age']})
+        record = records.get(p['enrollment'].id)
+        if not record:
+            return
+        height = float(record.height_m) if record.height_m else None
+        cells.update({f'I{r}': float(record.weight_kg) if record.weight_kg else None, f'J{r}': height,
+                      f'K{r}': round(height ** 2, 2) if height else None, f'L{r}': record.bmi,
+                      f'M{r}': record.bmi_category or None, f'N{r}': record.height_for_age or None, f'O{r}': record.remarks or None})
+    for i, p in enumerate(males):           # the template numbers its rows from 2: its own count includes the heading
+        learner(p, 12 + i, i + 1)
+    for i, p in enumerate(females):
+        learner(p, 65 + i, i + 1)
+
+    def tally(group, row):
+        mine = [records[p['enrollment'].id] for p in group if p['enrollment'].id in records]
+        for col, name in zip(('C', 'E', 'F', 'G', 'H'), _BMI_NAMES):
+            cells[f'{col}{row}'] = sum(1 for r in mine if _same_word(r.bmi_category, name)) or None
+        cells[f'I{row}'] = sum(1 for r in mine if r.bmi_category) or None
+        for col, name in zip(('J', 'K', 'L', 'M'), _HFA_NAMES):
+            cells[f'{col}{row}'] = sum(1 for r in mine if _same_word(r.height_for_age, name)) or None
+        cells[f'N{row}'] = sum(1 for r in mine if r.height_for_age) or None
+    tally(males, 114)
+    tally(females, 115)
+    tally(people, 116)
+    return _render(_template('shs/SF8.xlsx'), cells), _file_name('SF8', section, stage, sy)
+
+
+# ---------------------------------------------------------------------------------------------
 # Summary of final grades (Grades 7 to 10) and MAPEH final grades
 # ---------------------------------------------------------------------------------------------
 
 _SUMMARY_COLS = {'FILIPINO': 'F', 'ENGLISH': 'K', 'MATH': 'P', 'SCIENCE': 'U', 'AP': 'Z', 'TLE': 'AE', 'MAPEH': 'AJ', 'ESP': 'AO'}
+_SUMMARY_SHEET = 'SUMMARY - FINAL GRADES'
+_GRADE_WIDTH = 4.6                                         # room for a three-digit 100 (the template's 3.71 shows ##)
+_NO_TERM_SUMMARY = "In a three-term year DepEd's summaries are the TERM sheets of the SF9 workbook: download SF9."
+
+
+def _summary_columns():
+    """Each learning area's grade columns wide enough for 100."""
+    return {xlsx_patch.col_letters(xlsx_patch.col_number(col) + q): _GRADE_WIDTH for col in _SUMMARY_COLS.values() for q in range(4)}
 
 
 def summary_final_grades(section, sy):
-    """The section's quarterly grade in every learning area; the template's own formulas give the final
-    grades and the general average. Returns ((bytes, file name), record)."""
+    """DepEd's quarterly summary: the section's quarterly grades in every learning area; the template's own formulas give
+    the final grades and the general average. Returns ((bytes, file name), record)."""
     if is_senior(section):
         raise FormUnavailable('The summary of final grades is for Grades 7 to 10. Senior High uses SF5A.')
     info = FD.school_info(section.school, sy)
     people = FD.learners(section, sy, include_left=False)
     record = FD.jhs_record(section, sy, people)
+    if P.prefix(section.school, record['periods']) == 'T':
+        raise FormUnavailable(_NO_TERM_SUMMARY)
     males, females = FD.split_sex(people)
     if len(males) > 50 or len(females) > 50:
         raise FormUnavailable('The summary of final grades has room for 50 male and 50 female learners.')
@@ -981,18 +1150,19 @@ def summary_final_grades(section, sy):
                 for q, value in enumerate(p['areas'][key]['quarters'][:4]):
                     cells[f'{xlsx_patch.col_letters(start + q)}{r}'] = value
     data = (ECR_TEMPLATES / 'SUMMARY_FINAL_GRADES.xlsx').read_bytes()
-    content = xlsx_patch.patch(data, {'SUMMARY - FINAL GRADES': cells},
-                               merges={'SUMMARY - FINAL GRADES': ['G3:K3', 'U3:Z3', 'AK3:AP3', 'G5:P5', 'U5:Z5', 'AK5:AP5']})
+    content = xlsx_patch.patch(data, {_SUMMARY_SHEET: cells}, columns={_SUMMARY_SHEET: _summary_columns()},
+                               merges={_SUMMARY_SHEET: ['G3:K3', 'U3:Z3', 'AK3:AP3', 'G5:P5', 'U5:Z5', 'AK5:AP5']})
     return (content, _file_name('Summary-of-Final-Grades', section, sy=sy)), record
 
 
 def mapeh_final_grades(assignment):
-    """One MAPEH class: its quarterly MAPEH grade per quarter; the template computes the final grade."""
-    from academics.models import Quarter
+    """One MAPEH class: its quarterly MAPEH grades; DepEd's sheet computes the final grade."""
     section, sy = assignment.section, assignment.school_year
     info = FD.school_info(section.school, sy)
     people = FD.learners(section, sy, include_left=False)
-    periods = list(Quarter.objects.filter(school_year=sy).order_by('quarter_number'))
+    periods = FD.periods_of(sy)
+    if P.prefix(section.school, periods) == 'T':
+        raise FormUnavailable('The MAPEH final grades sheet is for quarterly years. The three-term MAPEH record holds the term grades.')
     grades = FD.quarter_grades([p['enrollment'].id for p in people], [assignment.subject_id], periods)
     males, females = FD.split_sex(people)
     if len(males) > 50 or len(females) > 50:
@@ -1014,7 +1184,7 @@ def mapeh_final_grades(assignment):
 # one entry point for the pages
 # ---------------------------------------------------------------------------------------------
 
-def build(code, *, school, sy, section=None, month=None, semester=None, senior=False):
+def build(code, *, school, sy, section=None, month=None, semester=None, senior=False, stage='BOSY', elementary=False):
     """(bytes, file name) of a form. Raises FormUnavailable with a message for the registrar."""
     if code not in FORMS:
         raise FormUnavailable('Unknown school form.')
@@ -1034,7 +1204,7 @@ def build(code, *, school, sy, section=None, month=None, semester=None, senior=F
     if code == 'SF3':
         return sf3(section, sy, semester)
     if code == 'SF4':
-        return sf4(school, sy, int(month), senior=senior, semester=semester)
+        return sf4(school, sy, int(month), senior=senior, semester=semester, elementary=elementary)
     if code == 'SF5':
         return sf5(section, sy, semester)
     if code == 'SF5A':
@@ -1042,9 +1212,16 @@ def build(code, *, school, sy, section=None, month=None, semester=None, senior=F
     if code == 'SF5B':
         return sf5b(section, sy, semester)
     if code == 'SF6':
-        return sf6(school, sy, senior=senior, semester=semester)
+        return sf6(school, sy, senior=senior, semester=semester, elementary=elementary)
     if code == 'SF7':
         return sf7(school, sy, senior=senior, semester=semester)
+    if code == 'SF8':
+        return sf8(section, sy, stage)
+    if code == 'SF9':
+        try:
+            return SF9.build_class(section, sy)
+        except SF9.CardUnavailable as exc:
+            raise FormUnavailable(str(exc))
     if code == 'SUMMARY':
         return summary_final_grades(section, sy)[0]
     raise FormUnavailable('Unknown school form.')

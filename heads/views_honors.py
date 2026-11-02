@@ -28,7 +28,7 @@ from core.xlsx import Report, safe_filename
 from enrollment.models import Enrollment
 
 from . import forecasts
-from .views_academic import ACTIVE, GRADE_SCOPES, _denied, _grade_scope, _head_school, _person, period_name
+from .views_academic import ACTIVE, GRADE_SCOPES, _denied, _grade_scope, _head_school, _person, in_grade_scope, period_name
 
 CLOSE = 2                 # points from the next award that count as close
 PREVIEW = 10              # rows per list on the page; "Show all" opens the rest
@@ -126,7 +126,7 @@ def _honors_data(params, school):
     return {
         'school_years': school_years, 'sy': sy, 'grade_levels': grade_levels, 'grade_id': grade_key, 'grade_label': grade_label,
         'grade_scopes': [{'value': k, 'name': _grade_scope(k, grade_levels)[2]} for k in GRADE_SCOPES
-                         if any(bool(g.is_senior_high) == (k == 'shs') for g in grade_levels)],
+                         if any(in_grade_scope(g, k) for g in grade_levels)],
         'rules': rules, 'awards': awards, 'learners': learners, 'on_track': on_track, 'close': close, 'held': held,
         'projected_count': projected_count, 'tiers': tiers, 'by_grade': by_grade, 'forecasting': forecasting,
         'graded_through': period_name(next((q for q in periods if graded_periods and q.quarter_number == graded_periods[-1]), None)),

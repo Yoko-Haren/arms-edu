@@ -193,7 +193,7 @@
                             <div class="cr-menu">
                                 <a href="{{ c.ecr_url }}"><i class="fi fi-rr-file-excel"></i><span>E-class record for this class<small>DepEd template with names and LRNs filled in</small></span></a>
                                 <a href="{{ c.csv_url }}"><i class="fi fi-rr-file-csv"></i><span>Class list (CSV)<small>LRN, learner and a grade column</small></span></a>
-                                {% if c.mapeh_url %}<a href="{{ c.mapeh_url }}"><i class="fi fi-rr-table-list"></i><span>MAPEH final grades<small>The quarterly MAPEH grades; the sheet averages them</small></span></a>{% endif %}
+                                {% if c.mapeh_url %}<a href="{{ c.mapeh_url }}"><i class="fi fi-rr-table-list"></i><span>MAPEH final grades<small>The {{ period_word|lower }} MAPEH grades; the sheet averages them</small></span></a>{% endif %}
                             </div>
                         </details>
                     </div>
@@ -204,31 +204,6 @@
         </ol>
         <p class="cr-empty" id="crNone" hidden><i class="fi fi-rr-search"></i>No class matches.</p>
     </section>
-
-    {% for adv in advisory %}
-    <section class="card adv" id="advisory-{{ adv.section.id }}" aria-labelledby="adv{{ adv.section.id }}">
-        <div class="panel-head">
-            <h3 id="adv{{ adv.section.id }}"><i class="fi fi-rr-document" style="color:#123499;"></i> School forms of your advisory class: {{ adv.section.grade_level.grade_name }} {{ adv.section.section_name }}</h3>
-            <a class="btn btn-ghost btn-sm" href="{% url 'teachers:advisory' %}?section={{ adv.section.id }}">Every subject's grades <i class="fi fi-rr-angle-small-right"></i></a>
-        </div>
-        <p class="hint" style="margin:-0.35rem 0 0.8rem;">DepEd's templates filled from ARMS: the register, attendance and grades of your learners. Check them, sign and submit.</p>
-        <div class="adv-forms">
-            {% for code, title in adv.forms %}
-            <form method="get" action="{{ adv.url }}" class="adv-form">
-                <input type="hidden" name="code" value="{{ code }}">
-                <span class="adv-code">{% if code == 'SUMMARY' %}Grades{% elif code == 'SF5' and adv.senior %}SF5A{% else %}{{ code }}{% endif %}</span>
-                <span class="adv-title">{{ title }}</span>
-                {% if code == 'SF2' %}
-                <select name="month" aria-label="Month of the SF2">
-                    {% for number, label in adv.months %}<option value="{{ number }}" {% if number == adv.month %}selected{% endif %}>{{ label }}</option>{% endfor %}
-                </select>
-                {% endif %}
-                <button type="submit" class="btn btn-line btn-sm"><i class="fi fi-rr-download"></i> Download</button>
-            </form>
-            {% endfor %}
-        </div>
-    </section>
-    {% endfor %}
 
     <div class="tp-modal" id="learnersModal" role="dialog" aria-modal="true" aria-labelledby="ldTitle" hidden>
         <div class="tp-modal-card" tabindex="-1">

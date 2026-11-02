@@ -244,7 +244,7 @@
             <button class="fold-btn" id="foldBtn" title="Toggle sidebar"><i class="fi fi-rr-angle-left"></i></button>
         </div>
         <div class="user-info">
-            <div class="user-avatar">{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}</div>
+            <div class="user-avatar">{% if request.user.first_name %}{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}{% else %}{{ request.user.username|first|upper }}{% endif %}</div>
             <div class="user-details">
                 <h4>{{ request.user.get_full_name|default:request.user.username }}</h4>
                 <p>{% block role_label %}{% endblock %}</p>
@@ -308,7 +308,7 @@
         function updateGreeting() {
             var hour = new Date().getHours();
             var greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-            var userName = '{{ request.user.first_name|escapejs }}' || 'there';
+            var userName = '{{ request.user.first_name|escapejs }}' || '{{ request.user.username|escapejs }}';
             document.getElementById('greetingText').innerHTML = 
                 '<i class="fi fi-rr-dashboard" style="color:var(--secondary-green);"></i> ' + greeting + ', ' + userName + '!';
         }

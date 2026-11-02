@@ -4,3 +4,6 @@ C:\path\to\ARMS teacher template (filled).xlsx|Teachers|A1:F4|C:\path\to\raw\raw
 C:\path\to\SFS\static\forms\simulation\SF1_JHS_Grade-7_Ilang-Ilang_SY2026-2027.xlsx|1|A3:AB7|C:\path\to\raw\raw_sf1_head.png
 C:\path\to\SFS\static\forms\simulation\SF1_JHS_Grade-7_Ilang-Ilang_SY2026-2027.xlsx|1|B8:I14|C:\path\to\raw\raw_sf1_rows.png
 C:\path\to\SFS\static\forms\simulation\ECR_MATH7_Grade-7-Ilang-Ilang_Q2_filled.xlsx|MATH_Q2|A7:AJ15|C:\path\to\raw\raw_ecr_q2.png
+C:\path\to\SF2 of the demo school.xlsx|1|A9:AJ24|C:\path\to\raw\raw_sf2.png
+C:\path\to\SF3 of the demo school.xlsx|1|A9:T22|C:\path\to\raw\raw_sf3.png
+C:\path\to\SF8 of the demo school.xlsx|1|A9:O22|C:\path\to\raw\raw_sf8.png

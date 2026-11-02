@@ -1,0 +1,10 @@
+{% comment %}Previous and Next under a list. page: the Paginator page; query: the list's filters, without "page".{% endcomment %}
+{% if page.has_other_pages %}
+<div class="ad-pages">
+    <p class="hint">Page {{ page.number }} of {{ page.paginator.num_pages }}, {{ page.paginator.count }} in all</p>
+    <div>
+        {% if page.has_previous %}<a class="btn btn-line btn-sm" href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.previous_page_number }}"><i class="fi fi-rr-angle-small-left"></i> Previous</a>{% endif %}
+        {% if page.has_next %}<a class="btn btn-line btn-sm" href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.next_page_number }}">Next <i class="fi fi-rr-angle-small-right"></i></a>{% endif %}
+    </div>
+</div>
+{% endif %}

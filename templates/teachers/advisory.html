@@ -35,6 +35,8 @@
     .subj b { font-size: 0.84rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .subj small { font-size: 0.74rem; color: var(--muted); }
     .subj .bar { grid-column: 1 / -1; }
+    .need li[hidden], .subj li[hidden] { display: none; }
+    .adv-more { margin-top: 0.6rem; }
 
     /* grades by subject: learners down, subjects across; the name column stays in view */
     .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
@@ -71,9 +73,9 @@
             </select>
             {% endif %}
             <select name="period" aria-label="Grading period" onchange="this.form.submit()">
-                {% for p in periods %}<option value="{{ p.id }}" {% if period and p.id == period.id %}selected{% endif %}>{{ p.quarter_label }}{% if current and p.id == current.id %} (current){% endif %}</option>{% endfor %}
+                {% for p in periods %}<option value="{{ p.id }}" {% if period and p.id == period.id %}selected{% endif %}>{{ p.quarter_label }}{% if p.is_grades_locked %} (locked){% elif current and p.id == current.id %} (current){% endif %}</option>{% endfor %}
             </select>
-            <a class="btn btn-line btn-sm" href="{% url 'teachers:class_record_list' %}#advisory-{{ section.id }}"><i class="fi fi-rr-document"></i> School forms</a>
+            <a class="btn btn-line btn-sm" href="{% url 'teachers:school_forms' %}?section={{ section.id }}"><i class="fi fi-rr-document"></i> School forms</a>
         </form>
         {% endif %}
     </section>
@@ -100,14 +102,9 @@
                 <p class="hint">In {{ period_name }}, the most subjects first. {% if senior %}Each needs remedial classes in those subjects.{% else %}One or two subjects mean remedial classes; three or more, a risk of retention.{% endif %} Open a name for the full record.</p></div></div>
             {% if needs %}
             <ul class="need">
-                {% for l in needs %}
-                <li><button type="button" data-learner="{{ l.index }}">
-                    <span class="who">{{ l.name }}<small>average {{ l.average }}</small></span>
-                    <span class="chips">{% for code in l.below %}<span class="chip">{{ code }}</span>{% endfor %}</span>
-                    <span class="pill {% if l.outlook == 'retention' %}risk{% else %}warn{% endif %}">{% if l.outlook == 'retention' %}Retention risk{% else %}Remedial{% endif %} &middot; {{ l.below|length }}</span>
-                </button></li>
-                {% endfor %}
+                {% for l in needs|slice:":5" %}{% include 'teachers/_need_row.html' %}{% endfor %}
             </ul>
+            {% if needs|length > 5 %}<button type="button" class="btn btn-ghost btn-sm adv-more" data-open="needModal">Show all {{ needs|length }} learners <i class="fi fi-rr-angle-small-right"></i></button>{% endif %}
             {% else %}
             <p class="empty"><i class="fi fi-rr-badge-check"></i>No learner is below 75 in {{ period_name }} so far.</p>
             {% endif %}
@@ -118,14 +115,9 @@
                 <p class="hint">How far each subject teacher is with this section's grades.</p></div></div>
             {% if columns %}
             <ul class="subj">
-                {% for c in columns %}
-                <li>
-                    <span><b title="{{ c.name }}">{{ c.code }} &middot; {{ c.name }}</b><small>{{ c.teacher|default:"No teacher assigned" }} &middot; {{ c.graded }} of {{ c.total }} graded{% if c.average is not None %} &middot; average {{ c.average }}{% endif %}</small></span>
-                    <span class="pill {{ c.tone }}">{{ c.state_label }}</span>
-                    <div class="bar {% if c.graded >= c.total and c.total %}good{% elif c.graded %}warn{% endif %}" aria-hidden="true"><i style="width:{% widthratio c.graded c.total 100 %}%"></i></div>
-                </li>
-                {% endfor %}
+                {% for c in columns_first %}{% include 'teachers/_subject_row.html' %}{% endfor %}
             </ul>
+            {% if columns|length > columns_first|length %}<button type="button" class="btn btn-ghost btn-sm adv-more" data-open="subjModal">Show all {{ columns|length }} subjects <i class="fi fi-rr-angle-small-right"></i></button>{% endif %}
             {% else %}
             <p class="empty"><i class="fi fi-rr-books"></i>No subject is scheduled for this section in {{ period_name }}.</p>
             {% endif %}
@@ -135,7 +127,7 @@
     <section class="card panel" aria-labelledby="gradesTitle">
         <div class="panel-head">
             <div><h3 id="gradesTitle"><i class="fi fi-rr-table-list" style="color:#123499;"></i> Grades by subject &middot; {{ period_name }}</h3>
-                <p class="hint">Quarterly grades as the subject teachers uploaded them. Open a learner for every subject and period.</p></div>
+                <p class="hint">{{ period_word }} grades as the subject teachers uploaded them. Open a learner for every subject and period.</p></div>
             <div class="toolbar">
                 <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="gSearch" placeholder="Find a learner or LRN" aria-label="Find a learner or LRN"></label>
                 <label class="sort">Sort by
@@ -171,6 +163,52 @@
         <p class="empty"><i class="fi fi-rr-table-list"></i>{% if learners %}No subject has grades for {{ period_name }} yet.{% else %}No learner is enrolled in this section yet.{% endif %}</p>
         {% endif %}
     </section>
+
+    <div class="tp-modal" id="needModal" role="dialog" aria-modal="true" aria-labelledby="needAllTitle" hidden>
+        <div class="tp-modal-card" tabindex="-1">
+            <div class="tp-modal-head">
+                <div><h3 id="needAllTitle">Learners below 75 in {{ period_name }}</h3><p class="hint">{{ needs|length }} learner{{ needs|length|pluralize }}. Open a name for the full record.</p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="tp-modal-tools toolbar">
+                <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="needSearch" placeholder="Find a learner" aria-label="Find a learner"></label>
+                <label class="sort">Sort by
+                    <select id="needSort">
+                        <option value="most">Most subjects first</option>
+                        <option value="low">Lowest average first</option>
+                        <option value="name">Surname A to Z</option>
+                    </select>
+                </label>
+            </div>
+            <div class="tp-modal-body">
+                <ul class="need" id="needList">{% for l in needs %}{% include 'teachers/_need_row.html' %}{% endfor %}</ul>
+                <p class="empty" id="needNone" hidden>No learner matches.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tp-modal" id="subjModal" role="dialog" aria-modal="true" aria-labelledby="subjAllTitle" hidden>
+        <div class="tp-modal-card" tabindex="-1">
+            <div class="tp-modal-head">
+                <div><h3 id="subjAllTitle">Subjects in {{ period_name }}</h3><p class="hint">How far each subject teacher is with this section's grades.</p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="tp-modal-tools toolbar">
+                <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="subjSearch" placeholder="Find a subject or teacher" aria-label="Find a subject or teacher"></label>
+                <label class="sort">Sort by
+                    <select id="subjSort">
+                        <option value="left">Most grades missing</option>
+                        <option value="code">Subject A to Z</option>
+                        <option value="low">Lowest average first</option>
+                    </select>
+                </label>
+            </div>
+            <div class="tp-modal-body">
+                <ul class="subj" id="subjList">{% for c in columns %}{% include 'teachers/_subject_row.html' %}{% endfor %}</ul>
+                <p class="empty" id="subjNone" hidden>No subject matches.</p>
+            </div>
+        </div>
+    </div>
 
     <div class="tp-modal" id="recModal" role="dialog" aria-modal="true" aria-labelledby="recTitle" hidden>
         <div class="tp-modal-card" tabindex="-1">
@@ -223,6 +261,42 @@
         sort.addEventListener('change', draw);
     }
 
+    // ---------- the two long lists: their dialogs, with search and sort ----------
+    function listDialog(id, list, search, sort, none, sorts) {
+        var modal = document.getElementById(id), holder = document.getElementById(list);
+        if (!modal || !holder) return;
+        var items = Array.prototype.slice.call(holder.children), s = document.getElementById(search), o = document.getElementById(sort);
+        function draw() {
+            var q = s.value.trim().toLowerCase(), shown = 0;
+            items.sort(sorts[o.value]).forEach(function (li) {
+                li.hidden = !!q && li.dataset.find.indexOf(q) === -1;
+                if (!li.hidden) shown++;
+                holder.appendChild(li);
+            });
+            document.getElementById(none).hidden = shown > 0;
+        }
+        s.addEventListener('input', draw);
+        o.addEventListener('change', draw);
+        draw();
+        var from = null;
+        document.querySelectorAll('[data-open="' + id + '"]').forEach(function (b) {
+            b.addEventListener('click', function () { from = b; modal.hidden = false; modal.querySelector('.tp-modal-card').focus(); });
+        });
+        function close() { modal.hidden = true; if (from) from.focus(); }
+        modal.addEventListener('click', function (e) { if (e.target === modal || e.target.closest('[data-close]')) close(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+    }
+    listDialog('needModal', 'needList', 'needSearch', 'needSort', 'needNone', {
+        most: function (a, b) { return +b.dataset.count - +a.dataset.count || +a.dataset.avg - +b.dataset.avg; },
+        low: function (a, b) { return +a.dataset.avg - +b.dataset.avg; },
+        name: function (a, b) { return a.dataset.find.localeCompare(b.dataset.find); }
+    });
+    listDialog('subjModal', 'subjList', 'subjSearch', 'subjSort', 'subjNone', {
+        left: function (a, b) { return +b.dataset.left - +a.dataset.left; },
+        code: function (a, b) { return a.dataset.find.localeCompare(b.dataset.find); },
+        low: function (a, b) { return (a.dataset.avg === '') - (b.dataset.avg === '') || +a.dataset.avg - +b.dataset.avg; }
+    });
+
     // ---------- a learner's record: every subject and period, the components of the period shown, the general average ----------
     var modal = document.getElementById('recModal'), last = null;
     function open(i) {
@@ -240,7 +314,7 @@
         var foot = '<tr><td>General average</td>' + rec.averages.map(function (a, j) { return '<td class="center' + (j === at ? ' cur' : '') + '">' + fmt(a) + '</td>'; }).join('') +
             '<td></td>' + comps.map(function () { return '<td></td>'; }).join('') + '</tr>';
         document.getElementById('recTitle').textContent = who.name;
-        document.getElementById('recSub').textContent = (who.lrn ? 'LRN ' + who.lrn + ' · ' : '') + 'Quarterly grades of every subject this school year; ' +
+        document.getElementById('recSub').textContent = (who.lrn ? 'LRN ' + who.lrn + ' · ' : '') + data.word + ' grades of every subject this school year; ' +
             comps.map(function (c) { return c.abbr; }).join(', ') + ' are the ' + data.period + ' component scores in percent.';
         document.getElementById('recBody').innerHTML = '<div style="overflow-x:auto"><table class="table rec-table"><thead>' + head + '</thead><tbody>' + rows +
             '</tbody><tfoot>' + foot + '</tfoot></table></div>';

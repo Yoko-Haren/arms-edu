@@ -28,15 +28,16 @@ Each signed-in role has its own portal: System Administrator, School Head, Regis
 - **School Performance.** The whole school's year-end picture: the promotion outlook if the year ended now, the school performance forecast by grade level, each grade level's outlook, honors and attendance, enrollment over the years, and a comparison with the same period last year. The school's level and each discipline are on the dashboard.
 - **School Year.** The School Head can start a school year with its grading system (quarterly: four quarters; trimestral: the three terms of DepEd Order No. 009, s. 2026; or semestral: two semesters) and its grading periods, make it current and adjust period dates, without waiting for the administrator. Each year keeps the system it was started with, so a school can move from quarters to terms as DepEd did in SY 2026-2027. Here the school also chooses its DepEd grading rules.
 - **User Management.** When the School Head is busy, a registrar or a teacher (an ICT coordinator, say) can be allowed to manage the school's accounts from their own portal: edit details, reset passwords, activate and deactivate. They never touch a School Head's account, cannot add registrars and cannot pass the permission on. Sign-in help requests from the school's staff reach the School Head and these delegates, so the System Administrator is not the only way back in.
-- **Excel reports, and Page Proposals** (candidate pages to discuss next).
+- **Excel reports** of the dashboard, School Performance and Honors Outlook.
 
 ### Registrar (`/registrars/`)
 
 - Enrolls learners from DepEd's SF1, and manages sections and teacher accounts.
 - Creates many teacher accounts at once from the school's SF7 (School Personnel Assignment List and Basic Profile), the ARMS teacher template (Excel) or a CSV. SF7 has no email column, so each teacher's sign-in is made from their name and the school's email domain (firstname.lastname@domain).
 - Every upload page shows a picture of the expected file with the parts ARMS reads numbered: SF1 for enrollment, SF7 and the template for teachers, and the e-class record for teachers' grades.
-- Validates, returns and locks grades that teachers submit.
-- Generates the DepEd School Forms SF1 to SF7 on DepEd's own templates.
+- Validates, returns and locks grades that teachers submit. Locking a grading period makes the next one current everywhere (Term 2 locked, Term 3 current); unlocking brings it back.
+- **Learners.** Every learner of the school in one list, with search by name or LRN, filters (grade, section, status, sex, 4Ps, disability, Indigenous Peoples, Balik-Aral, late enrollee), sorting and pages. A learner's page holds the register details, the grades and attendance of the year, the report card, and the movement: a drop-out or transfer recorded there, with its date, is what SF1, SF2, SF4, SF5 and SF6 print.
+- Generates the DepEd School Forms SF1 to SF9 on DepEd's own templates. The SF1 starts them all, advisers add attendance, books and weights, and a school year's grading system decides what they print: a three-term year prints terms, a quarterly year quarters and semesters. The page shows which sections are behind on their uploads, and keeps the header every form prints (region, division, district, municipality or city, and the school's logo for the report cards), so any school gets its own forms.
 
 ### Teacher (`/teachers/`)
 
@@ -46,7 +47,8 @@ Each signed-in role has its own portal: System Administrator, School Head, Regis
   - Senior High: the Strengthened Senior High School (SSHS) record.
 - Each class's record downloads from Class records with the learners and their LRNs filled in.
 - ARMS recomputes every grade from the raw scores, matches each row to a learner, and lets the teacher review it before saving.
-- Submits class records to the registrar. Advisers download their section's school forms.
+- Submits class records to the registrar.
+- **School Forms** (advisers only). Uploads what only the adviser knows: SF2 (attendance, every month), SF3 (books) and SF8 (weight and height), each read and shown back before it is saved, in DepEd's file or the one ARMS fills with the class. Downloads the section's forms, and SF9 in DepEd's own workbook, every sheet kept: one class workbook, or one file per learner, one by one or as a folder in a zip. A learner's file holds only that learner, and carries the adviser's comments.
 - **My Advisory** (advisers only). Every subject's grades for the adviser's section in one grading period, uploaded by the subject teachers: who is below 75 and in how many learning areas, which subjects still have no grades, and each learner's record for the school year (every subject and period, the grade components and the general average).
 - Gives online quizzes. Learners join with an access code at `/quiz/<code>/`.
 
@@ -78,7 +80,7 @@ Each signed-in role has its own portal: System Administrator, School Head, Regis
 | Descriptors Advancing, Benchmarking, Connecting, Developing, Emerging, and the Academic Excellence Award | DepEd Order No. 015, s. 2026, for schools that choose it on the School Year page (`core/grading_policy.py`) |
 | Three terms a school year (Term 1 June to September, Term 2 September to December, Term 3 January to April) | DepEd Order No. 009, s. 2026 |
 | Three-term grading: written/oral works, product/performance tasks and examinations, weighed 20/50/30 (20/60/20 for MAPEH and EPP/TLE); examinations of two summative tests and a term examination (30/30/40); the adjusted transmutation table of SY 2026-2027; the final grade the average of the three term grades | DepEd Order No. 015, s. 2026 and DepEd's three-term e-class records (`grades/ecr.py`) |
-| School Forms SF1 to SF7 and e-class records | DepEd's official templates (`documentation/sf_templates/`, `grades/ecr_templates/`) |
+| School Forms SF1 to SF9 and e-class records | DepEd's official templates (`documentation/sf_templates/`, `grades/ecr_templates/`). SF9 uses DepEd's three-term workbooks of SY 2026-2027 for Kindergarten to Grade 12 by track, every sheet kept; `python manage.py prepare_sf9_templates` clears their sample data and repairs the formulas it lists. In a three-term year DepEd's summaries are the workbook's TERM sheets, so the quarterly Summary of Final Grades is for quarterly years. There is no official quarterly or semestral SF9 in this set yet, so those years have none |
 | Which discipline a subject belongs to, including the TVL / TechPro specializations (TESDA qualifications such as EIM NC II and SMAW NC I) under TLE | The K to 12, MATATAG and Strengthened SHS curricula (`academics/subject_catalog.py`) |
 
 KPUP (Knowledge, Process or Skills, Understanding, Products or Performances) and the levels Beginning to Advanced came from DepEd Order No. 73, s. 2012, which DepEd Order No. 8, s. 2015 replaced. ARMS no longer uses them. Senior High in a three-term year still uses the SSHS e-class record: DepEd had published no three-term Senior High record when this was built.
@@ -126,7 +128,7 @@ DepEd's Excel templates are filled by editing their cells in place (`core/xlsx_p
    python manage.py createsuperuser
    ```
 
-5. **Optional: load the demo schools.** `seed_demo` creates school ID `DEMO-ARMS`, graded by quarter, with accounts for every role; their usernames end in `@demo.arms.edu.ph`. `seed_demo --trimestral` creates `DEMO-TERM`, a three-term school under DepEd Order No. 015, s. 2026 (last year in quarters, this year in terms; Grade 11 on the Strengthened SHS curriculum), with usernames ending in `@term.demo.arms.edu.ph`. All demo accounts share the password in `DEMO_PASSWORD`. Both take `--reset`, `--remove` and `--dry-run`, and `--spread-levels`, which moves each discipline's grades so the nine disciplines cover all five levels (retrain the forecaster after it).
+5. **Optional: load the demo schools.** `seed_demo` creates school ID `DEMO-ARMS`, graded by quarter, with accounts for every role; their usernames end in `@demo.arms.edu.ph`. `seed_demo --trimestral` creates `DEMO-TERM`, a three-term school under DepEd Order No. 015, s. 2026 (last year in quarters, this year in terms; Grade 11 on the Strengthened SHS curriculum), with usernames ending in `@term.demo.arms.edu.ph`. `seed_demo --elementary` adds Kindergarten to Grade 6 to it. All demo accounts share the password in `DEMO_PASSWORD`. Both take `--reset`, `--remove` and `--dry-run`, and `--spread-levels`, which moves each discipline's grades so the nine disciplines cover all five levels (retrain the forecaster after it).
 
    ```bash
    python manage.py seed_demo
@@ -185,9 +187,9 @@ All settings come from `.env`. The full list with examples is in `.env.example`.
 | `admin_panel/` | The System Administrator portal |
 | `heads/` | The School Head portal: dashboard, its decisions (`insights.py`) and Poro AI (`poro.py`), forecast charts (`forecasts.py`), Honors Outlook, School Performance, School Year, User Management |
 | `registrars/` | The Registrar portal: enrollment, sections, teachers and the teacher file reader (`teacher_import.py`), grade validation, School Forms |
-| `teachers/` | The Teacher portal: class records, e-class record uploads, adviser forms |
+| `teachers/` | The Teacher portal: class records, e-class record uploads, My Advisory, School Forms |
 | `assessments/` | Online quizzes |
-| `grades/`, `enrollment/`, `documentation/` | The e-class record reader, the SF1 reader and the DepEd school forms |
+| `grades/`, `enrollment/`, `documentation/` | The e-class record reader, the SF1 reader and the DepEd school forms (`school_forms.py`, the SF9 workbooks in `sf9.py`, the advisers' uploads in `form_uploads.py`) |
 | `academics/`, `students/`, `attendance/`, `scheduling/`, `promotion/`, … | School structure, learners, attendance, class assignments and promotion records |
 | `ml_engine/` | The grade forecaster, the `train_ml_models` command, background retraining (`training.py`), and Poro's Modelfile with the `setup_poro` command |
 | `communication/` | Notifications and contact requests |

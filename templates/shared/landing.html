@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARMS - Academic Records Management System</title>
-    <meta name="description" content="ARMS keeps the academic records of Northern Paramedical &amp; Technological College of Panabo accurate and ready, from the teacher's class record to the school head's reports.">
+    <meta name="description" content="ARMS turns one SF1 and each teacher's class record into checked grades, finished DepEd school forms and clear decisions for the school head.">
     <meta property="og:title" content="ARMS - Academic Records Management System">
-    <meta property="og:description" content="The academic records system of Northern Paramedical &amp; Technological College of Panabo, Inc.">
+    <meta property="og:description" content="Enter it once. Every school form follows. Built with Northern Paramedical &amp; Technological College of Panabo, Inc.">
     <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'shared/logo/arms-mark-512.png' %}">
     {% include 'shared/_favicon.html' %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css">
     <link rel="stylesheet" href="{% static 'landing/css/landing.css' %}">
+    <link rel="preload" as="image" type="image/webp" imagesrcset="{% static 'landing/images/web/school-900.webp' %} 900w, {% static 'landing/images/web/school-1600.webp' %} 1600w, {% static 'landing/images/web/school-2932.webp' %} 2932w" imagesizes="max(110vw, 1040px)">
     <script>
         // Scroll-in effects only run with JavaScript; if the page script never starts, show everything.
         document.documentElement.classList.add('js');
@@ -30,8 +31,9 @@
             <span class="brand-text"><b>ARMS</b><small>Academic Records Management System</small></span>
         </a>
         <nav class="site-nav" id="siteNav" aria-label="Main">
-            <a href="#features">Features</a>
-            <a href="#how">How it works</a>
+            <a href="#forms">School forms</a>
+            <a href="#portals">Portals</a>
+            <a href="#insights">Insights</a>
             <a href="#partner">Our partner</a>
             <a href="#contact">Contact</a>
         </nav>
@@ -43,165 +45,213 @@
 </header>
 
 <main id="main">
-    <!-- Hero -->
+    <!-- Hero: the partner school against an open sky -->
     <section class="hero" id="hero" aria-labelledby="heroTitle">
-        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="hero-sky" aria-hidden="true"></div>
         <div class="wrap hero-in">
             <div class="hero-copy">
                 <a class="partner-pill" href="#partner">
                     <img src="{% static 'landing/logo/NPTCI_logo.jpg' %}" alt="" width="26" height="26">
-                    <span>In partnership with <b>NPTCI</b></span>
+                    <span>Built with <b>NPTCI</b>, Panabo City</span>
                     <i class="fi fi-rr-angle-small-right" aria-hidden="true"></i>
                 </a>
-                <h1 id="heroTitle">Every grade, <span class="grad-text">accounted for.</span></h1>
-                <p class="lead">The academic records system of Northern Paramedical &amp; Technological College of Panabo. Teachers upload class records, ARMS checks every grade, the registrar validates, and school leaders see clear results.</p>
+                <h1 id="heroTitle">Enter it once. <span class="grad-text">Every school form follows.</span></h1>
+                <p class="lead">ARMS turns one SF1 and each teacher's class record into checked grades, finished DepEd forms and clear decisions for the school head.</p>
                 <div class="hero-cta">
-                    {% if user.is_authenticated %}
-                    <a class="btn btn-primary btn-lg" href="{% url 'signin' %}">Go to your dashboard<i class="fi fi-rr-arrow-right" aria-hidden="true"></i></a>
-                    {% else %}
-                    <a class="btn btn-primary btn-lg" href="{% url 'signin' %}">Sign in to ARMS<i class="fi fi-rr-arrow-right" aria-hidden="true"></i></a>
-                    {% endif %}
-                    <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
+                    <a class="btn btn-primary btn-lg" href="{% url 'signin' %}">{% if user.is_authenticated %}Go to your dashboard{% else %}Sign in to ARMS{% endif %}<i class="fi fi-rr-arrow-right" aria-hidden="true"></i></a>
+                    <a class="btn btn-ghost btn-lg" href="#forms">See how forms connect</a>
                 </div>
-                <ul class="hero-points">
-                    <li><i class="fi fi-rr-badge-check" aria-hidden="true"></i>Follows DepEd grading</li>
-                    <li><i class="fi fi-rr-lock" aria-hidden="true"></i>Role-based access</li>
-                    <li><i class="fi fi-rr-devices" aria-hidden="true"></i>Works on any device</li>
+            </div>
+            <div class="hero-chain" aria-hidden="true">
+                <div class="chain-row"><span class="chain-tag">SF1</span><div><b>School Register</b><small>Uploaded once by the registrar</small></div></div>
+                <div class="chain-row"><span class="chain-tag">SF5</span><div><b>Promotion report</b><small>Filled from the class grades</small></div></div>
+                <div class="chain-row"><span class="chain-tag">SF9</span><div><b>Report cards</b><small>One click, in DepEd's own workbook</small></div><i class="fi fi-rr-check"></i></div>
+            </div>
+        </div>
+        <div class="hero-school">
+            <img src="{% static 'landing/images/web/school-1600.webp' %}" sizes="max(110vw, 1040px)"
+                 srcset="{% static 'landing/images/web/school-900.webp' %} 900w, {% static 'landing/images/web/school-1600.webp' %} 1600w, {% static 'landing/images/web/school-2932.webp' %} 2932w"
+                 width="2932" height="1044" fetchpriority="high"
+                 alt="The two-storey building of Northern Paramedical and Technological College of Panabo, its name on a banner, with bamboo trees around it">
+        </div>
+        <svg class="hero-curve" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <defs>
+                <linearGradient id="ribbonFar" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#8f9df0"/>
+                    <stop offset="1" stop-color="#a883d6"/>
+                </linearGradient>
+                <linearGradient id="ribbonNear" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#d3daff"/>
+                    <stop offset="1" stop-color="#e4d6f7"/>
+                </linearGradient>
+            </defs>
+            <path class="curve-far" d="M0 104C250 176 520 168 790 112 1040 60 1250 8 1440 26V200H0Z"/>
+            <path class="curve-near" d="M0 132C260 190 520 186 800 138 1050 94 1260 44 1440 60V200H0Z"/>
+            <path class="curve-page" d="M0 158C270 202 540 200 820 162 1060 130 1270 84 1440 96V200H0Z"/>
+        </svg>
+    </section>
+
+    <!-- What the system covers -->
+    <section class="proof" aria-label="What ARMS covers">
+        <div class="wrap">
+            <dl class="proof-bar">
+                <div><dt>School forms</dt><dd>SF1 to SF9</dd><p>Read from one set of records</p></div>
+                <div><dt>Report cards</dt><dd>K to 12</dd><p>DepEd's own SF9 workbooks</p></div>
+                <div><dt>Grading rules</dt><dd>DO 8 or DO 015</dd><p>Chosen for each school</p></div>
+                <div><dt>School year</dt><dd>Quarters or terms</dd><p>Set for each school year</p></div>
+            </dl>
+        </div>
+    </section>
+
+    <!-- The forms chain -->
+    <section class="section" id="forms" aria-labelledby="formsTitle">
+        <div class="wrap">
+            <header class="section-head center" data-reveal>
+                <p class="eyebrow">The school forms</p>
+                <h2 id="formsTitle">Paperwork that writes itself from what you already entered.</h2>
+                <p>Each fact goes in once, and every form that needs it picks it up. Choose a form to see where it comes from.</p>
+            </header>
+
+            <div class="chain" data-chain data-reveal>
+                <div class="chain-sources">
+                    <h3>Entered by people, once</h3>
+                    <ul>
+                        <li data-source="sf1"><i class="fi fi-rr-user-add" aria-hidden="true"></i><div><b>SF1 file</b><small>Registrar</small></div></li>
+                        <li data-source="move"><i class="fi fi-rr-exchange" aria-hidden="true"></i><div><b>Learner movement</b><small>Registrar</small></div></li>
+                        <li data-source="staff"><i class="fi fi-rr-chalkboard-user" aria-hidden="true"></i><div><b>Teachers and classes</b><small>Registrar</small></div></li>
+                        <li data-source="grades"><i class="fi fi-rr-table-list" aria-hidden="true"></i><div><b>Class records</b><small>Subject teachers</small></div></li>
+                        <li data-source="sf2"><i class="fi fi-rr-calendar-check" aria-hidden="true"></i><div><b>Daily attendance</b><small>Adviser</small></div></li>
+                        <li data-source="sf3"><i class="fi fi-rr-book-alt" aria-hidden="true"></i><div><b>Books issued</b><small>Adviser</small></div></li>
+                        <li data-source="sf8"><i class="fi fi-rr-heart-rate" aria-hidden="true"></i><div><b>Height and weight</b><small>Adviser</small></div></li>
+                        <li data-source="notes"><i class="fi fi-rr-comment-alt" aria-hidden="true"></i><div><b>Adviser's comments</b><small>Adviser</small></div></li>
+                    </ul>
+                </div>
+
+                <div class="chain-forms">
+                    <h3>Finished by ARMS</h3>
+                    <div class="form-grid" role="group" aria-label="Choose a school form">
+                        <button type="button" data-form data-from="sf1 move" data-title="SF1 School Register" data-text="The file the registrar uploads creates the learners, so every other form starts with the right names. Movement recorded later prints here too." data-who="Registrar, once"><b>SF1</b><span>School Register</span></button>
+                        <button type="button" data-form data-from="sf2" data-title="SF2 Daily Attendance" data-text="The adviser uploads attendance each month, DepEd's file or ARMS's own, and ARMS works out the summary box." data-who="Adviser, each month"><b>SF2</b><span>Daily Attendance</span></button>
+                        <button type="button" data-form data-from="sf3" data-title="SF3 Books Issued and Returned" data-text="The titles start from the section's subjects. The adviser adds the dates, and ARMS keeps them." data-who="Adviser"><b>SF3</b><span>Books</span></button>
+                        <button type="button" data-form data-from="sf2 move" data-title="SF4 Monthly Movement" data-text="Built from every section's attendance and movement. Nobody has to type it." data-who="Nobody"><b>SF4</b><span>Monthly Movement</span></button>
+                        <button type="button" data-form data-from="grades move" data-title="SF5, SF5A and SF5B" data-text="Promotion and learning progress come straight from the grades, with the wording of the school's grading rules." data-who="Nobody"><b>SF5</b><span>Promotion</span></button>
+                        <button type="button" data-form data-from="grades move" data-title="SF6 Summarized Report" data-text="Sums up every section's promotion report for the whole school." data-who="Nobody"><b>SF6</b><span>Summary</span></button>
+                        <button type="button" data-form data-from="staff" data-title="SF7 Personnel" data-text="Comes from the school's accounts, classes and schedules." data-who="Registrar keeps them current"><b>SF7</b><span>Personnel</span></button>
+                        <button type="button" data-form data-from="sf8" data-title="SF8 Nutritional Status" data-text="The adviser uploads height and weight twice a year, and ARMS works out each learner's BMI." data-who="Adviser, twice a year"><b>SF8</b><span>Nutrition</span></button>
+                        <button type="button" data-form data-from="sf1 grades sf2 notes" data-title="SF9 Report Card" data-text="DepEd's own workbook with every sheet kept. Download the class workbook, one learner's card, or the whole class as a zip. A learner's file holds only that learner." data-who="Adviser adds comments" aria-pressed="true"><b>SF9</b><span>Report Card</span></button>
+                    </div>
+                    <div class="form-detail" aria-live="polite">
+                        <h4 data-form-title>SF9 Report Card</h4>
+                        <p data-form-text>DepEd's own workbook with every sheet kept. Download the class workbook, one learner's card, or the whole class as a zip. A learner's file holds only that learner.</p>
+                        <p class="form-who"><i class="fi fi-rr-user" aria-hidden="true"></i>Who acts: <b data-form-who>Adviser adds comments</b></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- The portals -->
+    <section class="section section-soft" id="portals" aria-labelledby="portalsTitle">
+        <div class="wrap">
+            <header class="section-head center" data-reveal>
+                <p class="eyebrow">Inside ARMS</p>
+                <h2 id="portalsTitle">One system. A workspace for each role.</h2>
+                <p>Everyone signs in to a portal made for their job, and sees only what that job needs.</p>
+            </header>
+
+            <div class="tour" data-tour data-reveal>
+                <div class="tour-tabs" role="tablist" aria-label="Portals">
+                    <button type="button" role="tab" id="t-teacher" aria-controls="p-teacher" aria-selected="true"><i class="fi fi-rr-chalkboard-user" aria-hidden="true"></i>Teachers</button>
+                    <button type="button" role="tab" id="t-registrar" aria-controls="p-registrar" aria-selected="false" tabindex="-1"><i class="fi fi-rr-clipboard-list" aria-hidden="true"></i>Registrar</button>
+                    <button type="button" role="tab" id="t-head" aria-controls="p-head" aria-selected="false" tabindex="-1"><i class="fi fi-rr-chart-histogram" aria-hidden="true"></i>School head</button>
+                </div>
+
+                <div class="tour-panel" role="tabpanel" id="p-teacher" aria-labelledby="t-teacher">
+                    <div class="tour-copy">
+                        <h3>Upload the class record. ARMS does the checking.</h3>
+                        <ul class="ticks">
+                            <li>Upload DepEd's e-class record, or a CSV, for each class.</li>
+                            <li>Every grade is recomputed from the scores before you submit.</li>
+                            <li>Advisers get their section's forms and SF9 cards in one place.</li>
+                            <li>Give timed quizzes through a link. Learners never see the answer key.</li>
+                        </ul>
+                    </div>
+                    <figure class="window"><div class="window-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                        <img src="{% static 'landing/images/web/screen-teacher-1720.webp' %}" srcset="{% static 'landing/images/web/screen-teacher-960.webp' %} 960w, {% static 'landing/images/web/screen-teacher-1720.webp' %} 1720w" sizes="(min-width: 1024px) 760px, 100vw" width="1720" height="1147" loading="lazy" alt="The teacher's School Forms page, with SF2, SF3 and SF8 uploads and a list of SF9 report cards to download"></figure>
+                </div>
+
+                <div class="tour-panel" role="tabpanel" id="p-registrar" aria-labelledby="t-registrar" hidden>
+                    <div class="tour-copy">
+                        <h3>Validate every class with confidence.</h3>
+                        <ul class="ticks">
+                            <li>Upload the SF1 to enroll learners, and import teachers from SF7.</li>
+                            <li>See each class at a glance: submitted, still encoding or returned.</li>
+                            <li>Automatic checks flag mismatches and big jumps before you validate.</li>
+                            <li>Lock a period and the next one opens by itself.</li>
+                        </ul>
+                    </div>
+                    <figure class="window"><div class="window-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                        <img src="{% static 'landing/images/web/screen-registrar-1720.webp' %}" srcset="{% static 'landing/images/web/screen-registrar-960.webp' %} 960w, {% static 'landing/images/web/screen-registrar-1720.webp' %} 1720w" sizes="(min-width: 1024px) 760px, 100vw" width="1720" height="1147" loading="lazy" alt="The registrar's Grade Validation page, with deadlines, counts of classes by status and a list of classes"></figure>
+                </div>
+
+                <div class="tour-panel" role="tabpanel" id="p-head" aria-labelledby="t-head" hidden>
+                    <div class="tour-copy">
+                        <h3>See the whole school, and what to do next.</h3>
+                        <ul class="ticks">
+                            <li>Proficiency levels by subject, discipline and grade level.</li>
+                            <li>School Performance compares this year with the last.</li>
+                            <li>Honors Outlook shows who is on track for an award.</li>
+                            <li>Choose the grading rules and open each school year.</li>
+                        </ul>
+                    </div>
+                    <figure class="window"><div class="window-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                        <img src="{% static 'landing/images/web/screen-head-1720.webp' %}" srcset="{% static 'landing/images/web/screen-head-960.webp' %} 960w, {% static 'landing/images/web/screen-head-1720.webp' %} 1720w" sizes="(min-width: 1024px) 760px, 100vw" width="1720" height="1147" loading="lazy" alt="The School Head's Academic Dashboard, with the school's status, subject levels and Poro AI's recommendations"></figure>
+                </div>
+            </div>
+            <p class="tour-note" data-reveal>Screens from the ARMS demo school. Every name in them is sample data.</p>
+        </div>
+    </section>
+
+    <!-- Insights -->
+    <section class="section" id="insights" aria-labelledby="insightsTitle">
+        <div class="wrap insights">
+            <div class="insights-copy" data-reveal>
+                <p class="eyebrow">Beyond the paperwork</p>
+                <h2 id="insightsTitle">Know where learners stand before the term ends.</h2>
+                <p class="insights-lead">Grades stop being a file in a folder. The same records show the school head what is happening, what is likely next, and where to start.</p>
+                <ul class="insight-list">
+                    <li><span class="i-ico" aria-hidden="true"><i class="fi fi-rr-chart-line-up"></i></span><div><h3>A forecast for every grade level</h3><p>A machine learning model projects next period's averages, tested on periods it had not seen.</p></div></li>
+                    <li><span class="i-ico" aria-hidden="true"><img src="{% static 'shared/poro/Poro.png' %}" alt="" width="40" height="40" loading="lazy"></span><div><h3>Poro AI recommends</h3><p>One decision for each proficiency level, aimed at the grade component that scores lowest.</p></div></li>
+                    <li><span class="i-ico" aria-hidden="true"><i class="fi fi-rr-trophy"></i></span><div><h3>Honors Outlook</h3><p>Who is on track, who is one point short, and which grade is holding a learner back.</p></div></li>
                 </ul>
             </div>
-
-            <div class="hero-visual">
-                <figure class="hero-photo">
-                    <picture>
-                        <source type="image/webp" sizes="(min-width: 1024px) 540px, (min-width: 720px) 640px, 100vw"
-                                srcset="{% static 'landing/images/web/completers-800.webp' %} 800w, {% static 'landing/images/web/completers-1400.webp' %} 1400w">
-                        <img src="{% static 'landing/images/web/completers-1400.jpg' %}" sizes="(min-width: 1024px) 540px, (min-width: 720px) 640px, 100vw"
-                             srcset="{% static 'landing/images/web/completers-800.jpg' %} 800w, {% static 'landing/images/web/completers-1400.jpg' %} 1400w"
-                             width="1400" height="933" fetchpriority="high"
-                             alt="NPTCI Junior High School completers in pink togas with their teachers at the 28th Commencement Exercises and 10th Moving-Up Ceremony">
-                    </picture>
-                </figure>
-                <div class="float-card fc-check" aria-hidden="true">
-                    <span class="fc-ico"><i class="fi fi-rr-check-circle"></i></span>
-                    <div><b>Grades checked</b><small>Mathematics 7 &middot; 40 of 40 match the class record</small></div>
-                </div>
-                <div class="float-card fc-progress" aria-hidden="true">
-                    <div class="fc-row"><b>Quarter 2 grades</b><span class="fc-chip">On track</span></div>
-                    <div class="fc-bar"><i></i></div>
-                    <div class="fc-meta"><span><b>65</b> of 96 classes validated</span><span>Due Nov 20</span></div>
-                </div>
-            </div>
+            <figure class="window window-float" data-reveal style="--d: 80ms"><div class="window-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                <img src="{% static 'landing/images/web/screen-insights-1720.webp' %}" srcset="{% static 'landing/images/web/screen-insights-960.webp' %} 960w, {% static 'landing/images/web/screen-insights-1720.webp' %} 1720w" sizes="(min-width: 1024px) 720px, 100vw" width="1720" height="1147" loading="lazy" alt="School Performance: the promotion outlook, this year against last year, and a forecast chart for each grade level"></figure>
         </div>
     </section>
 
-    <!-- Roles -->
-    <section class="section" id="features" aria-labelledby="featuresTitle">
-        <div class="wrap">
-            <header class="section-head" data-reveal>
-                <p class="eyebrow">Built for every role</p>
-                <h2 id="featuresTitle">One system for the people who keep the records.</h2>
-                <p>Each person signs in to a portal made for their work, and sees only what their role needs.</p>
-            </header>
-            <div class="roles">
-                <article class="role-card" data-reveal>
-                    <div class="role-top">
-                        <span class="role-ico" aria-hidden="true"><i class="fi fi-rr-chalkboard-user"></i></span>
-                        <div><h3>Teachers</h3><span class="role-tag">Teacher portal</span></div>
-                    </div>
-                    <p class="role-lead">Upload the class record. ARMS does the checking.</p>
-                    <ul class="ticks">
-                        <li>Upload the DepEd e-class record or a CSV for each class.</li>
-                        <li>Every grade is recomputed from the scores before you submit.</li>
-                        <li>Give quizzes with deadlines and time limits. Learners never see the answer key.</li>
-                    </ul>
-                    <p class="role-pages"><span class="label">Pages</span><span>Dashboard</span><span>Class Records</span><span>Upload Grades</span><span>Assessments</span></p>
-                </article>
-                <article class="role-card" data-reveal style="--d: 80ms">
-                    <div class="role-top">
-                        <span class="role-ico" aria-hidden="true"><i class="fi fi-rr-clipboard-list"></i></span>
-                        <div><h3>Registrar</h3><span class="role-tag">Registrar portal</span></div>
-                    </div>
-                    <p class="role-lead">Validate every class with confidence.</p>
-                    <ul class="ticks">
-                        <li>Upload class lists and add teacher accounts in bulk.</li>
-                        <li>See which classes are submitted, still encoding or returned.</li>
-                        <li>Automatic checks flag mismatches and big jumps before you validate.</li>
-                    </ul>
-                    <p class="role-pages"><span class="label">Pages</span><span>Class Lists</span><span>Sections</span><span>Teachers</span><span>Grade Validation</span></p>
-                </article>
-                <article class="role-card" data-reveal>
-                    <div class="role-top">
-                        <span class="role-ico" aria-hidden="true"><i class="fi fi-rr-chart-histogram"></i></span>
-                        <div><h3>School head</h3><span class="role-tag">School head portal</span></div>
-                    </div>
-                    <p class="role-lead">See the whole school at a glance.</p>
-                    <ul class="ticks">
-                        <li>Proficiency levels by subject, section and grade level.</li>
-                        <li>Learners below 75 who need remediation, listed by name.</li>
-                        <li>Section briefs and ready-to-print Excel reports.</li>
-                    </ul>
-                    <p class="role-pages"><span class="label">Pages</span><span>Academic Dashboard</span><span>School Performance</span><span>User Management</span></p>
-                </article>
-                <article class="role-card" data-reveal style="--d: 80ms">
-                    <div class="role-top">
-                        <span class="role-ico" aria-hidden="true"><i class="fi fi-rr-settings-sliders"></i></span>
-                        <div><h3>Administrator</h3><span class="role-tag">Admin portal</span></div>
-                    </div>
-                    <p class="role-lead">Set up each school year once.</p>
-                    <ul class="ticks">
-                        <li>Schools, school years and grade levels.</li>
-                        <li>Grading periods by quarter or trimester, with their deadlines.</li>
-                        <li>Principal and registrar accounts.</li>
-                    </ul>
-                    <p class="role-pages"><span class="label">Pages</span><span>Schools</span><span>School Years</span><span>Grading Periods</span><span>Principals</span><span>Registrars</span></p>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <!-- How it works -->
+    <!-- The path of a grade -->
     <section class="section section-soft" id="how" aria-labelledby="howTitle">
         <div class="wrap">
             <header class="section-head center" data-reveal>
-                <p class="eyebrow">How it works</p>
-                <h2 id="howTitle">From class record to report, in four steps.</h2>
-                <p>Grades follow one clear path every grading period, so everyone knows where each class stands.</p>
+                <p class="eyebrow">How a grade travels</p>
+                <h2 id="howTitle">From class record to report card, in five steps.</h2>
             </header>
-            <ol class="steps">
-                <li class="step" data-reveal>
-                    <div class="step-head"><span class="step-ico" aria-hidden="true"><i class="fi fi-rr-upload"></i></span><span class="step-n" aria-hidden="true">01</span></div>
-                    <h3>Upload</h3>
-                    <p>The teacher uploads the class record for each class and quarter.</p>
-                </li>
-                <li class="step" data-reveal style="--d: 80ms">
-                    <div class="step-head"><span class="step-ico" aria-hidden="true"><i class="fi fi-rr-list-check"></i></span><span class="step-n" aria-hidden="true">02</span></div>
-                    <h3>Check</h3>
-                    <p>ARMS recomputes every grade from the scores and flags anything that looks off.</p>
-                </li>
-                <li class="step" data-reveal style="--d: 160ms">
-                    <div class="step-head"><span class="step-ico" aria-hidden="true"><i class="fi fi-rr-badge-check"></i></span><span class="step-n" aria-hidden="true">03</span></div>
-                    <h3>Validate</h3>
-                    <p>The registrar validates the class, or returns it to the teacher with a note.</p>
-                </li>
-                <li class="step" data-reveal style="--d: 240ms">
-                    <div class="step-head"><span class="step-ico" aria-hidden="true"><i class="fi fi-rr-file-chart-line"></i></span><span class="step-n" aria-hidden="true">04</span></div>
-                    <h3>Report</h3>
-                    <p>The school head sees results by subject and section, ready to export.</p>
-                </li>
+            <ol class="path" data-reveal>
+                <li><span class="path-n" aria-hidden="true"><i class="fi fi-rr-upload"></i></span><h3>Upload</h3><p>The teacher uploads the class record.</p></li>
+                <li><span class="path-n" aria-hidden="true"><i class="fi fi-rr-list-check"></i></span><h3>Check</h3><p>ARMS recomputes every grade from the scores.</p></li>
+                <li><span class="path-n" aria-hidden="true"><i class="fi fi-rr-badge-check"></i></span><h3>Validate</h3><p>The registrar validates, or returns it with a note.</p></li>
+                <li><span class="path-n" aria-hidden="true"><i class="fi fi-rr-lock"></i></span><h3>Lock</h3><p>The period closes, and the next one opens.</p></li>
+                <li><span class="path-n" aria-hidden="true"><i class="fi fi-rr-document"></i></span><h3>Print</h3><p>Forms and report cards are ready to download.</p></li>
             </ol>
-            <div class="assurances" data-reveal>
-                <div class="assure">
-                    <span class="assure-ico" aria-hidden="true"><i class="fi fi-rr-shield-check"></i></span>
-                    <div><h3>Role-based access</h3><p>Teachers, the registrar, school heads and administrators each see only their own work.</p></div>
-                </div>
-                <div class="assure">
-                    <span class="assure-ico" aria-hidden="true"><i class="fi fi-rr-key"></i></span>
-                    <div><h3>School account sign-in</h3><p>Sign in with your username and password, or with your school Google account.</p></div>
-                </div>
-                <div class="assure">
-                    <span class="assure-ico" aria-hidden="true"><i class="fi fi-rr-time-check"></i></span>
-                    <div><h3>Deadlines built in</h3><p>Each quarter has its own encoding and validation deadlines, with reminders.</p></div>
-                </div>
+
+            <div class="bento">
+                <article class="bento-card" data-reveal><i class="fi fi-rr-search-alt" aria-hidden="true"></i><h3>Checked before it is saved</h3><p>Every upload is read and shown for review first. A file with a problem changes nothing.</p></article>
+                <article class="bento-card" data-reveal style="--d: 80ms"><i class="fi fi-rr-shield-check" aria-hidden="true"></i><h3>Only what each role needs</h3><p>Teachers, the registrar and school heads each see their own work.</p></article>
+                <article class="bento-card" data-reveal style="--d: 160ms"><i class="fi fi-rr-key" aria-hidden="true"></i><h3>School account sign-in</h3><p>Sign in with a username and password, or with your school Google account.</p></article>
+                <article class="bento-card" data-reveal><i class="fi fi-rr-time-check" aria-hidden="true"></i><h3>Deadlines built in</h3><p>Each grading period has its own submission and validation dates, with reminders.</p></article>
+                <article class="bento-card" data-reveal style="--d: 80ms"><i class="fi fi-rr-document-signed" aria-hidden="true"></i><h3>DepEd's own templates</h3><p>Forms keep their official layout, filled with your school's name, logo and head.</p></article>
+                <article class="bento-card" data-reveal style="--d: 160ms"><i class="fi fi-rr-devices" aria-hidden="true"></i><h3>Works on any device</h3><p>A phone is enough to check where a class stands.</p></article>
             </div>
         </div>
     </section>
@@ -210,36 +260,44 @@
     <section class="section" id="partner" aria-labelledby="partnerTitle">
         <div class="wrap">
             <div class="partner" data-reveal>
-                <div class="partner-intro">
-                    <div class="seal"><img src="{% static 'landing/logo/NPTCI_logo.jpg' %}" alt="Seal of Northern Paramedical and Technological College of Panabo" width="88" height="88" loading="lazy"></div>
+                <div class="seal"><img src="{% static 'landing/logo/NPTCI_logo.jpg' %}" alt="Seal of Northern Paramedical and Technological College of Panabo" width="88" height="88" loading="lazy"></div>
+                <div>
                     <p class="eyebrow">Our partner school</p>
-                    <h2 id="partnerTitle">Northern Paramedical &amp; Technological College of Panabo, Inc.</h2>
-                    <p class="partner-place"><i class="fi fi-rr-marker" aria-hidden="true"></i>Panabo City, Davao del Norte</p>
-                    <p class="partner-text">Since 1995, NPTCI has served learners and families in Panabo City. ARMS was built in partnership with NPTCI so its teachers, registrar and school leaders can keep every academic record accurate and ready.</p>
+                    <h2 id="partnerTitle">Built with a real school, in Panabo City.</h2>
+                    <p class="partner-text">Northern Paramedical &amp; Technological College of Panabo, Inc. has served learners and families since 1995. ARMS was built in partnership with NPTCI, so its teachers, registrar and school leaders can keep every academic record accurate and ready.</p>
                 </div>
-                <dl class="partner-stats">
-                    <div><dt>Year founded</dt><dd>1995</dd></div>
-                    <div><dt>Commencement exercises</dt><dd>28th</dd></div>
-                    <div><dt>Moving-up ceremony</dt><dd>10th</dd></div>
-                </dl>
             </div>
 
             <div class="gallery" id="gallery">
                 <figure class="g-item g-wide" data-reveal>
-                    <a href="{% static 'landing/images/web/faculty-1400.webp' %}" data-photo data-caption="NPTCI faculty at the 28th Commencement Exercises">
+                    <a href="{% static 'landing/images/web/completers-1400.webp' %}" data-photo data-caption="NPTCI completers with their teachers">
                         <picture>
                             <source type="image/webp" sizes="(min-width: 900px) 760px, 100vw"
-                                    srcset="{% static 'landing/images/web/faculty-800.webp' %} 800w, {% static 'landing/images/web/faculty-1400.webp' %} 1400w">
-                            <img src="{% static 'landing/images/web/faculty-1400.jpg' %}" sizes="(min-width: 900px) 760px, 100vw"
-                                 srcset="{% static 'landing/images/web/faculty-800.jpg' %} 800w, {% static 'landing/images/web/faculty-1400.jpg' %} 1400w"
-                                 width="1400" height="933" loading="lazy" style="object-position: 50% 45%;"
-                                 alt="NPTCI faculty members wearing medals on stage at the 28th Commencement Exercises">
+                                    srcset="{% static 'landing/images/web/completers-800.webp' %} 800w, {% static 'landing/images/web/completers-1400.webp' %} 1400w">
+                            <img src="{% static 'landing/images/web/completers-1400.jpg' %}" sizes="(min-width: 900px) 760px, 100vw"
+                                 srcset="{% static 'landing/images/web/completers-800.jpg' %} 800w, {% static 'landing/images/web/completers-1400.jpg' %} 1400w"
+                                 width="1400" height="933" loading="lazy" style="object-position: 50% 62%;"
+                                 alt="NPTCI Junior High School completers in pink togas with their teachers">
                         </picture>
                         <span class="g-zoom" aria-hidden="true"><i class="fi fi-rr-expand"></i></span>
                     </a>
-                    <figcaption>NPTCI faculty at the 28th Commencement Exercises</figcaption>
+                    <figcaption>NPTCI completers with their teachers</figcaption>
                 </figure>
                 <figure class="g-item" data-reveal style="--d: 80ms">
+                    <a href="{% static 'landing/images/web/faculty-1400.webp' %}" data-photo data-caption="NPTCI faculty on stage">
+                        <picture>
+                            <source type="image/webp" sizes="(min-width: 900px) 380px, (min-width: 560px) 50vw, 100vw"
+                                    srcset="{% static 'landing/images/web/faculty-800.webp' %} 800w, {% static 'landing/images/web/faculty-1400.webp' %} 1400w">
+                            <img src="{% static 'landing/images/web/faculty-800.jpg' %}" sizes="(min-width: 900px) 380px, (min-width: 560px) 50vw, 100vw"
+                                 srcset="{% static 'landing/images/web/faculty-800.jpg' %} 800w, {% static 'landing/images/web/faculty-1400.jpg' %} 1400w"
+                                 width="800" height="533" loading="lazy" style="object-position: 50% 45%;"
+                                 alt="NPTCI faculty members wearing medals on stage">
+                        </picture>
+                        <span class="g-zoom" aria-hidden="true"><i class="fi fi-rr-expand"></i></span>
+                    </a>
+                    <figcaption>NPTCI faculty on stage</figcaption>
+                </figure>
+                <figure class="g-item" data-reveal style="--d: 160ms">
                     <a href="{% static 'landing/images/web/community-1400.webp' %}" data-photo data-caption="Graduates, families and faculty at the Panabo City gymnasium">
                         <picture>
                             <source type="image/webp" srcset="{% static 'landing/images/web/community-crop-800.webp' %}">
@@ -249,20 +307,6 @@
                         <span class="g-zoom" aria-hidden="true"><i class="fi fi-rr-expand"></i></span>
                     </a>
                     <figcaption>Graduates, families and faculty at the Panabo City gymnasium</figcaption>
-                </figure>
-                <figure class="g-item" data-reveal style="--d: 160ms">
-                    <a href="{% static 'landing/images/web/orientation-1400.webp' %}" data-photo data-caption="Orientation on school safety drills, Schools Division Office of Panabo City">
-                        <picture>
-                            <source type="image/webp" sizes="(min-width: 900px) 380px, (min-width: 560px) 50vw, 100vw"
-                                    srcset="{% static 'landing/images/web/orientation-800.webp' %} 800w, {% static 'landing/images/web/orientation-1400.webp' %} 1400w">
-                            <img src="{% static 'landing/images/web/orientation-800.jpg' %}" sizes="(min-width: 900px) 380px, (min-width: 560px) 50vw, 100vw"
-                                 srcset="{% static 'landing/images/web/orientation-800.jpg' %} 800w, {% static 'landing/images/web/orientation-1400.jpg' %} 1400w"
-                                 width="800" height="600" loading="lazy" style="object-position: 50% 60%;"
-                                 alt="Teachers and school staff around a conference table at the Schools Division Office of Panabo City for an orientation on school safety drills">
-                        </picture>
-                        <span class="g-zoom" aria-hidden="true"><i class="fi fi-rr-expand"></i></span>
-                    </a>
-                    <figcaption>Orientation on school safety drills, Schools Division Office of Panabo City</figcaption>
                 </figure>
             </div>
         </div>
@@ -355,7 +399,7 @@
         <div class="wrap">
             <div class="cta" data-reveal>
                 <div class="cta-copy">
-                    <h2 id="ctaTitle">{% if user.is_authenticated %}Welcome back.{% else %}Ready for this quarter's records?{% endif %}</h2>
+                    <h2 id="ctaTitle">{% if user.is_authenticated %}Welcome back.{% else %}Ready for this period's records?{% endif %}</h2>
                     <p>{% if user.is_authenticated %}You are signed in. Pick up where you left off in your portal.{% else %}Sign in with the account your school gave you, or continue with your school Google account.{% endif %}</p>
                 </div>
                 <div class="cta-actions">
@@ -378,7 +422,7 @@
             <p>Built in partnership with Northern Paramedical &amp; Technological College of Panabo, Inc., Panabo City, Davao del Norte.</p>
         </div>
         <nav class="footer-links" aria-label="Footer">
-            <div><h3>System</h3><a href="#features">Features</a><a href="#how">How it works</a></div>
+            <div><h3>System</h3><a href="#forms">School forms</a><a href="#portals">Portals</a><a href="#insights">Insights</a><a href="#how">How a grade travels</a></div>
             <div><h3>Partner</h3><a href="#partner">About NPTCI</a><a href="#gallery">Photos</a></div>
             <div><h3>Account</h3><a href="{% url 'signin' %}">Sign in</a><a href="{% url 'password_reset' %}">Reset password</a><a href="#contact">Request ARMS</a></div>
         </nav>

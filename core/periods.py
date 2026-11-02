@@ -70,7 +70,8 @@ def short(period):
 
 
 def current(periods, has_grades=None):
-    """The period marked current, else the one today falls in, else (if has_grades) the latest with grades."""
+    """The period marked current, else the one today falls in, else (if has_grades) the latest with grades.
+    A locked period hands over to the next one that is not locked: Term 2 locked, Term 3 current."""
     periods = list(periods)
     if not periods:
         return None
@@ -78,12 +79,21 @@ def current(periods, has_grades=None):
     found = next((p for p in periods if p.is_current_quarter), None) or \
         next((p for p in periods if p.date_start <= today <= p.date_end), None)
     if found:
+        if found.is_grades_locked:
+            return next((p for p in periods if p.quarter_number > found.quarter_number and not p.is_grades_locked), found)
         return found
     if has_grades:
         for p in reversed(periods):
             if has_grades(p):
                 return p
     return periods[-1] if periods[-1].date_end < today else periods[0]
+
+
+def mark_current(period):
+    """Make this the school year's current period, alone."""
+    type(period).objects.filter(school_year=period.school_year_id).exclude(pk=period.pk).update(is_current_quarter=False)
+    type(period).objects.filter(pk=period.pk).update(is_current_quarter=True)
+    period.is_current_quarter = True
 
 
 def for_class(assignment, periods):

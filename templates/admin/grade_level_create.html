@@ -1,216 +1,96 @@
 {% extends 'admin/base.html' %}
-{% load static %}
 
-{% block title %}Add Grade Levels{% endblock %}
-{% block page_title %}Add Grade Levels{% endblock %}
-
-{% block extra_css %}
-<style>
-    .form-card {
-        max-width: 760px;
-        margin: 0 auto;
-        background: white;
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
-        box-shadow: var(--shadow-md);
-        border: 1px solid var(--gray-200);
-    }
-    .form-card-header {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        margin-bottom: 1.25rem;
-        padding-bottom: 0.85rem;
-        border-bottom: 2px solid var(--gray-100);
-    }
-    .form-card-header-icon {
-        width: 38px;
-        height: 38px;
-        border-radius: var(--radius-xs);
-        background: var(--primary-gradient);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 0.95rem;
-    }
-    .form-card-header h6 { font-size: 0.85rem; font-weight: 700; color: var(--gray-700); margin: 0; }
-    .form-group { margin-bottom: 1.25rem; }
-    .form-label-sm {
-        display: block;
-        font-size: 0.68rem;
-        font-weight: 600;
-        color: var(--gray-500);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.4rem;
-    }
-    .form-select-input {
-        width: 100%;
-        padding: 0.6rem 0.75rem;
-        border: 2px solid var(--gray-300);
-        border-radius: var(--radius-sm);
-        font-size: 0.8rem;
-        font-family: inherit;
-        background: var(--gray-50);
-        color: var(--gray-700);
-    }
-    .form-select-input:focus { outline: none; border-color: var(--primary); background: white; }
-
-    .preset-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
-    .btn-preset {
-        padding: 0.35rem 0.85rem;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        border: 1.5px solid var(--gray-300);
-        background: white;
-        color: var(--gray-700);
-        cursor: pointer;
-        font-family: inherit;
-        transition: var(--transition);
-    }
-    .btn-preset:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
-
-    .grade-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.6rem;
-    }
-    @media (max-width: 520px) { .grade-grid { grid-template-columns: repeat(2, 1fr); } }
-    .grade-option {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 0.7rem 0.85rem;
-        border: 2px solid var(--gray-300);
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        transition: var(--transition);
-        margin: 0;
-    }
-    .grade-option:hover { border-color: var(--primary); }
-    .grade-option input { width: 18px; height: 18px; accent-color: var(--primary); }
-    .grade-option.exists { background: var(--gray-100); cursor: not-allowed; opacity: 0.7; }
-    .grade-option-name { font-size: 0.8rem; font-weight: 600; color: var(--gray-700); }
-    .grade-option-meta { font-size: 0.65rem; color: var(--gray-500); }
-
-    .form-actions { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
-    .btn-cancel {
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        padding: 0.65rem 1.4rem; border-radius: var(--radius-sm);
-        font-size: 0.8rem; font-weight: 600;
-        border: 2px solid var(--gray-300); background: white; color: var(--gray-500);
-        text-decoration: none;
-    }
-    .btn-submit {
-        display: inline-flex; align-items: center; gap: 0.5rem;
-        padding: 0.65rem 1.8rem; border-radius: var(--radius-sm);
-        font-size: 0.8rem; font-weight: 600; border: none;
-        background: var(--primary-gradient); color: white; cursor: pointer; font-family: inherit;
-    }
-    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-</style>
-{% endblock %}
+{% block title %}Add Grade Levels - ARMS{% endblock %}
+{% block subtitle %}Grade Levels &bull; Add{% endblock %}
 
 {% block content %}
-
-<div class="form-card">
-    <div class="form-card-header">
-        <div class="form-card-header-icon"><i class="fas fa-layer-group"></i></div>
-        <h6>Add Grade Levels to a School</h6>
-    </div>
+<div class="tp">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-layers" style="color:#123499;"></i> Add grade levels</h2>
+            <p class="hint">Choose a school, then the levels it offers. Levels it already has are locked.</p>
+        </div>
+        <a class="btn btn-line btn-sm" href="{% url 'admin_panel:grade_level_list' %}"><i class="fi fi-rr-arrow-small-left"></i> Grade levels</a>
+    </section>
 
     {% if schools %}
-    <form method="POST">
+    <form method="POST" class="ad-page">
         {% csrf_token %}
-
-        <div class="form-group">
-            <label class="form-label-sm" for="schoolSelect">School</label>
-            <select name="school" id="schoolSelect" class="form-select-input" required>
-                <option value="">Select School...</option>
-                {% for s in schools %}
-                <option value="{{ s.id }}" {% if selected_school|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label-sm">Grade Levels</label>
-            <div class="preset-row">
-                <button type="button" class="btn-preset" data-grades="7,8,9,10">Junior High (7–10)</button>
-                <button type="button" class="btn-preset" data-grades="11,12">Senior High (11–12)</button>
-                <button type="button" class="btn-preset" data-grades="7,8,9,10,11,12">Integrated (7–12)</button>
-                <button type="button" class="btn-preset" data-grades="">Clear</button>
+        <section class="card panel" aria-labelledby="glTitle">
+            <div class="panel-head"><h3 id="glTitle"><i class="fi fi-rr-layers" style="color:#123499;"></i> Grade levels</h3></div>
+            <div class="ad-presets" role="group" aria-label="Quick choices">
+                <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10">Junior High (7 to 10)</button>
+                <button type="button" class="btn btn-line btn-sm" data-grades="11,12">Senior High (11 to 12)</button>
+                <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10,11,12">Integrated (7 to 12)</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-grades="">Clear</button>
             </div>
-            <div class="grade-grid">
+            <div class="ad-grades">
                 {% for n in grade_numbers %}
-                <label class="grade-option" data-grade="{{ n }}">
+                <label class="ad-grade" data-grade="{{ n }}">
                     <input type="checkbox" name="grades" value="{{ n }}">
-                    <span>
-                        <span class="grade-option-name">Grade {{ n }}</span><br>
-                        <span class="grade-option-meta" data-default="{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}">{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}</span>
-                    </span>
+                    <span><b>Grade {{ n }}</b><small data-default="{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}">{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}</small></span>
                 </label>
                 {% endfor %}
             </div>
-        </div>
+        </section>
 
-        <div class="form-actions">
-            <a href="{% url 'admin_panel:grade_level_list' %}" class="btn-cancel"><i class="fas fa-arrow-left"></i> Cancel</a>
-            <button type="submit" class="btn-submit" id="submitBtn" disabled><i class="fas fa-save"></i> Add Grade Levels</button>
-        </div>
+        <aside class="ad-side">
+            <section class="card panel" aria-labelledby="schTitle">
+                <div class="panel-head"><h3 id="schTitle"><i class="fi fi-rr-building" style="color:#123499;"></i> School</h3></div>
+                <label class="field"><span>School <span class="req">*</span></span>
+                    <select name="school" id="schoolSelect" required>
+                        <option value="">Choose a school</option>
+                        {% for s in schools %}<option value="{{ s.id }}" {% if selected_school|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }}</option>{% endfor %}
+                    </select></label>
+                <div class="ad-acts">
+                    <button type="submit" class="btn btn-main" id="submitBtn" disabled><i class="fi fi-rr-check"></i> Add grade levels</button>
+                    <a class="btn btn-line" href="{% url 'admin_panel:grade_level_list' %}">Cancel</a>
+                </div>
+            </section>
+        </aside>
     </form>
     {% else %}
-    <p class="text-muted mb-0">No active schools yet. <a href="{% url 'admin_panel:school_create' %}">Create a school first</a>.</p>
+    <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>No active school yet. <a href="{% url 'admin_panel:school_create' %}">Create a school first</a>.</span></div>
     {% endif %}
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 {{ existing_grades|json_script:"existingGradesData" }}
 <script>
-    var schoolSelect = document.getElementById('schoolSelect');
-    if (schoolSelect) {
-        var existingGrades = JSON.parse(document.getElementById('existingGradesData').textContent);
-        var options = document.querySelectorAll('.grade-option');
-        var submitBtn = document.getElementById('submitBtn');
-
-        function refreshSubmit() {
-            submitBtn.disabled = !schoolSelect.value || !document.querySelector('.grade-option input:checked');
-        }
-
-        // Grades the selected school already has are locked
-        function refreshExisting() {
-            var existing = existingGrades[schoolSelect.value] || [];
-            options.forEach(function(option) {
+(function () {
+    var select = document.getElementById('schoolSelect');
+    if (!select) return;
+    var existing = JSON.parse(document.getElementById('existingGradesData').textContent);
+    var options = document.querySelectorAll('.ad-grade');
+    var submit = document.getElementById('submitBtn');
+    function refreshSubmit() { submit.disabled = !select.value || !document.querySelector('.ad-grade input:checked'); }
+    // levels the chosen school already has are locked
+    function refreshExisting() {
+        var have = existing[select.value] || [];
+        options.forEach(function (option) {
+            var input = option.querySelector('input'), meta = option.querySelector('small');
+            var exists = have.indexOf(parseInt(option.dataset.grade, 10)) !== -1;
+            option.classList.toggle('exists', exists);
+            input.disabled = exists;
+            if (exists) input.checked = false;
+            meta.textContent = exists ? 'Already added' : meta.dataset.default;
+        });
+        refreshSubmit();
+    }
+    document.querySelectorAll('[data-grades]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var grades = this.dataset.grades ? this.dataset.grades.split(',') : [];
+            options.forEach(function (option) {
                 var input = option.querySelector('input');
-                var meta = option.querySelector('.grade-option-meta');
-                var exists = existing.indexOf(parseInt(option.dataset.grade, 10)) !== -1;
-                option.classList.toggle('exists', exists);
-                input.disabled = exists;
-                if (exists) input.checked = false;
-                meta.textContent = exists ? 'Already added' : meta.dataset.default;
+                input.checked = !input.disabled && grades.indexOf(option.dataset.grade) !== -1;
             });
             refreshSubmit();
-        }
-
-        document.querySelectorAll('.btn-preset').forEach(function(button) {
-            button.addEventListener('click', function() {
-                var grades = this.dataset.grades ? this.dataset.grades.split(',') : [];
-                options.forEach(function(option) {
-                    var input = option.querySelector('input');
-                    input.checked = !input.disabled && grades.indexOf(option.dataset.grade) !== -1;
-                });
-                refreshSubmit();
-            });
         });
-        options.forEach(function(option) {
-            option.querySelector('input').addEventListener('change', refreshSubmit);
-        });
-        schoolSelect.addEventListener('change', refreshExisting);
-        refreshExisting();
-    }
+    });
+    options.forEach(function (option) { option.querySelector('input').addEventListener('change', refreshSubmit); });
+    select.addEventListener('change', refreshExisting);
+    refreshExisting();
+})();
 </script>
 {% endblock %}

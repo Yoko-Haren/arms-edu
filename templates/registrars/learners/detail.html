@@ -1,0 +1,108 @@
+{% extends 'registrars/base.html' %}
+
+{% block title %}{{ st.last_name }}, {{ st.first_name }} - ARMS{% endblock %}
+{% block subtitle %}Learners &bull; {{ st.last_name }}, {{ st.first_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ld-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+    @media (max-width: 1000px) { .ld-grid { grid-template-columns: minmax(0, 1fr); } }
+    .ld-stack { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+    .ld-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    .ld-wrap th, .ld-wrap td { white-space: nowrap; }
+    .ld-form { display: grid; gap: 0.6rem; }
+    .ld-form select, .ld-form input { width: 100%; }
+    .ld-hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+    .ld-hist li { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 12px; font-size: 0.84rem; }
+    .ld-hist small { color: var(--muted); display: block; font-size: 0.74rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-graduation-cap" style="color:#123499;"></i> {{ person.name|default:st.last_name }}</h2>
+            <p class="hint">{% if st.lrn %}LRN {{ st.lrn }} &middot; {% endif %}{{ e.section.grade_level.grade_name }} {{ e.section.section_name }} &middot; SY {{ sy.year_label }}</p>
+        </div>
+        <div class="actions">
+            <span class="pill {{ status.tone }}">{{ status.label }}{% if left and e.status_date %} {{ e.status_date|date:"M j, Y" }}{% endif %}</span>
+            <a class="btn btn-main btn-sm" href="{% url 'registrars:learner_report_card' e.id %}"><i class="fi fi-rr-download"></i> Report card (SF9)</a>
+            <a class="btn btn-line btn-sm" href="{% url 'registrars:section_detail' e.section_id %}">Section</a>
+            <a class="btn btn-ghost btn-sm" href="{% url 'registrars:learner_list' %}"><i class="fi fi-rr-arrow-small-left"></i> Learners</a>
+        </div>
+    </section>
+
+    <div class="facts">
+        <div><small>Birth date</small><b>{{ st.birth_date|date:"M j, Y"|default:"Not recorded" }}</b>{% if person.age is not None %}<span>{{ person.age }} years old as of June</span>{% endif %}</div>
+        <div><small>Sex</small><b>{% if st.sex == 'M' %}Male{% elif st.sex == 'F' %}Female{% else %}{{ st.sex }}{% endif %}</b></div>
+        <div><small>Adviser</small><b>{{ e.section.adviser.get_full_name|default:"No adviser yet" }}</b></div>
+        <div><small>Address</small><b>{% if address %}{{ address.barangay }}, {{ address.city_municipality }}{% else %}Not recorded{% endif %}</b></div>
+        <div><small>Mother tongue</small><b>{{ st.mother_tongue|default:"Not recorded" }}</b></div>
+        <div><small>SF1 remarks</small><b>{{ person.remarks|default:"None" }}</b></div>
+    </div>
+
+    <div class="ld-grid">
+        <div class="ld-stack">
+            <section class="card panel" aria-labelledby="gradesTitle">
+                <div class="panel-head"><div><h3 id="gradesTitle"><i class="fi fi-rr-table-list" style="color:#123499;"></i> Grades</h3>
+                    <p class="hint">As the subject teachers uploaded them. A final grade shows once every grading period has a grade.</p></div></div>
+                {% if grades %}
+                <div class="ld-wrap"><table class="table">
+                    <thead><tr><th scope="col">Subject</th>{% for p in periods %}<th scope="col" class="center">{{ p.quarter_label }}</th>{% endfor %}<th scope="col" class="center">Final</th></tr></thead>
+                    <tbody>
+                        {% for r in grades %}
+                        <tr><td><b>{{ r.code }}</b> <span class="muted">{{ r.name }}</span></td>
+                            {% for g in r.grades %}<td class="center">{% if g is None %}<span class="grade none">&mdash;</span>{% else %}<span class="grade {% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g }}</span>{% endif %}</td>{% endfor %}
+                            <td class="center">{% if r.final is None %}<span class="grade none">&mdash;</span>{% else %}<span class="grade {% if r.final >= 75 %}pass{% else %}fail{% endif %}">{{ r.final }}</span>{% endif %}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table></div>
+                {% else %}<p class="empty"><i class="fi fi-rr-table-list"></i>No grades yet this school year.</p>{% endif %}
+            </section>
+
+            <section class="card panel" aria-labelledby="attTitle">
+                <div class="panel-head"><div><h3 id="attTitle"><i class="fi fi-rr-calendar-check" style="color:#123499;"></i> Attendance</h3>
+                    <p class="hint">From the adviser's SF2 uploads.</p></div></div>
+                {% if attendance %}
+                <div class="ld-wrap"><table class="table">
+                    <thead><tr><th scope="col">Month</th><th scope="col" class="num">Class days</th><th scope="col" class="num">Present</th><th scope="col" class="num">Absent</th><th scope="col" class="num">Tardy</th></tr></thead>
+                    <tbody>{% for a in attendance %}<tr><td>{{ a.label }}</td><td class="num">{{ a.days }}</td><td class="num">{{ a.present }}</td><td class="num">{{ a.absent }}</td><td class="num">{{ a.tardy }}</td></tr>{% endfor %}</tbody>
+                </table></div>
+                {% else %}<p class="empty"><i class="fi fi-rr-calendar-check"></i>No SF2 has been uploaded for this learner yet.</p>{% endif %}
+            </section>
+        </div>
+
+        <div class="ld-stack">
+            <section class="card panel" aria-labelledby="moveTitle">
+                <div class="panel-head"><div><h3 id="moveTitle"><i class="fi fi-rr-exchange" style="color:#123499;"></i> Record a movement</h3>
+                    <p class="hint">SF1 remarks, SF2, SF4, SF5 and SF6 print this with its date.</p></div></div>
+                <form method="post" class="ld-form">
+                    {% csrf_token %}
+                    <label class="field"><span>What happened</span>
+                        <select name="status" required><option value="">Choose</option>{% for key, label in moves %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+                    <label class="field"><span>Date</span><input type="date" name="date" value="{{ today }}" min="{{ sy.date_start|date:'Y-m-d' }}" max="{{ sy.date_end|date:'Y-m-d' }}" required></label>
+                    <label class="field"><span>Reason or school</span><input type="text" name="reason" maxlength="200" placeholder="The reason, or the other school's name"></label>
+                    <button type="submit" class="btn btn-main btn-sm"><i class="fi fi-rr-disk"></i> Save</button>
+                </form>
+            </section>
+
+            <section class="card panel" aria-labelledby="guardTitle">
+                <div class="panel-head"><div><h3 id="guardTitle"><i class="fi fi-rr-users" style="color:#123499;"></i> Parents and guardian</h3></div></div>
+                {% if guardians %}
+                <ul class="ld-hist">{% for g in guardians %}<li><span><b>{{ g.first_name }} {{ g.last_name }}</b><small>{{ g.relationship }}</small></span></li>{% endfor %}</ul>
+                {% else %}<p class="empty"><i class="fi fi-rr-users"></i>Not in the SF1.</p>{% endif %}
+            </section>
+
+            <section class="card panel" aria-labelledby="histTitle">
+                <div class="panel-head"><div><h3 id="histTitle"><i class="fi fi-rr-time-past" style="color:#123499;"></i> School years</h3></div></div>
+                <ul class="ld-hist">
+                    {% for h in history %}
+                    <li><span>{% if h.here %}<b>SY {{ h.year }}</b>{% else %}<a href="{% url 'registrars:learner_detail' h.id %}"><b>SY {{ h.year }}</b></a>{% endif %}<small>{{ h.grade }} {{ h.section }}</small></span><span class="pill {{ h.status.tone }}">{{ h.status.label }}</span></li>
+                    {% endfor %}
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

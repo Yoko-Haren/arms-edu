@@ -282,6 +282,7 @@ def school_detail(request, school_id):
         'teachers': teachers,
         'students': students,
         'grade_levels': grade_levels,
+        'grade_level_count': grade_levels.count(),
         'school_years': school_years,
         'current_sy': school_years.filter(is_current=True).first(),
         'principal_count': principals.count(),
@@ -492,7 +493,8 @@ def principal_detail(request, principal_id):
     school = principal.school
     registrars = get_school_registrars(school) if school else UserProfile.objects.none()
     teachers = get_school_teachers(school) if school else UserProfile.objects.none()
-    context = {'principal': principal, 'registrars': registrars, 'teachers': teachers}
+    student_count = get_school_students(school).count() if school else 0
+    context = {'principal': principal, 'registrars': registrars, 'teachers': teachers, 'student_count': student_count}
     return render(request, 'admin/principal_detail.html', context)
 
 

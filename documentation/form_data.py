@@ -1,13 +1,14 @@
 """What the DepEd school forms are made of, read from ARMS.
 
 One place gathers a section's learners in DepEd order (male, then female, alphabetical), their
-register details, grades and attendance, and the school's personnel, so every form (SF1 to SF7,
+register details, grades and attendance, and the school's personnel, so every form (SF1 to SF9,
 the summary of final grades) states the same facts the same way.
 
 Grades are the quarterly grades as recorded (GradeComponent: the transmuted grade, else the
 initial grade), whatever their validation status; forms say how many are not validated yet. A
-final grade exists only when every grading period of the class has a grade (DepEd Order No. 8,
-s. 2015); the general average only when every learning area has a final grade.
+final grade exists only when every grading period of the class has a grade, three terms or four
+quarters as the school year has them; the general average only when every learning area has a
+final grade.
 """
 import calendar
 import re
@@ -15,6 +16,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
+from core import grading_policy
 from core import periods as P
 from core import school_header
 
@@ -26,8 +28,6 @@ JHS_AREAS = (('FILIPINO', 'Filipino'), ('ENGLISH', 'English'), ('MATH', 'Mathema
              ('AP', 'Araling Panlipunan'), ('TLE', 'TLE'), ('MAPEH', 'MAPEH'), ('ESP', 'EsP'))
 AREA_SHORT = {'FILIPINO': 'Fil', 'ENGLISH': 'Eng', 'MATH': 'Math', 'SCIENCE': 'Sci', 'AP': 'AP', 'TLE': 'TLE',
               'MAPEH': 'MAPEH', 'ESP': 'EsP'}
-DESCRIPTOR_BANDS = ((90, 'Outstanding'), (85, 'Very Satisfactory'), (80, 'Satisfactory'), (75, 'Fairly Satisfactory'),
-                    (0, 'Did Not Meet Expectations'))
 
 
 def round_half_up(value, places=0):
@@ -60,8 +60,32 @@ def short_name(last, first, middle='', ext=''):
     return f'{last}, {first}{e}{m}'.upper()
 
 
-def descriptor(grade):
-    return next(name for low, name in DESCRIPTOR_BANDS if grade >= low)
+def date_text(d):
+    return d.strftime('%m/%d/%Y') if d else ''
+
+
+def levels_of(school):
+    """The five levels of the school's DepEd order, lowest first: (descriptor, 'lowest-highest')."""
+    out, top = [], 100
+    for lv in grading_policy.for_school(school)['levels']:
+        out.append((lv['name'], f'{lv["min"]}-{top}'))
+        top = lv['min'] - 1
+    return out[::-1]
+
+
+def descriptor(grade, school):
+    levels = grading_policy.for_school(school)['levels']
+    return next((lv['name'] for lv in levels if grade >= lv['min']), levels[-1]['name'])
+
+
+def periods_of(sy):
+    from academics.models import Quarter
+    return list(Quarter.objects.filter(school_year=sy).order_by('quarter_number'))
+
+
+def jhs_areas(grade_number):
+    """The learning areas a grade's report card lists, by the names of DepEd's three-term forms."""
+    return tuple((key, 'GMRC / Values Education' if key == 'ESP' else label) for key, label in JHS_AREAS)
 
 
 def school_info(school, sy):
@@ -74,7 +98,7 @@ def school_info(school, sy):
     return {
         'school_id': school.school_id, 'school_name': school.school_name.upper(), 'school_year': sy.year_label,
         'region': school_header.region_code(place['region']), 'region_label': school_header.region_label(place['region']),
-        'division': place['division'], 'district': place['district'],
+        'division': place['division'], 'district': place['district'], 'place': place['place'] or school.address or '',
         'head': (head.user.get_full_name() or head.user.username).upper() if head else '',
     }
 
@@ -136,6 +160,9 @@ def learners(section, sy, *, include_left=True):
             if yes and code not in codes:
                 codes.append(code)
         remarks = (e.remarks or '').strip()
+        for code, left in (('T/O', 'Transferred_Out'), ('DRP', 'Dropped')):   # what the registrar recorded after the SF1
+            if remarks and e.status == left and code not in remarks:
+                remarks += f'; {code} - {e.status_date:%m/%d/%Y}' if e.status_date else f'; {code}'
         if not remarks and codes:
             parts = []
             for code in codes:
@@ -167,12 +194,25 @@ def learners(section, sy, *, include_left=True):
     return out
 
 
+def ids_of_section(section, sy):
+    from enrollment.models import Enrollment
+    return list(Enrollment.objects.filter(section=section, school_year=sy).values_list('id', flat=True))
+
+
 def split_sex(people):
     return [p for p in people if p['sex'] == 'M'], [p for p in people if p['sex'] != 'M']
 
 
 def adviser_of(section):
     return person_name(section.adviser) if section.adviser_id else ''
+
+
+def track_strand(section):
+    s = section.strand
+    if not s:
+        return ''
+    track = s.track.track_name if s.track_id else ''
+    return f'{track} - {s.strand_code}'.strip(' -').upper() if track else s.strand_code
 
 
 # ---------------------------------------------------------------------------------------------
@@ -201,6 +241,8 @@ def jhs_area(subject):
     """FILIPINO, ENGLISH, MATH, ... for a Grades 7 to 10 subject (by its name, then its family)."""
     from grades import ecr
     family = subject.subject_family.family_name if subject.subject_family_id else ''
+    if 'MAKABANSA' in subject.subject_name.upper():      # Grades 1 to 3 print it in the place of Araling Panlipunan
+        return 'AP'
     return ecr.subject_key(subject.subject_name) or ecr.subject_key(family)
 
 
@@ -224,13 +266,12 @@ def unvalidated_count(enrollment_ids, periods):
 
 
 def jhs_record(section, sy, people=None):
-    """Per learner the quarter and final grade of every learning area, the general average and the
-    action taken (DepEd Order No. 8, s. 2015): promoted (all areas 75 or higher), conditional (did not
+    """Per learner the grade per period and final grade of every learning area, the general average and
+    the action taken (DepEd Order No. 8, s. 2015): promoted (all areas 75 or higher), conditional (did not
     meet expectations in one or two areas), retained (three or more). Missing grades leave it open.
     """
-    from academics.models import Quarter
     people = people if people is not None else learners(section, sy)
-    periods = list(Quarter.objects.filter(school_year=sy).order_by('quarter_number'))
+    periods = periods_of(sy)
     ids = [p['enrollment'].id for p in people]
     by_area = {}
     for subject, a in section_subjects(section, sy, ids):
@@ -274,17 +315,17 @@ def shs_semester(section, sy, semester, people=None):
     """Senior High status at the end of a semester (SHSF-5A): each subject's semester grade (the rounded
     average of its quarters in the semester), the back subjects (below 75), Complete or Incomplete.
     """
-    from academics.models import Quarter
     from grades.models import GradeComponent
     people = people if people is not None else learners(section, sy)
-    periods = list(Quarter.objects.filter(school_year=sy).order_by('quarter_number'))
+    periods = periods_of(sy)
     sem_periods = semester_periods(semester, periods) if semester else periods
     ids = [p['enrollment'].id for p in people]
     graded_here = set(GradeComponent.objects.filter(enrollment_id__in=ids, quarter__in=sem_periods).values_list('subject_id', flat=True))
     sem_id = getattr(semester, 'id', None)
+    is_term = getattr(semester, 'is_term', False)
 
     def belongs(subject, a):
-        if a is None:                                      # graded, but no class this year: by its grades
+        if a is None or is_term:                           # no class this year, or one term of many: by its grades
             return subject.id in graded_here
         if a.semester_id is None:                          # a whole-year class
             return True

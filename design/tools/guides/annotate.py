@@ -4,8 +4,8 @@
        powershell -File export_range.ps1 -JobFile jobs.txt
    Each line of jobs.txt is <workbook>|<sheet name or number>|<range>|<picture.png>, all paths absolute; see
    jobs.example.txt. The sources are the demo school's files: its SF7 from School Forms, the ARMS teacher template
-   with two rows filled, and the SF1 and e-class record in static/forms/simulation/.
-2. Draw the boxes: python annotate.py <folder of the exported pictures>
+   with two rows filled, the SF1 and e-class record in static/forms/simulation/, and the demo school's SF2, SF3 and SF8.
+2. Draw the boxes: python annotate.py <folder of the exported pictures>. A picture without its export is skipped.
 
 Positions are in pixels of the exported pictures: Excel's points times 5/3 (Chart.Export at 120 dpi), read from the
 column and row positions export_range.ps1 saves next to each picture.
@@ -70,32 +70,57 @@ def annotate(sheet, boxes, name, scale=1.0):
     print(f'{name}: {canvas.size[0]}x{canvas.size[1]}, {os.path.getsize(path) // 1024} KB')
 
 
+def have(name):
+    return os.path.exists(os.path.join(HERE, name))
+
+
 os.makedirs(OUT, exist_ok=True)
 
-# SF7: the personnel table's header (rows 20 and 21) and two teachers; columns A (employee no.), B (name), F (position), I (major)
-sf7 = stack(load('raw_sf7_head.png', (0, 38, 883, 223)), load('raw_sf7_rows.png', (0, 0, 883, 384)))
-annotate(sf7, [(1, (0, 0, 84, sf7.height)), (2, (84, 0, 310, sf7.height)), (3, (441, 0, 549, sf7.height)),
-               (4, (771, 0, 883, sf7.height))], 'sf7-personnel.png')
+if have('raw_sf7_head.png'):
+    # SF7: the personnel table's header (rows 20 and 21) and two teachers; columns A (employee no.), B (name), F (position), I (major)
+    sf7 = stack(load('raw_sf7_head.png', (0, 38, 883, 223)), load('raw_sf7_rows.png', (0, 0, 883, 384)))
+    annotate(sf7, [(1, (0, 0, 84, sf7.height)), (2, (84, 0, 310, sf7.height)), (3, (441, 0, 549, sf7.height)),
+                   (4, (771, 0, 883, sf7.height))], 'sf7-personnel.png')
 
-# ARMS teacher template: names required (A:B), email (C), the rest optional (D:F)
-tpl = load('raw_template.png', (0, 0, 1351, 108))
-annotate(tpl, [(1, (0, 0, 378, 108)), (2, (378, 0, 684, 108)), (3, (684, 0, 1351, 108))], 'teacher-template.png')
+if have('raw_template.png'):
+    # ARMS teacher template: names required (A:B), email (C), the rest optional (D:F)
+    tpl = load('raw_template.png', (0, 0, 1351, 108))
+    annotate(tpl, [(1, (0, 0, 378, 108)), (2, (378, 0, 684, 108)), (3, (684, 0, 1351, 108))], 'teacher-template.png')
 
-# SF1 in one picture: the top of the form at half size (school ID, school name, school year, grade level and
-# section; its large type then matches the rows), and below it the learner rows (LRN, name, sex and birth date)
-head = load('raw_sf1_head.png', (410, 0, 3520, 272))
-head = head.resize((head.width // 2, head.height // 2), Image.LANCZOS)
-rows = load('raw_sf1_rows.png', (0, 0, 1214, 600))
-top = head.height + 44                      # the gap holds the numbers of the row boxes
-sf1 = Image.new('RGB', (head.width, top + rows.height), 'white')
-sf1.paste(head, (0, 0))
-sf1.paste(rows, (0, top))
-annotate(sf1, [(1, (20, 9, 274, 61)), (2, (7, 63, 500, 123), 'right'), (3, (627, 63, 915, 123), 'left'),
-               (4, (972, 63, 1548, 123), 'left'),
-               (5, (0, top, 343, top + 600)), (6, (343, top, 850, top + 600)), (7, (850, top, 1097, top + 600))], 'sf1-guide.png')
+if have('raw_sf1_head.png'):
+    # SF1 in one picture: the top of the form at half size (school ID, school name, school year, grade level and
+    # section; its large type then matches the rows), and below it the learner rows (LRN, name, sex and birth date)
+    head = load('raw_sf1_head.png', (410, 0, 3520, 272))
+    head = head.resize((head.width // 2, head.height // 2), Image.LANCZOS)
+    rows = load('raw_sf1_rows.png', (0, 0, 1214, 600))
+    top = head.height + 44                      # the gap holds the numbers of the row boxes
+    sf1 = Image.new('RGB', (head.width, top + rows.height), 'white')
+    sf1.paste(head, (0, 0))
+    sf1.paste(rows, (0, top))
+    annotate(sf1, [(1, (20, 9, 274, 61)), (2, (7, 63, 500, 123), 'right'), (3, (627, 63, 915, 123), 'left'),
+                   (4, (972, 63, 1548, 123), 'left'),
+                   (5, (0, top, 343, top + 600)), (6, (343, top, 850, top + 600)), (7, (850, top, 1097, top + 600))], 'sf1-guide.png')
 
-# E-class record, a quarter sheet from its column headings down: names, written works, performance tasks,
-# quarterly assessment, and the grades the file computed
-ecr = load('raw_ecr_q2.png', (0, 38, 1926, 340))
-annotate(ecr, [(1, (37, 0, 385, 302)), (2, (385, 0, 970, 302)), (3, (970, 0, 1555, 302)), (4, (1555, 0, 1740, 302)),
-               (5, (1740, 0, 1926, 302))], 'ecr-quarter.png')
+if have('raw_ecr_q2.png'):
+    # E-class record, a quarter sheet from its column headings down: names, written works, performance tasks,
+    # quarterly assessment, and the grades the file computed
+    ecr = load('raw_ecr_q2.png', (0, 38, 1926, 340))
+    annotate(ecr, [(1, (37, 0, 385, 302)), (2, (385, 0, 970, 302)), (3, (970, 0, 1555, 302)), (4, (1555, 0, 1740, 302)),
+                   (5, (1740, 0, 1926, 302))], 'ecr-quarter.png')
+
+if have('raw_sf2.png'):
+    # SF2 from the column headings down: names, the row of dates, the daily marks, the month's totals, the remarks
+    sf2 = load('raw_sf2.png', (0, 12, 2096, 420))
+    annotate(sf2, [(1, (38, 104, 452, 408)), (2, (452, 32, 1502, 64), 'left'), (3, (452, 104, 1502, 408)), (4, (1503, 0, 1648, 408)),
+                   (5, (1648, 0, 2078, 408))], 'sf2-guide.png')
+
+if have('raw_sf3.png'):
+    # SF3: names, the book titles, the issued and returned dates, the remarks
+    sf3 = load('raw_sf3.png', (0, 0, 1936, 400))
+    annotate(sf3, [(1, (50, 150, 432, 400)), (2, (432, 0, 1680, 78), 'left'), (3, (432, 118, 1680, 400)), (4, (1680, 0, 1926, 400))], 'sf3-guide.png')
+
+if have('raw_sf8.png'):
+    # SF8: names, weight and height, BMI category and height for age, the remarks
+    sf8 = load('raw_sf8.png')
+    annotate(sf8, [(1, (38, 70, 410, sf8.height)), (2, (590, 0, 766, sf8.height)), (3, (917, 22, 1108, sf8.height)), (4, (1108, 0, 1340, sf8.height))],
+             'sf8-guide.png', scale=1.4)

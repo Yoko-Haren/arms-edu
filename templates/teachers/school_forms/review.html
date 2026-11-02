@@ -1,0 +1,81 @@
+{% extends 'teachers/base.html' %}
+
+{% block title %}Check the {{ result.kind }}{% endblock %}
+{% block subtitle %}School Forms &bull; Check {{ result.kind }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rv { max-width: 920px; width: 100%; margin: 0 auto; }
+    .rv-table td { vertical-align: top; }
+    .rv-table small { display: block; color: var(--muted); font-size: 0.75rem; }
+    .rv-foot { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+    .rv-wrap { max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp rv">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-search" style="color:#123499;"></i> Check before saving: {{ kind_title }}</h2>
+            <p class="hint">{{ section.grade_level.grade_name }} {{ section.section_name }} &middot; {{ file }}. Nothing is saved yet.</p>
+        </div>
+        <a class="btn btn-line btn-sm" href="{% url 'teachers:form_upload' %}?kind={{ result.kind }}&amp;section={{ section.id }}"><i class="fi fi-rr-arrow-small-left"></i> Choose another file</a>
+    </section>
+
+    {% for text in problems %}<div class="note risk" role="alert"><i class="fi fi-rr-exclamation"></i><span>{{ text }}</span></div>{% endfor %}
+    {% for text in warns %}<div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>{{ text }}</span></div>{% endfor %}
+    {% if missing %}<div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span><b>{{ missing|length }} learner{{ missing|length|pluralize }} of the class {{ missing|length|pluralize:"is,are" }} not in this file:</b> {{ missing|slice:":6"|join:", " }}{% if missing|length > 6 %}, and more{% endif %}. Anything saved for them stays as it is.</span></div>{% endif %}
+    {% if moved %}<div class="note"><i class="fi fi-rr-info"></i><span><b>{{ moved|length }} learner{{ moved|length|pluralize }} moved,</b> by the remarks. Saving tells the registrar, who records it on the learner's page.</span></div>{% endif %}
+
+    <div class="facts">
+        {% for label, value in result.facts %}<div><small>{{ label }}</small><b>{{ value }}</b></div>{% endfor %}
+        <div><small>Ready</small><b>{{ ready|length }} learner{{ ready|length|pluralize }}</b></div>
+        <div><small>To settle</small><b>{{ settle|length }}</b></div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="token" value="{{ token }}">
+        {% if settle %}
+        <section class="card panel" aria-labelledby="settleTitle">
+            <div class="panel-head"><div><h3 id="settleTitle"><i class="fi fi-rr-user-check" style="color:#123499;"></i> Settle these names</h3>
+                <p class="hint">ARMS could not be sure who these rows are. Choose the learner, or skip the row.</p></div></div>
+            <div class="rv-wrap"><table class="table rv-table">
+                <thead><tr><th scope="col">In the file</th><th scope="col">Found</th><th scope="col">Learner</th></tr></thead>
+                <tbody>
+                    {% for r in settle %}
+                    <tr>
+                        <td><b>{{ r.name }}</b>{% for why in r.reasons %}<small>{{ why }}</small>{% endfor %}</td>
+                        <td>{{ r.summary }}</td>
+                        <td><select name="row-{{ r.index }}" aria-label="Learner for {{ r.name }}">
+                            <option value="skip">Skip this row</option>
+                            {% for p in roster %}<option value="{{ p.id }}" {% if r.enrollment == p.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+                        </select></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table></div>
+        </section>
+        {% endif %}
+
+        <section class="card panel" aria-labelledby="readyTitle">
+            <div class="panel-head"><div><h3 id="readyTitle"><i class="fi fi-rr-badge-check" style="color:#123499;"></i> Ready to save</h3>
+                <p class="hint">What ARMS read for each learner.</p></div></div>
+            {% if ready %}
+            <div class="rv-wrap"><table class="table rv-table">
+                <thead><tr><th scope="col">Learner</th><th scope="col">Found</th><th scope="col">Note</th></tr></thead>
+                <tbody>
+                    {% for r in ready %}<tr><td><b>{{ r.label|default:r.name }}</b></td><td>{{ r.summary }}</td><td>{{ r.note }}</td></tr>{% endfor %}
+                </tbody>
+            </table></div>
+            {% else %}<p class="empty"><i class="fi fi-rr-users-alt"></i>No row matched a learner with certainty.</p>{% endif %}
+        </section>
+
+        <div class="rv-foot" style="margin-top:1rem;">
+            <span class="hint" style="margin:0;">Saving replaces what was saved before for these learners.</span>
+            <button type="submit" class="btn btn-main"><i class="fi fi-rr-disk"></i> Save {{ result.kind }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -134,7 +134,7 @@
                 <div class="pair">
                     <select name="quarter" class="auto-submit" aria-label="Grading period">
                         {% if period_options %}<option value="all" {% if all_periods %}selected{% endif %}>All periods (school year so far)</option>{% endif %}
-                        {% for p in period_options %}<option value="{{ p.value }}" {% if period and p.value == period.quarter_label %}selected{% endif %}>{{ p.name }}{% if p.current %} (current){% endif %}</option>{% endfor %}
+                        {% for p in period_options %}<option value="{{ p.value }}" {% if period and p.value == period.quarter_label %}selected{% endif %}>{{ p.name }}{% if p.locked %} (locked){% elif p.current %} (current){% endif %}</option>{% endfor %}
                     </select>
                     <select name="school_year" class="auto-submit" aria-label="School year">
                         {% for y in school_years %}<option value="{{ y.id }}" {% if sy and y.id == sy.id %}selected{% endif %}>SY {{ y.year_label }}</option>{% endfor %}

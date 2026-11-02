@@ -16,6 +16,7 @@ from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from academics.models import GradeLevel, Quarter, SchoolYear, Section, Subject, SubjectFamily
 from communication.models import Notification
 from core import grading_policy as policy
+from core import periods as P
 from core.caching import cache_page_for_user, data_version, remember_filters
 from core.periods import GRADE, HAS_GRADE
 from core.xlsx import Report, safe_filename
@@ -28,7 +29,7 @@ from .notify import subject_view_url
 ACTIVE = ['Enrolled', 'Transferred_In']
 VALIDATED = ('Validated', 'Finalized')
 PERIOD_WORD = {'Q': 'Quarter', 'T': 'Term', 'S': 'Semester'}
-GRADE_SCOPES = {'jhs': 'All Junior High', 'shs': 'All Senior High'}
+GRADE_SCOPES = {'elem': 'All Elementary', 'jhs': 'All Junior High', 'shs': 'All Senior High'}
 LADDER_ROWS = 3            # each level on the status card lists at most this many items; "Show all" opens every one
 
 
@@ -84,13 +85,21 @@ def _parts(group):
 # Academic Dashboard
 # =============================================================================================
 
+def in_grade_scope(grade, key):
+    """Is this grade level part of Elementary, Junior High or Senior High?"""
+    if key == 'shs':
+        return bool(grade.is_senior_high)
+    return not grade.is_senior_high and (grade.grade_number < 7) == (key == 'elem')
+
+
 def _grade_scope(key, grade_levels):
     """The grade levels a selection covers: (levels, or None for every level; option value; label)."""
     if key in GRADE_SCOPES:
-        chosen = [g for g in grade_levels if bool(g.is_senior_high) == (key == 'shs')]
+        chosen = [g for g in grade_levels if in_grade_scope(g, key)]
         if chosen:
             numbers = sorted(g.grade_number for g in chosen)
-            span = f'Grades {numbers[0]} to {numbers[-1]}' if len(numbers) > 1 else f'Grade {numbers[0]}'
+            first = 'Kindergarten' if numbers[0] == 0 else f'Grades {numbers[0]}'
+            span = f'{first} to {numbers[-1]}' if len(numbers) > 1 else f'Grade {numbers[0]}'
             return chosen, key, f'{GRADE_SCOPES[key]} ({span})'
     one = next((g for g in grade_levels if str(g.id) == str(key)), None)
     if one:
@@ -278,11 +287,11 @@ def _dashboard_data(params, school):
         'school_years': school_years, 'sy': sy, 'periods': periods, 'period': period, 'prev_period': prev_period,
         'all_periods': all_periods, 'ref_period': ref_period, 'quarter_value': quarter_value,
         'period_name': shown_period, 'prev_period_name': period_name(prev_period),
-        'period_options': [{'value': q.quarter_label, 'name': period_name(q), 'current': q.is_current_quarter} for q in periods],
+        'period_options': [{'value': q.quarter_label, 'name': period_name(q), 'current': q == P.current(periods), 'locked': q.is_grades_locked} for q in periods],
         'view_mode': mode, 'families': families, 'family': family, 'all_families': all_families, 'subject': subject,
         'subject_groups': subject_groups, 'grade_levels': grade_levels, 'grade_id': grade_key, 'grade_label': grade_label,
         'grade_scopes': [{'value': k, 'name': _grade_scope(k, grade_levels)[2]} for k in GRADE_SCOPES
-                         if any(bool(g.is_senior_high) == (k == 'shs') for g in grade_levels)],
+                         if any(in_grade_scope(g, k) for g in grade_levels)],
         'scope_name': scope_name, 'scope_detail': scope_detail,
         'status': status, 'levels': policy.levels(), 'items': items, 'main': main, 'decisions': decisions,
         'ladder': ladder, 'ladder_word': item_word if items else '', 'ladder_rows': LADDER_ROWS, 'forecast': forecast_spec,

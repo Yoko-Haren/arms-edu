@@ -1,0 +1,5 @@
+<li data-find="{{ l.name|lower }}" data-count="{{ l.below|length }}" data-avg="{{ l.average|default_if_none:100|stringformat:'s' }}"><button type="button" data-learner="{{ l.index }}">
+    <span class="who">{{ l.name }}<small>average {{ l.average }}</small></span>
+    <span class="chips">{% for code in l.below %}<span class="chip">{{ code }}</span>{% endfor %}</span>
+    <span class="pill {% if l.outlook == 'retention' %}risk{% else %}warn{% endif %}">{% if l.outlook == 'retention' %}Retention risk{% else %}Remedial{% endif %} &middot; {{ l.below|length }}</span>
+</button></li>

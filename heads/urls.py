@@ -1,7 +1,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import views, views_academic, views_honors, views_performance, views_proposals, views_school_year, views_users
+from . import views, views_academic, views_honors, views_performance, views_school_year, views_users
 
 urlpatterns = [
     # Academic Dashboard (the principal's landing page) and Poro AI's recommendations on it
@@ -48,8 +48,6 @@ urlpatterns = [
     path('school-year/period/<int:period_id>/', views_school_year.period_update, name='heads-period-update'),
     path('school-year/grading-rules/', views_school_year.grading_policy_update, name='heads-grading-policy'),
 
-    # Page Proposals: pages that could come next, for discussion
-    path('proposals/', views_proposals.proposals, name='heads-proposals'),
 
     path('mark-notifications-read/', views.mark_notifications_read, name='heads-mark-notifications-read'),
 

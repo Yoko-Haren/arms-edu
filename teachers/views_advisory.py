@@ -64,7 +64,7 @@ def advisory(request):
         label = R.STATE_INFO[cell.get('state', 'not_started')]
         columns.append({'code': a.subject.subject_code, 'name': a.subject.subject_name, 'teacher': a.teacher.get_full_name() if a.teacher else '',
                         'graded': cell.get('graded', 0), 'total': cell.get('total', len(enrollments)), 'average': cell.get('average'),
-                        'below': cell.get('below', 0), 'state': cell.get('state', 'not_started'), 'state_label': label[0], 'tone': label[1]})
+                        'below': cell.get('below', 0), 'left': max(0, cell.get('total', len(enrollments)) - cell.get('graded', 0)), 'state': cell.get('state', 'not_started'), 'state_label': label[0], 'tone': label[1]})
 
     # one row per learner for the period, and each learner's record for the school year (the dialog)
     senior = section.grade_level.is_senior_high
@@ -101,12 +101,13 @@ def advisory(request):
                    key=lambda l: (-len(l['below']), l['average'] if l['average'] is not None else 100, l['name']))
     context.update({
         'periods': periods, 'period': period, 'current': current, 'period_name': P.name(period),
-        'columns': columns, 'learners': learners, 'needs': needs, 'average': average,
+        'columns': columns, 'columns_first': sorted(columns, key=lambda c: c['graded'] - c['total'])[:5], 'learners': learners,
+        'period_word': P.word(school, periods), 'needs': needs, 'average': average,
         'level': policy.level_of(average) if average is not None else None,
         'below_count': len(needs), 'retention': sum(1 for l in needs if l['outlook'] == 'retention'),
         'uploaded': sum(1 for c in columns if c['graded']), 'complete': sum(1 for c in columns if c['total'] and c['graded'] >= c['total']),
         'senior': senior, 'components': policy.components(),
-        'record': {'periods': [{'label': p.quarter_label, 'name': P.name(p)} for p in periods],
+        'record': {'word': P.word(school, periods), 'periods': [{'label': p.quarter_label, 'name': P.name(p)} for p in periods],
                    'period': period.quarter_label if period else '', 'learners': record,
                    'people': [{'name': l['name'], 'lrn': l['lrn'], 'sex': l['sex']} for l in learners]},
     })

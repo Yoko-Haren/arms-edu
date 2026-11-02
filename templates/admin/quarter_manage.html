@@ -1,723 +1,126 @@
 {% extends 'admin/base.html' %}
-{% load static %}
 
-{% block title %}Grading Periods{% endblock %}
-{% block page_title %}Grading Period Management{% endblock %}
-
-{% block extra_css %}
-<style>
-    /* ========== LAYOUT ========== */
-    .quarter-layout {
-        display: grid;
-        grid-template-columns: 420px 1fr;
-        gap: 1.5rem;
-        align-items: start;
-    }
-    @media (max-width: 1100px) { .quarter-layout { grid-template-columns: 1fr; } }
-
-    /* ========== FORM CARD ========== */
-    .form-card {
-        background: white;
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
-        box-shadow: var(--shadow-md);
-        border: 1px solid var(--gray-200);
-    }
-    .form-card-header {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        margin-bottom: 1.25rem;
-        padding-bottom: 0.85rem;
-        border-bottom: 2px solid var(--gray-100);
-    }
-    .form-card-header-icon {
-        width: 38px;
-        height: 38px;
-        border-radius: var(--radius-xs);
-        background: var(--primary-gradient);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 0.95rem;
-    }
-    .form-card-header h6 {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: var(--gray-700);
-        margin: 0;
-    }
-
-    .form-group {
-        margin-bottom: 1rem;
-    }
-    .form-label-sm {
-        display: block;
-        font-size: 0.68rem;
-        font-weight: 600;
-        color: var(--gray-500);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.3rem;
-    }
-    .form-label-sm.required::after {
-        content: ' *';
-        color: var(--danger);
-    }
-
-    .form-input,
-    .form-select-input {
-        width: 100%;
-        padding: 0.6rem 0.75rem;
-        border: 2px solid var(--gray-300);
-        border-radius: var(--radius-sm);
-        font-size: 0.8rem;
-        font-family: inherit;
-        background: var(--gray-50);
-        color: var(--gray-700);
-        transition: var(--transition);
-    }
-    .form-input:focus,
-    .form-select-input:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(18,52,153,0.08);
-        background: white;
-    }
-    .form-input::placeholder { color: #718096; }
-
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem;
-    }
-    @media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
-
-    .checkbox-group {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 0.75rem;
-        background: var(--gray-50);
-        border-radius: var(--radius-sm);
-        margin-bottom: 0.5rem;
-        cursor: pointer;
-        transition: var(--transition);
-    }
-    .checkbox-group:hover { background: var(--gray-100); }
-    .checkbox-group input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        accent-color: var(--primary);
-        cursor: pointer;
-    }
-    .checkbox-label {
-        font-size: 0.78rem;
-        font-weight: 500;
-        color: var(--gray-700);
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .btn-submit {
-        width: 100%;
-        padding: 0.7rem;
-        border: none;
-        border-radius: var(--radius-sm);
-        background: var(--primary-gradient);
-        color: white;
-        font-size: 0.8rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: var(--transition);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        font-family: inherit;
-        margin-top: 0.5rem;
-    }
-    .btn-submit:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(18,52,153,0.35);
-    }
-
-    /* ========== FILTER BAR ========== */
-    .inline-filter-card {
-        background: white;
-        border-radius: var(--radius-md);
-        padding: 0.9rem 1.2rem;
-        box-shadow: var(--shadow-xs);
-        border: 1px solid var(--gray-200);
-        margin-bottom: 1.25rem;
-    }
-    .inline-filter-row {
-        display: flex;
-        gap: 0.75rem;
-        align-items: end;
-    }
-    @media (max-width: 768px) { .inline-filter-row { flex-direction: column; } }
-
-    .filter-group-inline {
-        flex: 1;
-        min-width: 0;
-    }
-    .filter-group-inline label {
-        display: block;
-        font-size: 0.65rem;
-        font-weight: 600;
-        color: var(--gray-500);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.3rem;
-    }
-    .filter-select-inline {
-        width: 100%;
-        padding: 0.55rem 0.7rem;
-        border: 2px solid var(--gray-300);
-        border-radius: var(--radius-sm);
-        font-size: 0.78rem;
-        font-family: inherit;
-        background: var(--gray-50);
-        color: var(--gray-700);
-        cursor: pointer;
-        transition: var(--transition);
-    }
-    .filter-select-inline:focus {
-        outline: none;
-        border-color: var(--primary);
-    }
-
-    .btn-filter-sm {
-        padding: 0.55rem 1.1rem;
-        border: none;
-        border-radius: var(--radius-sm);
-        background: var(--primary-gradient);
-        color: white;
-        font-size: 0.78rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: var(--transition);
-        font-family: inherit;
-        white-space: nowrap;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-    .btn-filter-sm:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(18,52,153,0.3);
-    }
-
-    /* ========== SCHOOL YEAR GROUP ========== */
-    .sy-group {
-        margin-bottom: 1.75rem;
-    }
-    .sy-group-header {
-        background: var(--gray-900);
-        background: linear-gradient(135deg, #1a1a2e, #16213e);
-        color: white;
-        padding: 0.85rem 1.2rem;
-        border-radius: var(--radius-md);
-        margin-bottom: 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        box-shadow: var(--shadow-sm);
-    }
-    .sy-group-title {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        font-size: 0.85rem;
-        font-weight: 700;
-    }
-    .sy-group-title i { font-size: 0.9rem; opacity: 0.8; }
-    .sy-group-badges {
-        display: flex;
-        gap: 0.4rem;
-        flex-wrap: wrap;
-    }
-    .sy-badge-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-        padding: 0.25rem 0.7rem;
-        border-radius: 20px;
-        font-size: 0.65rem;
-        font-weight: 600;
-    }
-    .sy-badge-tag.current-sy { background: rgba(46,125,50,0.3); color: #a5d6a7; }
-    .sy-badge-tag.quarter-count { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); }
-
-    /* ========== QUARTER CARDS ========== */
-    .quarter-stack {
-        display: flex;
-        flex-direction: column;
-        gap: 0.6rem;
-    }
-
-    .quarter-card {
-        background: white;
-        border-radius: var(--radius-md);
-        box-shadow: var(--shadow-xs);
-        border: 1px solid var(--gray-200);
-        overflow: hidden;
-        transition: var(--transition);
-    }
-    .quarter-card:hover {
-        box-shadow: var(--shadow-md);
-    }
-    .quarter-card.current-highlight {
-        border-color: var(--success);
-        box-shadow: 0 2px 14px rgba(46,125,50,0.1);
-    }
-    .quarter-card.locked-dim {
-        opacity: 0.75;
-    }
-
-    .quarter-card-header {
-        padding: 0.85rem 1.2rem;
-        border-bottom: 1px solid var(--gray-100);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.5rem;
-        background: var(--gray-50);
-    }
-    .quarter-card-title {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-    }
-    .quarter-label-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: var(--radius-xs);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: white;
-        flex-shrink: 0;
-    }
-    .quarter-label-icon.q1 { background: linear-gradient(135deg, #1565C0, #1e88e5); }
-    .quarter-label-icon.q2 { background: linear-gradient(135deg, #2E7D32, #43a047); }
-    .quarter-label-icon.q3 { background: linear-gradient(135deg, #E65100, #f57c00); }
-    .quarter-label-icon.q4 { background: linear-gradient(135deg, #C62828, #e53935); }
-    .quarter-label-icon.t1, .quarter-label-icon.s1 { background: linear-gradient(135deg, #1565C0, #1e88e5); }
-    .quarter-label-icon.t2, .quarter-label-icon.s2 { background: linear-gradient(135deg, #2E7D32, #43a047); }
-    .quarter-label-icon.t3 { background: linear-gradient(135deg, #E65100, #f57c00); }
-
-    .period-edit { margin-top: 0.75rem; border-top: 1px dashed var(--gray-200); padding-top: 0.6rem; }
-    .period-edit summary { font-size: 0.7rem; font-weight: 600; color: var(--primary); cursor: pointer; }
-    .period-edit-form { display: flex; gap: 0.6rem; align-items: end; flex-wrap: wrap; margin-top: 0.6rem; }
-    .period-edit-form .form-group { margin-bottom: 0; }
-    .period-edit-form .checkbox-group { margin-bottom: 0; }
-    .period-edit-form .btn-filter-sm { height: 38px; }
-    .form-hint { font-size: 0.68rem; color: var(--gray-500); margin-top: 0.3rem; }
-
-    .quarter-label-text {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: var(--gray-700);
-    }
-    .quarter-tags-inline {
-        display: flex;
-        gap: 0.3rem;
-        flex-wrap: wrap;
-    }
-    .quarter-tag-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.2rem 0.6rem;
-        border-radius: 20px;
-        font-size: 0.62rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-    }
-    .quarter-tag-pill.current-tag {
-        background: var(--success-light);
-        color: var(--success);
-    }
-    .quarter-tag-pill.locked-tag {
-        background: var(--danger-light);
-        color: var(--danger);
-    }
-
-    .btn-delete-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: var(--radius-xs);
-        border: 1.5px solid var(--gray-300);
-        background: white;
-        color: var(--gray-500);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--transition);
-        font-size: 0.75rem;
-        padding: 0;
-    }
-    .btn-delete-icon:hover {
-        border-color: var(--danger);
-        background: var(--danger-light);
-        color: var(--danger);
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-xs);
-    }
-
-    .quarter-card-body {
-        padding: 0.85rem 1.2rem;
-    }
-    .quarter-detail-row {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.75rem;
-    }
-    @media (max-width: 480px) { .quarter-detail-row { grid-template-columns: 1fr 1fr; } }
-
-    .quarter-detail-item {
-        display: flex;
-        flex-direction: column;
-        gap: 0.1rem;
-    }
-    .quarter-detail-label {
-        font-size: 0.62rem;
-        color: var(--gray-500);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-    }
-    .quarter-detail-value {
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: var(--gray-700);
-    }
-
-    /* ========== EMPTY WITHIN GROUP ========== */
-    .empty-group-card {
-        background: white;
-        border-radius: var(--radius-md);
-        border: 2px dashed var(--gray-300);
-        border-left: 4px solid var(--warning);
-        text-align: center;
-        padding: 2rem 1.5rem;
-    }
-    .empty-group-icon {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        background: var(--warning-light);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 0.75rem;
-        font-size: 1.3rem;
-        color: var(--warning);
-    }
-    .empty-group-card p {
-        font-size: 0.8rem;
-        color: var(--gray-500);
-        margin: 0 0 0.75rem;
-    }
-    .btn-auto-create {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.5rem 1.1rem;
-        border-radius: 20px;
-        font-size: 0.73rem;
-        font-weight: 600;
-        text-decoration: none;
-        background: var(--warning);
-        color: white;
-        transition: var(--transition);
-    }
-    .btn-auto-create:hover {
-        background: #bf4400;
-        color: white;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(230,81,0,0.3);
-    }
-
-    /* ========== GLOBAL EMPTY STATE ========== */
-    .empty-state-card {
-        background: white;
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-sm);
-        border: 1px solid var(--gray-200);
-        text-align: center;
-        padding: 3rem 1.5rem;
-    }
-    .empty-state-circle {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        background: var(--gray-100);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 1.25rem;
-        font-size: 2rem;
-        color: #bdbdbd;
-    }
-    .empty-state-card h5 {
-        font-size: 1rem;
-        font-weight: 700;
-        color: var(--gray-700);
-        margin-bottom: 0.4rem;
-    }
-    .empty-state-card p {
-        font-size: 0.8rem;
-        color: var(--gray-500);
-        margin: 0;
-    }
-</style>
-{% endblock %}
+{% block title %}Grading Periods - ARMS{% endblock %}
+{% block subtitle %}Admin Portal &bull; Grading Periods{% endblock %}
 
 {% block content %}
+<div class="tp">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-clock" style="color:#123499;"></i> Grading periods</h2>
+            <p class="hint">Quarters, terms or semesters, as each school's period type says. Teachers upload grades into the current one.</p>
+        </div>
+    </section>
 
-<div class="quarter-layout">
-
-    <!-- LEFT COLUMN: Create Form -->
-    <div>
-        <div class="form-card">
-            <div class="form-card-header">
-                <div class="form-card-header-icon">
-                    <i class="fas fa-plus-circle"></i>
-                </div>
-                <h6>Add a Grading Period</h6>
-            </div>
-
-            <form method="POST">
+    <div class="ad-page wide-side">
+        <aside class="ad-side">
+            <form method="POST" class="card panel" aria-labelledby="newTitle">
                 {% csrf_token %}
-
-                <div class="form-group">
-                    <label class="form-label-sm required">School Year</label>
-                    <select name="school_year" id="periodSchoolYear" class="form-select-input" required>
-                        <option value="">Select School Year...</option>
-                        {% for sy in school_years %}
-                        <option value="{{ sy.id }}" {% if form.school_year.value|stringformat:"s" == sy.id|stringformat:"s" or not form.is_bound and selected_sy|stringformat:"s" == sy.id|stringformat:"s" %}selected{% endif %}>{{ sy.school.school_name }} — {{ sy.year_label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label-sm required" id="periodLabel">Period</label>
-                    <select name="quarter_number" id="periodNumber" class="form-select-input" required>
-                        <option value="">Select a school year first...</option>
-                    </select>
-                    <div class="form-hint" id="periodHint">The available periods depend on the school's Period Type.</div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label-sm required">Date Start</label>
-                        <input type="date" name="date_start" class="form-input" required>
+                <div class="panel-head"><h3 id="newTitle"><i class="fi fi-rr-plus" style="color:#123499;"></i> Add a grading period</h3></div>
+                <div class="ad-form">
+                    <label class="field"><span>School year <span class="req">*</span></span>
+                        <select name="school_year" id="periodSchoolYear" required>
+                            <option value="">Choose a school year</option>
+                            {% for sy in school_years %}<option value="{{ sy.id }}" {% if form.school_year.value|stringformat:"s" == sy.id|stringformat:"s" or not form.is_bound and selected_sy|stringformat:"s" == sy.id|stringformat:"s" %}selected{% endif %}>{{ sy.school.school_name }}, {{ sy.year_label }}</option>{% endfor %}
+                        </select></label>
+                    <label class="field"><span><span id="periodLabel">Period</span> <span class="req">*</span></span>
+                        <select name="quarter_number" id="periodNumber" required><option value="">Choose a school year first</option></select>
+                        <small id="periodHint">The periods depend on the school's period type.</small></label>
+                    <div class="ad-two">
+                        <label class="field"><span>Date start <span class="req">*</span></span><input type="date" name="date_start" id="newStart" required></label>
+                        <label class="field"><span>Date end <span class="req">*</span></span><input type="date" name="date_end" id="newEnd" required></label>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label-sm required">Date End</label>
-                        <input type="date" name="date_end" class="form-input" required>
-                    </div>
-                </div>
-
-                <label class="checkbox-group">
-                    <input type="checkbox" name="is_current_quarter">
-                    <span class="checkbox-label">Set as Current Period</span>
-                </label>
-
-                <button type="submit" class="btn-submit" id="periodSubmit">
-                    <i class="fas fa-save"></i> Add Period
-                </button>
-                <div class="form-hint">Grade encoding and validation deadlines default to 7 and 14 days after the period ends.</div>
-            </form>
-        </div>
-    </div>
-
-    <!-- RIGHT COLUMN: Periods List -->
-    <div>
-        <!-- Filters -->
-        <div class="inline-filter-card">
-            <form method="GET">
-                <div class="inline-filter-row">
-                    <div class="filter-group-inline">
-                        <label><i class="fas fa-building"></i> School</label>
-                        <select name="school" class="filter-select-inline" onchange="this.form.submit()">
-                            <option value="">All Schools</option>
-                            {% for s in schools %}
-                            <option value="{{ s.id }}" {% if selected_school|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>
-                                {{ s.school_name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="filter-group-inline">
-                        <label><i class="fas fa-calendar-alt"></i> School Year</label>
-                        <select name="school_year" class="filter-select-inline" onchange="this.form.submit()">
-                            <option value="">All School Years</option>
-                            {% for sy in school_years %}
-                            <option value="{{ sy.id }}" {% if selected_sy|stringformat:"s" == sy.id|stringformat:"s" %}selected{% endif %}>
-                                {{ sy.school.school_name }} — {{ sy.year_label }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <button type="submit" class="btn-filter-sm">
-                        <i class="fas fa-filter"></i> Filter
-                    </button>
+                    <label class="check"><input type="checkbox" name="is_current_quarter"><span>Set as the current period</span></label>
+                    <button type="submit" class="btn btn-main" id="periodSubmit" style="justify-content:center;"><i class="fi fi-rr-check"></i> Add period</button>
+                    <p class="hint" style="margin:0;">Encoding and validation deadlines default to 7 and 14 days after the period ends.</p>
                 </div>
             </form>
-        </div>
+        </aside>
 
-        <!-- Periods grouped by school year -->
-        {% for sy in grouped_school_years %}
-        <div class="sy-group">
-            <div class="sy-group-header">
-                <div class="sy-group-title">
-                    <i class="fas fa-calendar-alt"></i>
-                    {{ sy.school.school_name }} — {{ sy.year_label }}
-                </div>
-                <div class="sy-group-badges">
-                    {% if sy.is_current %}
-                    <span class="sy-badge-tag current-sy">
-                        <i class="fas fa-star"></i> Current SY
-                    </span>
-                    {% endif %}
-                    <span class="sy-badge-tag quarter-count">
-                        {{ sy.periods|length }} / {{ sy.period_cfg.count }} {{ sy.period_cfg.plural|lower }}
-                    </span>
-                </div>
-            </div>
+        <div class="ad-stack">
+            <section class="card panel" aria-label="Filters">
+                <form method="get" class="ad-filters" data-autosubmit>
+                    <label class="field" style="flex-basis:260px;"><span>School</span>
+                        <select name="school">
+                            <option value="">All schools</option>
+                            {% for s in schools %}<option value="{{ s.id }}" {% if selected_school|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }}</option>{% endfor %}
+                        </select></label>
+                    <label class="field" style="flex-basis:320px;"><span>School year</span>
+                        <select name="school_year">
+                            <option value="">All school years</option>
+                            {% for sy in school_years %}<option value="{{ sy.id }}" {% if selected_sy|stringformat:"s" == sy.id|stringformat:"s" %}selected{% endif %}>{{ sy.school.school_name }}, {{ sy.year_label }}</option>{% endfor %}
+                        </select></label>
+                </form>
+            </section>
 
-            <div class="quarter-stack">
+            {% for sy in grouped_school_years %}
+            <section class="card panel" aria-label="{{ sy.school.school_name }}, {{ sy.year_label }}">
+                <div class="panel-head">
+                    <h3><i class="fi fi-rr-calendar" style="color:#123499;"></i> {{ sy.school.school_name }}, {{ sy.year_label }}</h3>
+                    <div class="ad-count">{% if sy.is_current %}<span class="pill info">Current year</span>{% endif %}<span class="pill">{{ sy.periods|length }} of {{ sy.period_cfg.count }} {{ sy.period_cfg.plural|lower }}</span></div>
+                </div>
+
                 {% for quarter in sy.periods %}
-                <div class="quarter-card {% if quarter.is_current_quarter %}current-highlight{% endif %} {% if quarter.is_grades_locked %}locked-dim{% endif %}">
-                    <div class="quarter-card-header">
-                        <div class="quarter-card-title">
-                            <div class="quarter-label-icon {{ quarter.quarter_label|lower }}">
-                                <span>{{ quarter.quarter_label }}</span>
-                            </div>
-                            <span class="quarter-label-text">{{ sy.period_cfg.noun }} {{ quarter.quarter_number }}</span>
-                            <div class="quarter-tags-inline">
-                                {% if quarter.is_current_quarter %}
-                                <span class="quarter-tag-pill current-tag">
-                                    <i class="fas fa-star"></i> Current
-                                </span>
-                                {% endif %}
-                                {% if quarter.is_grades_locked %}
-                                <span class="quarter-tag-pill locked-tag">
-                                    <i class="fas fa-lock"></i> Locked
-                                </span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <form method="POST" action="{% url 'admin_panel:quarter_delete' quarter.id %}" style="display:contents;" data-confirm="Delete {{ quarter.quarter_label }}?">
+                <article class="ad-period {% if quarter.is_current_quarter %}current{% endif %}">
+                    <div class="ad-period-top">
+                        <h4><span class="code">{{ quarter.quarter_label }}</span> {{ sy.period_cfg.noun }} {{ quarter.quarter_number }}
+                            {% if quarter.is_current_quarter %}<span class="pill info">Current</span>{% endif %}
+                            {% if quarter.is_grades_locked %}<span class="pill warn"><i class="fi fi-rr-lock"></i> Locked</span>{% endif %}</h4>
+                        <form method="POST" action="{% url 'admin_panel:quarter_delete' quarter.id %}" data-confirm-title="Delete grading period" data-confirm-ok="Delete" data-confirm="Delete {{ quarter.quarter_label }} of {{ sy.year_label }}?" data-confirm-danger>
+                            {% csrf_token %}<button type="submit" class="btn btn-danger btn-sm" aria-label="Delete {{ quarter.quarter_label }}"><i class="fi fi-rr-trash"></i> Delete</button></form>
+                    </div>
+                    <div class="facts">
+                        <div><small>Start</small><b>{{ quarter.date_start|date:"M j, Y" }}</b></div>
+                        <div><small>End</small><b>{{ quarter.date_end|date:"M j, Y" }}</b></div>
+                        <div><small>Grades due</small><b>{{ quarter.grade_encoding_deadline|date:"M j, Y"|default:"Not set" }}</b></div>
+                    </div>
+                    <details class="ad-edit">
+                        <summary>Edit dates and status</summary>
+                        <form method="POST" action="{% url 'admin_panel:quarter_update' quarter.id %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn-delete-icon" title="Delete">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                            <label class="field"><span>Date start</span><input type="date" name="date_start" value="{{ quarter.date_start|date:'Y-m-d' }}" min="{{ sy.date_start|date:'Y-m-d' }}" max="{{ sy.date_end|date:'Y-m-d' }}" required></label>
+                            <label class="field"><span>Date end</span><input type="date" name="date_end" value="{{ quarter.date_end|date:'Y-m-d' }}" min="{{ sy.date_start|date:'Y-m-d' }}" max="{{ sy.date_end|date:'Y-m-d' }}" required></label>
+                            <div class="actions">
+                                <label class="check"><input type="checkbox" name="is_current_quarter" {% if quarter.is_current_quarter %}checked{% endif %}><span>Current</span></label>
+                                <label class="check"><input type="checkbox" name="is_grades_locked" {% if quarter.is_grades_locked %}checked{% endif %}><span>Grades locked</span></label>
+                                <button type="submit" class="btn btn-main btn-sm" style="margin-left:auto;"><i class="fi fi-rr-check"></i> Save</button>
+                            </div>
                         </form>
-                    </div>
-                    <div class="quarter-card-body">
-                        <div class="quarter-detail-row">
-                            <div class="quarter-detail-item">
-                                <span class="quarter-detail-label">Date Start</span>
-                                <span class="quarter-detail-value">{{ quarter.date_start|date:"M d, Y" }}</span>
-                            </div>
-                            <div class="quarter-detail-item">
-                                <span class="quarter-detail-label">Date End</span>
-                                <span class="quarter-detail-value">{{ quarter.date_end|date:"M d, Y" }}</span>
-                            </div>
-                            <div class="quarter-detail-item">
-                                <span class="quarter-detail-label">Grade Encoding Deadline</span>
-                                <span class="quarter-detail-value">{{ quarter.grade_encoding_deadline|date:"M d, Y" }}</span>
-                            </div>
-                        </div>
-
-                        <details class="period-edit">
-                            <summary><i class="fas fa-edit"></i> Edit dates &amp; status</summary>
-                            <form method="POST" action="{% url 'admin_panel:quarter_update' quarter.id %}" class="period-edit-form">
-                                {% csrf_token %}
-                                <div class="form-group">
-                                    <label class="form-label-sm">Date Start</label>
-                                    <input type="date" name="date_start" class="form-input" value="{{ quarter.date_start|date:'Y-m-d' }}" min="{{ sy.date_start|date:'Y-m-d' }}" max="{{ sy.date_end|date:'Y-m-d' }}" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label-sm">Date End</label>
-                                    <input type="date" name="date_end" class="form-input" value="{{ quarter.date_end|date:'Y-m-d' }}" min="{{ sy.date_start|date:'Y-m-d' }}" max="{{ sy.date_end|date:'Y-m-d' }}" required>
-                                </div>
-                                <label class="checkbox-group">
-                                    <input type="checkbox" name="is_current_quarter" {% if quarter.is_current_quarter %}checked{% endif %}>
-                                    <span class="checkbox-label">Current</span>
-                                </label>
-                                <label class="checkbox-group">
-                                    <input type="checkbox" name="is_grades_locked" {% if quarter.is_grades_locked %}checked{% endif %}>
-                                    <span class="checkbox-label">Grades locked</span>
-                                </label>
-                                <button type="submit" class="btn-filter-sm"><i class="fas fa-save"></i> Save</button>
-                            </form>
-                        </details>
-                    </div>
-                </div>
+                    </details>
+                </article>
                 {% endfor %}
 
                 {% if sy.missing_periods %}
-                <div class="empty-group-card">
-                    <div class="empty-group-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <p>
-                        {% if sy.periods %}{{ sy.missing_periods }} of {{ sy.period_cfg.count }} {{ sy.period_cfg.plural|lower }} still missing for this school year.{% else %}No {{ sy.period_cfg.plural|lower }} created for this school year yet.{% endif %}
-                    </p>
+                <div class="note" style="margin-top:0.6rem;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                    <span>{% if sy.periods %}{{ sy.missing_periods }} of {{ sy.period_cfg.count }} {{ sy.period_cfg.plural|lower }} still missing.{% else %}No {{ sy.period_cfg.plural|lower }} for this school year yet.{% endif %}</span>
                     <form method="POST" action="{% url 'admin_panel:quarter_bulk_create' sy.id %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <button type="submit" class="btn-auto-create" style="border:none;cursor:pointer;font-family:inherit;">
-                            <i class="fas fa-magic"></i> Auto-create {% if sy.periods %}the missing{% else %}all {{ sy.period_cfg.count }}{% endif %} {{ sy.period_cfg.plural }}
-                        </button>
+                        {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="btn btn-main btn-sm"><i class="fi fi-rr-plus"></i> Create {% if sy.periods %}the missing{% else %}all {{ sy.period_cfg.count }}{% endif %} {{ sy.period_cfg.plural|lower }}</button>
                     </form>
                 </div>
                 {% endif %}
-            </div>
+            </section>
+            {% empty %}
+            <section class="card panel"><p class="empty"><i class="fi fi-rr-clock"></i>Grading periods belong to a school year. <a href="{% url 'admin_panel:school_year_manage' %}">Create a school year first</a>.</p></section>
+            {% endfor %}
         </div>
-        {% empty %}
-        <div class="empty-state-card">
-            <div class="empty-state-circle">
-                <i class="fas fa-clock"></i>
-            </div>
-            <h5>No School Years Found</h5>
-            <p>Grading periods belong to a school year. <a href="{% url 'admin_panel:school_year_manage' %}">Create a school year first</a>.</p>
-        </div>
-        {% endfor %}
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
+(function () {
     var schoolYearSelect = document.getElementById('periodSchoolYear');
     var periodSelect = document.getElementById('periodNumber');
-    var startDateInput = document.querySelector('input[name="date_start"]');
-    var endDateInput = document.querySelector('input[name="date_end"]');
+    var startInput = document.getElementById('newStart'), endInput = document.getElementById('newEnd');
 
-    // Per school year: dates, period wording/count (from the school's period type), periods already created
+    // per school year: dates, period wording and count (from the school's period type), periods already created
     var schoolYears = {};
     {% for sy in school_years %}
     schoolYears[{{ sy.id }}] = {
-        start: '{{ sy.date_start|date:"Y-m-d" }}',
-        end: '{{ sy.date_end|date:"Y-m-d" }}',
-        count: {{ sy.period_cfg.count }},
-        prefix: '{{ sy.period_cfg.prefix }}',
-        noun: '{{ sy.period_cfg.noun }}',
+        start: '{{ sy.date_start|date:"Y-m-d" }}', end: '{{ sy.date_end|date:"Y-m-d" }}',
+        count: {{ sy.period_cfg.count }}, prefix: '{{ sy.period_cfg.prefix }}', noun: '{{ sy.period_cfg.noun }}',
         taken: [{% for q in sy.periods %}{{ q.quarter_number }}{% if not forloop.last %}, {% endif %}{% endfor %}]
     };
     {% endfor %}
@@ -725,48 +128,44 @@
     var DAY = 86400000;
     function iso(date) { return date.toISOString().split('T')[0]; }
 
-    // Offer only the periods this school year can still have
+    // offer only the periods this school year can still have
     function fillPeriods() {
         var sy = schoolYears[schoolYearSelect.value];
         periodSelect.innerHTML = '';
         if (!sy) {
-            periodSelect.add(new Option('Select a school year first...', ''));
+            periodSelect.add(new Option('Choose a school year first', ''));
             document.getElementById('periodLabel').textContent = 'Period';
             document.getElementById('periodSubmit').disabled = true;
             return;
         }
         document.getElementById('periodLabel').textContent = sy.noun;
         for (var n = 1; n <= sy.count; n++) {
-            if (sy.taken.indexOf(n) === -1) {
-                periodSelect.add(new Option(sy.prefix + n + ' (' + sy.noun + ' ' + n + ')', n));
-            }
+            if (sy.taken.indexOf(n) === -1) periodSelect.add(new Option(sy.prefix + n + ' (' + sy.noun + ' ' + n + ')', n));
         }
         var full = periodSelect.options.length === 0;
         if (full) periodSelect.add(new Option('All ' + sy.count + ' already created', ''));
         document.getElementById('periodSubmit').disabled = full;
-        document.getElementById('periodHint').textContent =
-            'This school uses ' + sy.count + ' ' + sy.noun.toLowerCase() + 's per school year.';
-        startDateInput.min = endDateInput.min = sy.start;
-        startDateInput.max = endDateInput.max = sy.end;
+        document.getElementById('periodHint').textContent = 'This school uses ' + sy.count + ' ' + sy.noun.toLowerCase() + 's per school year.';
+        startInput.min = endInput.min = sy.start;
+        startInput.max = endInput.max = sy.end;
         suggestDates();
     }
 
-    // Suggest an even split of the school year; the admin can adjust the dates
+    // suggest an even split of the school year; the admin can adjust the dates
     function suggestDates() {
-        var sy = schoolYears[schoolYearSelect.value];
-        var n = parseInt(periodSelect.value, 10);
+        var sy = schoolYears[schoolYearSelect.value], n = parseInt(periodSelect.value, 10);
         if (!sy || !n) return;
-        var start = new Date(sy.start + 'T00:00:00Z');
-        var end = new Date(sy.end + 'T00:00:00Z');
+        var start = new Date(sy.start + 'T00:00:00Z'), end = new Date(sy.end + 'T00:00:00Z');
         var length = Math.floor(((end - start) / DAY + 1) / sy.count);
         var periodStart = new Date(start.getTime() + length * (n - 1) * DAY);
         var periodEnd = n === sy.count ? end : new Date(periodStart.getTime() + (length - 1) * DAY);
-        startDateInput.value = iso(periodStart);
-        endDateInput.value = iso(periodEnd);
+        startInput.value = iso(periodStart);
+        endInput.value = iso(periodEnd);
     }
 
     schoolYearSelect.addEventListener('change', fillPeriods);
     periodSelect.addEventListener('change', suggestDates);
     fillPeriods();
+})();
 </script>
 {% endblock %}

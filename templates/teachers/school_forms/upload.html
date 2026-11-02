@@ -1,0 +1,140 @@
+{% extends 'teachers/base.html' %}
+{% load static %}
+
+{% block title %}Upload a School Form{% endblock %}
+{% block subtitle %}School Forms &bull; Upload{% if sy %} &bull; SY {{ sy.year_label }}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .up { max-width: 920px; width: 100%; margin: 0 auto; }
+    .up-form { padding: 1.15rem 1.25rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+    .up-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 0.9rem; }
+    .step-no { width: 19px; height: 19px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 0.66rem; font-weight: 700;
+               display: inline-flex; align-items: center; justify-content: center; margin-right: 0.35rem; }
+    .drop { position: relative; border: 2px dashed #cfd8ea; border-radius: 14px; padding: 1.6rem 1rem; text-align: center; background: var(--soft);
+            transition: border-color 0.15s, background 0.15s; cursor: pointer; }
+    .drop:hover, .drop.over { border-color: var(--brand); background: var(--brand-soft); }
+    .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop i.big { font-size: 1.9rem; color: var(--brand); display: block; margin-bottom: 0.4rem; }
+    .drop b { display: block; font-size: 0.92rem; }
+    .drop small { color: var(--muted); font-size: 0.78rem; }
+    .drop .picked { margin-top: 0.6rem; font-weight: 650; color: var(--brand); font-size: 0.86rem; }
+    .up-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+    .kind-tabs { display: inline-flex; gap: 0.25rem; padding: 0.25rem; border-radius: 12px; background: var(--soft); border: 1px solid var(--line); flex-wrap: wrap; }
+    .kind-tabs a { padding: 0.42rem 0.85rem; border-radius: 9px; font-size: 0.82rem; font-weight: 650; color: var(--muted); text-decoration: none; }
+    .kind-tabs a[aria-current="page"] { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(18, 52, 153, 0.12); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp up">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-upload" style="color:#123499;"></i> Upload a school form</h2>
+            <p class="hint">Upload the form you filled in. Nothing is saved until you check every learner on the next page.</p>
+        </div>
+        <a class="btn btn-line btn-sm" href="{% url 'teachers:school_forms' %}?section={{ section.id }}"><i class="fi fi-rr-arrow-small-left"></i> School forms</a>
+    </section>
+
+    {% if error %}<div class="note risk" role="alert"><i class="fi fi-rr-exclamation"></i><span>{{ error }}</span></div>{% endif %}
+
+    <nav class="kind-tabs" aria-label="Which form">
+        {% for code, k in kinds.items %}<a href="?kind={{ code }}&amp;section={{ section.id }}" {% if code == kind %}aria-current="page"{% endif %}>{{ k.badge }}: {{ k.title }}</a>{% endfor %}
+    </nav>
+
+    <form class="card up-form" method="post" enctype="multipart/form-data" id="upForm">
+        {% csrf_token %}
+        <input type="hidden" name="kind" value="{{ kind }}">
+        <div class="up-steps">
+            <label class="field"><span><i class="step-no">1</i>Class</span>
+                <select name="section">
+                    {% for s in sections %}<option value="{{ s.id }}" {% if s.id == section.id %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}
+                </select>
+            </label>
+            {% if kind == 'SF2' %}
+            <label class="field"><span><i class="step-no">2</i>Month</span>
+                <select name="month">{% for number, label in months %}<option value="{{ number }}" {% if number == month %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            </label>
+            {% elif kind == 'SF8' %}
+            <label class="field"><span><i class="step-no">2</i>Weighing</span>
+                <select name="stage">{% for value, label in stages %}<option value="{{ value }}" {% if value == stage %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            </label>
+            {% endif %}
+        </div>
+        <div class="field">
+            <span><i class="step-no">{% if kind == 'SF3' %}2{% else %}3{% endif %}</i>File</span>
+            <label class="drop" id="drop">
+                <input type="file" name="file" id="upFile" accept=".xlsx,.xlsm,.xls" required>
+                <i class="fi fi-rr-file-excel big"></i>
+                <b>Drop the filled-in {{ kind }} here, or choose it</b>
+                <small>The Excel file (.xlsx or .xls), up to 15 MB.</small>
+                <div class="picked" id="picked"></div>
+            </label>
+        </div>
+        <div class="up-actions">
+            <a class="btn btn-ghost btn-sm" href="{% url 'teachers:section_form' section.id %}?code={{ kind }}{% if kind == 'SF2' %}&amp;month={{ month }}{% elif kind == 'SF8' %}&amp;stage={{ stage }}{% endif %}"><i class="fi fi-rr-download"></i> Get this form with your class in it</a>
+            <button type="submit" class="btn btn-main" id="upGo"><i class="fi fi-rr-search"></i> Read and check the file</button>
+        </div>
+    </form>
+
+    <section class="card file-guide" aria-labelledby="guideTitle">
+        <h3 id="guideTitle"><i class="fi fi-rr-picture" style="color:#123499;"></i> Which file to upload</h3>
+        {% if kind == 'SF2' %}
+        <p class="hint">Your class's SF2 for the month, the one ARMS gives you or DepEd's own.</p>
+        <button type="button" class="guide-shot" data-guide-open="guideForm" aria-label="Enlarge the SF2 picture">
+            <img src="{% static 'shared/guides/sf2-guide.png' %}" loading="lazy" alt="SF2: learners' names (1), the dates (2), the daily marks (3), the month's totals (4) and the remarks (5) are marked.">
+            <span><i class="fi fi-rr-expand"></i> Enlarge</span>
+        </button>
+        {% include 'teachers/school_forms/_keys_sf2.html' %}
+        {% elif kind == 'SF3' %}
+        <p class="hint">Your class's SF3: one column for each book, with the dates it was issued and returned.</p>
+        <button type="button" class="guide-shot" data-guide-open="guideForm" aria-label="Enlarge the SF3 picture">
+            <img src="{% static 'shared/guides/sf3-guide.png' %}" loading="lazy" alt="SF3: learners' names (1), the book titles (2), the issued and returned dates (3) and the remarks (4) are marked.">
+            <span><i class="fi fi-rr-expand"></i> Enlarge</span>
+        </button>
+        {% include 'teachers/school_forms/_keys_sf3.html' %}
+        {% else %}
+        <p class="hint">Your class's SF8 with each learner's weight and height. Fill it in at the start of the year and again at the end.</p>
+        <button type="button" class="guide-shot" data-guide-open="guideForm" aria-label="Enlarge the SF8 picture">
+            <img src="{% static 'shared/guides/sf8-guide.png' %}" loading="lazy" alt="SF8: learners' names (1), weight and height (2), BMI category and height for age (3) and the remarks (4) are marked.">
+            <span><i class="fi fi-rr-expand"></i> Enlarge</span>
+        </button>
+        {% include 'teachers/school_forms/_keys_sf8.html' %}
+        {% endif %}
+        <ul class="guide-steps">
+            <li><b>Start from the form ARMS gives you.</b> Your learners are already in it, in DepEd's order.</li>
+            <li><b>Every row must belong to one learner of the class.</b> Names that are only similar are shown for you to settle.</li>
+            <li><b>Uploading again replaces what was saved</b> for that {% if kind == 'SF2' %}month{% elif kind == 'SF8' %}weighing{% else %}class{% endif %}.</li>
+        </ul>
+    </section>
+
+    <div class="tp-modal" id="guideForm" role="dialog" aria-modal="true" aria-labelledby="guideFormTitle" hidden>
+        <div class="tp-modal-card guide-modal" tabindex="-1">
+            <div class="tp-modal-head">
+                <div><h3 id="guideFormTitle">{{ kind }}: what ARMS reads</h3><p class="hint">The numbers match the list below the picture. Scroll sideways on a small screen.</p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="tp-modal-body">
+                <div class="guide-big">{% if kind == 'SF2' %}<img src="{% static 'shared/guides/sf2-guide.png' %}" loading="lazy" style="min-width:1100px;" alt="The SF2 with its parts numbered.">{% elif kind == 'SF3' %}<img src="{% static 'shared/guides/sf3-guide.png' %}" loading="lazy" style="min-width:1100px;" alt="The SF3 with its parts numbered.">{% else %}<img src="{% static 'shared/guides/sf8-guide.png' %}" loading="lazy" style="min-width:1100px;" alt="The SF8 with its parts numbered.">{% endif %}</div>
+                {% if kind == 'SF2' %}{% include 'teachers/school_forms/_keys_sf2.html' %}{% elif kind == 'SF3' %}{% include 'teachers/school_forms/_keys_sf3.html' %}{% else %}{% include 'teachers/school_forms/_keys_sf8.html' %}{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'shared/js/file-guide.js' %}"></script>
+<script>
+(function () {
+    var file = document.getElementById('upFile'), drop = document.getElementById('drop');
+    file.addEventListener('change', function () { document.getElementById('picked').textContent = file.files[0] ? file.files[0].name : ''; });
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function () { drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function () { drop.classList.remove('over'); }); });
+    document.getElementById('upForm').addEventListener('submit', function () {
+        var b = document.getElementById('upGo');
+        b.disabled = true; b.innerHTML = '<i class="fi fi-rr-refresh"></i> Reading the file&hellip;';
+    });
+})();
+</script>
+{% endblock %}

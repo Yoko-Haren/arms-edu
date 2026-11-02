@@ -120,7 +120,7 @@
                    c.periods.find(function (p) { return !p.locked; });
         c.periods.forEach(function (p) {
             var o = document.createElement('option');
-            o.value = p.id; o.textContent = p.name + (p.current ? ' (current)' : '') + (p.locked ? ' (locked)' : '');
+            o.value = p.id; o.textContent = p.name + (p.locked ? ' (locked)' : p.current ? ' (current)' : '');
             o.disabled = p.locked;
             if (pick && p.id === pick.id) o.selected = true;
             per.appendChild(o);

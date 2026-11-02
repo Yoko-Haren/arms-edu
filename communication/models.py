@@ -60,6 +60,7 @@ NOTIFICATION_TYPE_CHOICES = [
     ('FORM_SUBMISSION_DEADLINE', 'SF1/SF2/SF9 submission due soon'),
     ('FORM_RETURNED', 'Submitted form returned for revision'),
     ('FORM_APPROVED', 'Form approved by registrar/head'),
+    ('LEARNER_MOVEMENT', 'Adviser noted a learner movement on SF2'),
     ('ANNOUNCEMENT_POSTED', 'New announcement posted'),
     ('ANNOUNCEMENT_URGENT', 'Urgent announcement'),
     ('TRANSFER_REQUEST', 'New transfer request needs action'),

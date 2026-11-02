@@ -402,6 +402,8 @@ class Semester(models.Model):
 # =============================================================================
 class GradeLevel(models.Model):
     LEVEL_CATEGORY_CHOICES = [
+        ('KINDER', 'Kindergarten'),
+        ('ELEM', 'Elementary'),
         ('JHS', 'Junior High School'),
         ('SHS', 'Senior High School'),
     ]
@@ -423,13 +425,13 @@ class GradeLevel(models.Model):
         help_text="e.g., 'Grade 7', 'Grade 11'.",
     )
     grade_number = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(7), MaxValueValidator(12)],
-        help_text="Numeric grade level (7-12).",
+        validators=[MinValueValidator(0), MaxValueValidator(12)],
+        help_text="Numeric grade level (0 for Kindergarten, then 1-12).",
     )
     level_category = models.CharField(
         max_length=20,
         choices=LEVEL_CATEGORY_CHOICES,
-        help_text="JHS covers Grades 7-10, SHS covers Grades 11-12.",
+        help_text="Elementary covers Grades 1-6, JHS Grades 7-10, SHS Grades 11-12.",
     )
     is_senior_high = models.BooleanField(
         default=False,

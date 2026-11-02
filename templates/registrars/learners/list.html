@@ -1,0 +1,129 @@
+{% extends 'registrars/base.html' %}
+
+{% block title %}Learners - ARMS{% endblock %}
+{% block subtitle %}Learners{% if current_sy %} &bull; SY {{ current_sy.year_label }}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ll-filters { display: grid; grid-template-columns: minmax(200px, 1.6fr) repeat(5, minmax(120px, 1fr)); gap: 0.6rem; align-items: end; }
+    @media (max-width: 1100px) { .ll-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ll-filters .ll-q { grid-column: 1 / -1; } }
+    @media (max-width: 520px) { .ll-filters { grid-template-columns: minmax(0, 1fr); } }
+    .ll-filters select, .ll-filters input { width: 100%; }
+    .ll-bar { display: flex; justify-content: space-between; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    .ll-bar .hint { margin: 0; }
+    .ll-sort { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; font-weight: 650; color: var(--muted); }
+    .ll-sort select { width: auto; }
+    .ll-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; margin-top: 0.8rem; }
+    .ll-table th, .ll-table td { white-space: nowrap; }
+    .ll-table a { color: var(--ink); font-weight: 650; text-decoration: none; }
+    .ll-table a:hover { color: var(--brand); text-decoration: underline; }
+    .ll-table small { display: block; color: var(--muted); font-size: 0.74rem; font-weight: 500; }
+    .ll-pages { display: flex; justify-content: space-between; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin-top: 0.8rem; }
+    .ll-pages .hint { margin: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-graduation-cap" style="color:#123499;"></i> Learners</h2>
+            <p class="hint">{% if current_sy %}Everyone registered in SY {{ current_sy.year_label }}. Open a learner for the record, the report card and any transfer or drop-out.{% else %}Learners appear here once a school year has enrollment.{% endif %}</p>
+        </div>
+        <div class="actions">
+            {% if years %}
+            <form method="get">
+                <select name="sy" aria-label="School year" onchange="this.form.submit()">
+                    {% for y in years %}<option value="{{ y.id }}" {% if y.id == current_sy.id %}selected{% endif %}>SY {{ y.year_label }}{% if y.is_current %} (current){% endif %}</option>{% endfor %}
+                </select>
+            </form>
+            {% endif %}
+            <a class="btn btn-main" href="{% url 'registrars:upload_class_list' %}"><i class="fi fi-rr-user-add"></i> Enroll from SF1</a>
+        </div>
+    </section>
+
+    {% if no_year %}
+    <section class="card"><p class="empty"><i class="fi fi-rr-calendar"></i>There is no school year yet.</p></section>
+    {% else %}
+    <div class="tiles" style="--tiles:4">
+        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-users-alt"></i></span><div><span>Enrolled</span><b>{{ counts.active }}</b><small>active this school year</small></div></div>
+        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-user"></i></span><div><span>Male</span><b>{{ counts.male }}</b><small>enrolled</small></div></div>
+        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-user"></i></span><div><span>Female</span><b>{{ counts.female }}</b><small>enrolled</small></div></div>
+        <div class="card tile {% if counts.left %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-exit"></i></span><div><span>Left</span><b>{{ counts.left }}</b><small>transferred out or dropped</small></div></div>
+    </div>
+
+    <section class="card panel" aria-labelledby="listTitle">
+        <h3 id="listTitle" class="sr-only">Learner list</h3>
+        <form method="get" id="llForm">
+            {% if not current_sy.is_current %}<input type="hidden" name="sy" value="{{ current_sy.id }}">{% endif %}
+            <div class="ll-filters">
+                <label class="field ll-q"><span>Search</span><input type="search" name="q" value="{{ q }}" placeholder="Name or LRN"></label>
+                <label class="field"><span>Grade</span>
+                    <select name="grade" data-auto><option value="">All grades</option>{% for g in grades %}<option value="{{ g.id }}" {% if grade == g.id|stringformat:"s" %}selected{% endif %}>{{ g.grade_name }}</option>{% endfor %}</select></label>
+                <label class="field"><span>Section</span>
+                    <select name="section" data-auto><option value="">All sections</option>{% for s in sections %}<option value="{{ s.id }}" {% if section == s.id|stringformat:"s" %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}</select></label>
+                <label class="field"><span>Status</span>
+                    <select name="status" data-auto>
+                        <option value="">Everyone</option>
+                        <option value="active" {% if status == 'active' %}selected{% endif %}>Enrolled</option>
+                        <option value="left" {% if status == 'left' %}selected{% endif %}>Left the school</option>
+                        <option value="Transferred_In" {% if status == 'Transferred_In' %}selected{% endif %}>Transferred in</option>
+                        <option value="Transferred_Out" {% if status == 'Transferred_Out' %}selected{% endif %}>Transferred out</option>
+                        <option value="Dropped" {% if status == 'Dropped' %}selected{% endif %}>Dropped out</option>
+                    </select></label>
+                <label class="field"><span>Sex</span>
+                    <select name="sex" data-auto><option value="">All</option><option value="M" {% if sex == 'M' %}selected{% endif %}>Male</option><option value="F" {% if sex == 'F' %}selected{% endif %}>Female</option></select></label>
+                <label class="field"><span>Group</span>
+                    <select name="group" data-auto><option value="">All learners</option>{% for key, label in groups %}<option value="{{ key }}" {% if group == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+            </div>
+            <div class="ll-bar">
+                <p class="hint"><b>{{ total }}</b> learner{{ total|pluralize }}{% if filtered %} found &middot; <a href="{% url 'registrars:learner_list' %}{% if not current_sy.is_current %}?sy={{ current_sy.id }}{% endif %}">Clear filters</a>{% endif %}</p>
+                <label class="ll-sort">Sort by
+                    <select name="sort" data-auto>{% for key, label in sorts %}<option value="{{ key }}" {% if sort == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                </label>
+            </div>
+            <noscript><button class="btn btn-line btn-sm" type="submit">Apply</button></noscript>
+        </form>
+
+        {% if learners %}
+        <div class="ll-wrap">
+            <table class="table ll-table">
+                <thead><tr><th scope="col">Learner</th><th scope="col">Grade and section</th><th scope="col">Sex</th><th scope="col" class="num">Age</th><th scope="col">Adviser</th><th scope="col">Status</th></tr></thead>
+                <tbody>
+                    {% for l in learners %}
+                    <tr>
+                        <td><a href="{% url 'registrars:learner_detail' l.id %}">{{ l.name }}</a><small>{% if l.lrn %}LRN {{ l.lrn }}{% else %}No LRN{% endif %}</small></td>
+                        <td>{{ l.grade }} {{ l.section }}</td>
+                        <td>{{ l.sex }}</td>
+                        <td class="num">{{ l.age|default_if_none:"&mdash;" }}</td>
+                        <td>{{ l.adviser|default:"&mdash;" }}</td>
+                        <td><span class="pill {{ l.status.tone }}">{{ l.status.label }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="ll-pages">
+            <p class="hint">Showing {{ page.start_index }} to {{ page.end_index }} of {{ total }}</p>
+            <div class="actions">
+                {% if page.has_previous %}<a class="btn btn-line btn-sm" href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.previous_page_number }}"><i class="fi fi-rr-angle-small-left"></i> Previous</a>{% endif %}
+                {% if page.has_next %}<a class="btn btn-line btn-sm" href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.next_page_number }}">Next <i class="fi fi-rr-angle-small-right"></i></a>{% endif %}
+            </div>
+        </div>
+        {% else %}
+        <p class="empty"><i class="fi fi-rr-search"></i>{% if filtered %}No learner matches these filters.{% else %}No learner is enrolled in this school year yet.{% endif %}</p>
+        {% endif %}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var form = document.getElementById('llForm');
+    if (!form) return;
+    form.querySelectorAll('[data-auto]').forEach(function (el) { el.addEventListener('change', function () { form.submit(); }); });
+})();
+</script>
+{% endblock %}

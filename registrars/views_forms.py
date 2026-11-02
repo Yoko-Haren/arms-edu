@@ -1,42 +1,49 @@
-"""Registrar: the DepEd school forms (SF1 to SF7, the summaries) filled from ARMS, ready to download.
+"""Registrar: the DepEd school forms (SF1 to SF9, the summaries) filled from ARMS, ready to download.
 
 The forms are DepEd's own templates (documentation.school_forms). The page offers every form with
 what it needs (a section, a month, a semester, Junior or Senior High), the school year to report
 on, and the header every form carries (region, division, district), which ARMS learns from the
-SF1 the registrar imports and the registrar may correct here.
+SF1 the registrar imports and the registrar may correct here. A year's grading system decides what the forms print:
+terms in a three-term year, quarters and semesters otherwise. The advisers' uploads show here too, because SF4 and SF9
+are only as complete as they are.
 """
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
 
-from academics.models import Quarter, SchoolYear, Section
+from academics.models import SchoolYear, Section
+from core import periods as P
 from core import school_header
 from enrollment.models import Enrollment
 from documentation import form_data as FD
+from documentation import form_uploads as FU
 from documentation import school_forms as SF
+from documentation import sf9 as SF9
 
 XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 # The cards of the page, in DepEd's order: what each form is, what it is filled from, what it asks for
 CARDS = (
-    ('SF1', 'School Register', 'Every learner with LRN, birth date, address, parents or guardian and REMARKS codes.',
+    ('SF1', 'School Register', 'Every learner with LRN, birth date, address, parents or guardian and REMARKS codes, from the SF1 you imported.',
      'section', ('semester',)),
-    ('SF2', 'Daily Attendance Report', 'School days of the month, each learner\'s absences and tardiness, and the summary box.',
+    ('SF2', 'Daily Attendance Report', 'The adviser\'s upload: each learner\'s absences and tardiness, and the summary box.',
      'section', ('month', 'semester')),
-    ('SF3', 'Books Issued and Returned', 'The class list with the section\'s subjects as the book titles; dates are filled by hand.',
+    ('SF3', 'Books Issued and Returned', 'The class list with the titles and dates from the adviser\'s upload.',
      'section', ('semester',)),
-    ('SF4', "Monthly Learner's Movement", 'Every section: registered learners, average daily attendance, dropouts and transfers.',
+    ('SF4', "Monthly Learner's Movement", 'Every section\'s SF2 added up: registered learners, average daily attendance, dropouts and transfers.',
      'school', ('month', 'level', 'semester')),
-    ('SF5', 'Report on Promotion', 'General average and action taken (Grades 7 to 10); end-of-semester status SF5A (Senior High).',
+    ('SF5', 'Report on Promotion', 'General average and action taken (Grades 7 to 10); end-of-{word} status SF5A (Senior High).',
      'section', ('semester',)),
-    ('SF5B', 'SHS Completers', 'Grade 12 learners who completed every subject of both semesters.', 'section12', ()),
-    ('SF6', 'Summarized Promotion Report', 'Promoted, conditional and retained, and the learning progress, by grade level.',
+    ('SF5B', 'SHS Completers', 'Grade 12 learners who completed every subject of the school year.', 'section12', ()),
+    ('SF6', 'Summarized Promotion Report', 'Every SF5 added up: promoted, conditional and retained, and the learning progress, by grade level.',
      'school', ('level', 'semester')),
     ('SF7', 'Personnel Assignment List', 'Staff by position with their subjects, sections, advisory and teaching minutes.',
      'school', ('level', 'semester')),
-    ('SUMMARY', 'Summary of Final Grades', 'Each learner\'s quarterly grades in the eight learning areas; the sheet computes the '
+    ('SF8', 'Health and Nutrition', 'The adviser\'s upload: weight and height, with the BMI worked out.', 'section', ('stage',)),
+    ('SF9', 'SF9 Workbook', 'DepEd\'s workbook for the class: Input Data, the term summaries, the report card and attendance.', 'section', ()),
+    ('SUMMARY', 'Summary of Final Grades', 'Each learner\'s {word} grades in the eight learning areas; the sheet computes the '
      'final grades and the general average.', 'section_jhs', ()),
 )
 
@@ -66,6 +73,13 @@ def school_forms(request):
     sy = _chosen_year(request, school, years)
     if request.method == 'POST' and request.POST.get('action') == 'header':
         saved = school_header.save(school, {f: request.POST.get(f, '') for f in school_header.FIELDS}, request.user)
+        logo = request.FILES.get('logo')
+        if logo:
+            try:
+                school_header.save_logo(school, logo, request.user)
+            except Exception:
+                messages.error(request, 'That logo could not be read. Upload a PNG or JPG picture.')
+                return redirect(_page_url(sy))
         messages.success(request, 'The form header is saved. Every school form now prints '
                                   f'{school_header.region_label(saved["region"]) or "no region"}, '
                                   f'{saved["division"] or "no division"} and {saved["district"] or "no district"}.')
@@ -75,10 +89,12 @@ def school_forms(request):
 
     sections = list(Section.objects.filter(school=school, school_year=sy).select_related('grade_level', 'strand', 'adviser')
                     .order_by('grade_level__grade_number', 'section_name'))
-    jhs = [s for s in sections if not s.grade_level.is_senior_high]
+    elem = [s for s in sections if s.grade_level.grade_number < 7]
+    jhs = [s for s in sections if 7 <= s.grade_level.grade_number <= 10]
     shs = [s for s in sections if s.grade_level.is_senior_high]
     info = FD.school_info(school, sy)
-    periods = list(Quarter.objects.filter(school_year=sy))
+    periods = FD.periods_of(sy)
+    word = P.word(school, periods).lower()
     ids = list(Enrollment.objects.filter(section__in=sections, school_year=sy, status__in=FD.ACTIVE).values_list('id', flat=True))
     unvalidated = FD.unvalidated_count(ids, periods) if periods else 0
     sems = SF.semesters(sy)
@@ -88,17 +104,22 @@ def school_forms(request):
     for code, title, about, scope, needs in CARDS:
         if scope == 'section12' and not any(s.grade_level.grade_number == 12 for s in shs):
             continue
-        if scope == 'section_jhs' and not jhs:
+        if scope == 'section_jhs' and (not jhs or word == 'term'):   # a three-term year's summaries are the TERM sheets of SF9
             continue
-        cards.append({'code': code, 'badge': 'Grades' if code == 'SUMMARY' else code, 'title': title, 'about': about,
+        if code == 'SF9' and word != 'term':                         # DepEd's SF9 workbooks are three-term
+            continue
+        cards.append({'code': code, 'badge': 'Grades' if code == 'SUMMARY' else code, 'title': title, 'about': about.format(word=word),
                       'scope': scope, 'needs': needs})
     return render(request, 'registrars/school_forms/index.html', {
-        'school': school, 'current_sy': sy, 'years': years, 'jhs': jhs, 'shs': shs, 'grade12': [s for s in shs if s.grade_level.grade_number == 12],
+        'school': school, 'current_sy': sy, 'years': years, 'elem': elem, 'jhs': jhs, 'shs': shs, 'grade12': [s for s in shs if s.grade_level.grade_number == 12],
         'months': FD.months_of(sy), 'month': FD.default_month(sy), 'semesters': sems,
         'semester': current_sem.semester_number if current_sem else 1, 'cards': cards, 'picked': picked,
         'info': info, 'header': school_header.get(school), 'region_label': info['region_label'],
-        'unvalidated': unvalidated, 'has_jhs': bool(jhs), 'has_shs': bool(shs),
-        'level': 'shs' if (picked and any(str(s.id) == picked for s in shs)) or not jhs else 'jhs',
+        'unvalidated': unvalidated, 'has_elem': bool(elem), 'has_jhs': bool(jhs), 'has_shs': bool(shs), 'levels_count': bool(elem) + bool(jhs) + bool(shs), 'stages': SF.STAGES.items(),
+        'system': {'t': 'Trimestral', 's': 'Semestral'}.get(word[:1], 'Quarterly'), 'period_word': P.word(school, periods),
+        'semester_word': 'Term' if word == 'term' else 'Semester', 'uploads': FU.school_status(sections, sy),
+        'has_logo': bool(school_header.logo(school)),
+        'level': 'shs' if (picked and any(str(s.id) == picked for s in shs)) or not jhs and not elem else 'jhs' if jhs else 'elem',
     })
 
 
@@ -122,8 +143,10 @@ def school_form_download(request):
     month = SF.month_param(request.GET.get('month'))
     semester = SF.semester_param(sy, request.GET.get('semester'))
     senior = request.GET.get('level') == 'shs'
+    elementary = request.GET.get('level') == 'elem'
     try:
-        content, name = SF.build(code, school=school, sy=sy, section=section, month=month, semester=semester, senior=senior)
+        content, name = SF.build(code, school=school, sy=sy, section=section, month=month, semester=semester, senior=senior,
+                                 stage=request.GET.get('stage', 'BOSY'), elementary=elementary)
     except SF.FormUnavailable as exc:
         messages.error(request, str(exc))
         return redirect(back)
@@ -131,6 +154,18 @@ def school_form_download(request):
     response = HttpResponse(content, content_type=XLSX)
     response['Content-Disposition'] = f'attachment; filename="{name}"'
     return response
+
+
+def report_cards(request):
+    """The folder of a section's report cards, for the page to fetch one by one and zip."""
+    school = _registrar_school(request)
+    section = Section.objects.filter(id=request.GET.get('section') or 0, school=school).select_related('grade_level', 'school_year').first()
+    if section is None:
+        return JsonResponse({'error': 'Choose a section.'}, status=400)
+    sy = section.school_year
+    return JsonResponse({'folder': SF9.folder_of(section, sy), 'files': [
+        {'name': SF9.learner_file(p, section, sy), 'url': reverse('registrars:learner_report_card', args=[p['enrollment'].id])}
+        for p in FD.learners(section, sy)]})
 
 
 def _log(request, code, name):

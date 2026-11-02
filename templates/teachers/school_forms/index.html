@@ -1,0 +1,233 @@
+{% extends 'teachers/base.html' %}
+{% load static %}
+
+{% block title %}School Forms{% endblock %}
+{% block subtitle %}School Forms{% if sy %} &bull; SY {{ sy.year_label }}{% endif %}{% if section %} &bull; {{ section.section_name }}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .fm-pick { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
+    .fm-pick select { width: auto; min-width: 11rem; }
+    .fm-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 0.8rem; }
+    .fm-step { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.85rem 0.95rem; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    .fm-step-top { display: flex; align-items: center; gap: 0.55rem; }
+    .fm-code { flex-shrink: 0; min-width: 2.9rem; padding: 0.24rem 0.45rem; border-radius: 9px; background: var(--brand-soft); color: var(--brand);
+               font-weight: 750; font-size: 0.75rem; text-align: center; letter-spacing: 0.02em; }
+    .fm-step b { font-size: 0.9rem; line-height: 1.3; }
+    .fm-step .hint { margin: 0; flex: 1; }
+    .fm-step-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+    .fm-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .fm-form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 0.7rem; align-items: center; padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 12px; margin: 0; }
+    .fm-form .who b { display: block; font-size: 0.87rem; }
+    .fm-form .who small { color: var(--muted); font-size: 0.75rem; }
+    .fm-form select { width: auto; min-width: 9.5rem; }
+    @media (max-width: 680px) { .fm-form { grid-template-columns: auto minmax(0, 1fr); } .fm-form select, .fm-form .btn { grid-column: 1 / -1; width: 100%; } }
+    .card-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+    .card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.6rem; align-items: center; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 12px; }
+    .card-row b { font-size: 0.85rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-row small { font-size: 0.74rem; color: var(--muted); }
+    .card-row[hidden] { display: none; }
+    .fm-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .fm-more { margin-top: 0.7rem; }
+    .cm-field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.7rem; }
+    .cm-field span { font-size: 0.78rem; font-weight: 650; }
+    .cm-field textarea { min-height: 3.6rem; resize: vertical; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-document" style="color:#123499;"></i> {% if section %}School forms: {{ section.grade_level.grade_name }} {{ section.section_name }}{% else %}School forms{% endif %}</h2>
+            <p class="hint">{% if section %}The registrar's SF1 starts your class's forms. Add what only you know below, and ARMS fills the rest from the same records.{% else %}Your advisory class's school forms are here.{% endif %}</p>
+        </div>
+        {% if section %}
+        <div class="fm-pick">
+            {% if sections|length > 1 %}
+            <form method="get" class="fm-pick">
+                <select name="section" aria-label="Advisory class" onchange="this.form.submit()">
+                    {% for s in sections %}<option value="{{ s.id }}" {% if s.id == section.id %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}
+                </select>
+            </form>
+            {% endif %}
+            <span class="pill info">{{ system }}{% if current_name %} &middot; {{ current_name }}{% endif %}</span>
+        </div>
+        {% endif %}
+    </section>
+
+    {% if not section %}
+    <section class="card"><p class="empty"><i class="fi fi-rr-document"></i>You do not advise a section this school year. The registrar assigns advisers.</p></section>
+    {% else %}
+
+    <section class="card panel" aria-labelledby="addTitle">
+        <div class="panel-head"><div><h3 id="addTitle"><i class="fi fi-rr-upload" style="color:#123499;"></i> What your forms need from you</h3>
+            <p class="hint">Download the form, fill it in, and upload it here. Nothing is saved until you check it.</p></div></div>
+        <div class="fm-steps">
+            <div class="fm-step">
+                <div class="fm-step-top"><span class="fm-code">SF2</span><b>Daily attendance</b></div>
+                <p class="hint">{{ needs.SF2.detail }}. Feeds SF4 and the attendance on every SF9.</p>
+                <div class="fm-step-foot"><span class="pill {% if needs.SF2.done %}good{% else %}warn{% endif %}">{{ needs.SF2.state }}</span>
+                    <a class="btn btn-main btn-sm" href="{% url 'teachers:form_upload' %}?kind=SF2&amp;section={{ section.id }}"><i class="fi fi-rr-upload"></i> Upload</a></div>
+            </div>
+            <div class="fm-step">
+                <div class="fm-step-top"><span class="fm-code">SF3</span><b>Books issued and returned</b></div>
+                <p class="hint">{{ needs.SF3.detail }}.</p>
+                <div class="fm-step-foot"><span class="pill {% if needs.SF3.done %}good{% else %}warn{% endif %}">{{ needs.SF3.state }}</span>
+                    <a class="btn btn-line btn-sm" href="{% url 'teachers:form_upload' %}?kind=SF3&amp;section={{ section.id }}"><i class="fi fi-rr-upload"></i> Upload</a></div>
+            </div>
+            <div class="fm-step">
+                <div class="fm-step-top"><span class="fm-code">SF8</span><b>Weight and height</b></div>
+                <p class="hint">{{ needs.SF8.detail }} ARMS works out the BMI.</p>
+                <div class="fm-step-foot"><span class="pill {% if needs.SF8.done %}good{% else %}warn{% endif %}">{{ needs.SF8.state }}</span>
+                    <a class="btn btn-line btn-sm" href="{% url 'teachers:form_upload' %}?kind=SF8&amp;section={{ section.id }}"><i class="fi fi-rr-upload"></i> Upload</a></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel" aria-labelledby="cardsTitle">
+        <div class="panel-head">
+            <div><h3 id="cardsTitle"><i class="fi fi-rr-id-badge" style="color:#123499;"></i> SF9 report cards</h3>
+                <p class="hint">{% if official_card %}DepEd's SF9 workbook, every sheet: Input Data, the term summaries, the report card and attendance, filled from your records. The class workbook holds everyone; each learner's file holds only that learner.{% else %}SY {{ sy.year_label }} is {{ system|lower }}. DepEd's SF9 workbooks in ARMS are for three-term years, so there is no official form to fill yet.{% endif %}</p></div>
+            {% if official_card %}
+            <div class="fm-actions">
+                <a class="btn btn-line btn-sm" href="{% url 'teachers:section_form' section.id %}?code=SF9"><i class="fi fi-rr-download"></i> Class workbook</a>
+                <button type="button" class="btn btn-main btn-sm" data-sf9-zip="{% url 'teachers:report_cards' section.id %}"><i class="fi fi-rr-folder-download"></i> Download all (zip)</button>
+            </div>
+            {% endif %}
+        </div>
+        {% if no_row %}<div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span><b>No row on DepEd's form:</b> {{ no_row|join:", " }}. These subjects are left out of the workbook; check their terms with your registrar.</span></div>{% endif %}
+        {% if not official_card %}
+        {% elif learners %}
+        <ul class="card-rows">
+            {% for l in first_learners %}
+            <li class="card-row">
+                <span><b>{{ l.name }}</b><small>{% if l.lrn %}LRN {{ l.lrn }}{% endif %}{% if l.left %} &middot; no longer enrolled{% endif %}</small></span>
+                <button type="button" class="btn btn-ghost btn-sm" data-comment="{{ l.id }}"><i class="fi fi-rr-comment-alt"></i> Comments{% if l.comments %} ({{ l.comments|length }}){% endif %}</button>
+                <a class="btn btn-line btn-sm" href="{{ l.url }}"><i class="fi fi-rr-download"></i> SF9</a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if learners|length > first_learners|length %}
+        <button type="button" class="btn btn-ghost btn-sm fm-more" data-guide-open="cardsModal">Show all {{ learners|length }} learners <i class="fi fi-rr-angle-small-right"></i></button>
+        {% endif %}
+        {% else %}
+        <p class="empty"><i class="fi fi-rr-users-alt"></i>No learner is enrolled in this section yet.</p>
+        {% endif %}
+    </section>
+
+    <section class="card panel" aria-labelledby="formsTitle">
+        <div class="panel-head"><div><h3 id="formsTitle"><i class="fi fi-rr-document" style="color:#123499;"></i> Your section's forms</h3>
+            <p class="hint">DepEd's templates, filled from ARMS. Check them, sign and submit.</p></div></div>
+        <div class="fm-list">
+            {% for f in forms %}
+            <form method="get" action="{% url 'teachers:section_form' section.id %}" class="fm-form">
+                <input type="hidden" name="code" value="{{ f.code }}">
+                <span class="fm-code">{{ f.badge|default:f.code }}</span>
+                <span class="who"><b>{{ f.title }}</b><small>From: {{ f.from }}</small></span>
+                {% if f.month %}
+                <select name="month" aria-label="Month">{% for number, label in months %}<option value="{{ number }}" {% if number == month %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                {% elif f.stage %}
+                <select name="stage" aria-label="Weighing">{% for value, label in stages %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+                {% elif f.semester and semesters %}
+                <select name="semester" aria-label="{{ period_word }}">{% for s in semesters %}<option value="{{ s.semester_number }}" {% if s.semester_number == semester %}selected{% endif %}>{{ s.semester_label }}{% if not s.is_term %} Semester{% endif %}</option>{% endfor %}</select>
+                {% else %}<span></span>{% endif %}
+                <button type="submit" class="btn btn-line btn-sm"><i class="fi fi-rr-download"></i> Download</button>
+            </form>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="tp-modal" id="cardsModal" role="dialog" aria-modal="true" aria-labelledby="cardsAllTitle" hidden>
+        <div class="tp-modal-card" tabindex="-1">
+            <div class="tp-modal-head">
+                <div><h3 id="cardsAllTitle">SF9 report cards</h3><p class="hint">{{ learners|length }} learners of {{ section.section_name }}; {{ commented }} with comments.</p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="tp-modal-tools toolbar">
+                <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="cardSearch" placeholder="Find a learner or LRN" aria-label="Find a learner or LRN"></label>
+                <label class="sort">Show
+                    <select id="cardFilter">
+                        <option value="all">Everyone</option>
+                        <option value="none">Without comments</option>
+                        <option value="some">With comments</option>
+                    </select>
+                </label>
+            </div>
+            <div class="tp-modal-body">
+                <ul class="card-rows" id="cardList">
+                    {% for l in learners %}
+                    <li class="card-row" data-name="{{ l.name|lower }}" data-lrn="{{ l.lrn }}" data-has="{% if l.comments %}1{% else %}0{% endif %}">
+                        <span><b>{{ l.name }}</b><small>{% if l.lrn %}LRN {{ l.lrn }}{% endif %}{% if l.left %} &middot; no longer enrolled{% endif %}</small></span>
+                        <button type="button" class="btn btn-ghost btn-sm" data-comment="{{ l.id }}"><i class="fi fi-rr-comment-alt"></i> Comments{% if l.comments %} ({{ l.comments|length }}){% endif %}</button>
+                        <a class="btn btn-line btn-sm" href="{{ l.url }}"><i class="fi fi-rr-download"></i> SF9</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="empty" id="cardNone" hidden>No learner matches.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="tp-modal" id="commentModal" role="dialog" aria-modal="true" aria-labelledby="commentTitle" hidden>
+        <div class="tp-modal-card" tabindex="-1">
+            <div class="tp-modal-head">
+                <div><h3 id="commentTitle">Comments</h3><p class="hint">Printed under Teacher's Comments on the report card.</p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <form method="post" action="{% url 'teachers:save_comment' section.id %}" class="tp-modal-body">
+                {% csrf_token %}
+                <input type="hidden" name="enrollment" id="commentFor">
+                {% for p in card_periods %}
+                <label class="cm-field"><span>{{ p.name }}</span><textarea name="comment-{{ p.id }}" data-period="{{ p.id }}" maxlength="300"></textarea></label>
+                {% endfor %}
+                <button type="submit" class="btn btn-main btn-sm"><i class="fi fi-rr-disk"></i> Save comments</button>
+            </form>
+        </div>
+    </div>
+    {{ learners|json_script:"learnerData" }}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'shared/js/file-guide.js' %}"></script>
+<script src="{% static 'shared/js/sf9-zip.js' %}"></script>
+<script>
+(function () {
+    'use strict';
+    var dataEl = document.getElementById('learnerData');
+    if (!dataEl) return;
+    var people = JSON.parse(dataEl.textContent);
+    var search = document.getElementById('cardSearch'), filter = document.getElementById('cardFilter');
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#cardList .card-row'));
+    function draw() {
+        var q = search.value.trim().toLowerCase(), want = filter.value, shown = 0;
+        rows.forEach(function (r) {
+            var hit = !q || r.dataset.name.indexOf(q) !== -1 || r.dataset.lrn.indexOf(q) !== -1;
+            if (want === 'none') hit = hit && r.dataset.has === '0';
+            if (want === 'some') hit = hit && r.dataset.has === '1';
+            r.hidden = !hit;
+            if (hit) shown++;
+        });
+        document.getElementById('cardNone').hidden = shown > 0;
+    }
+    if (search) { search.addEventListener('input', draw); filter.addEventListener('change', draw); }
+
+    var modal = document.getElementById('commentModal');
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-comment]');
+        if (!btn) return;
+        var who = people.find(function (p) { return String(p.id) === btn.dataset.comment; });
+        if (!who) return;
+        document.getElementById('commentTitle').textContent = 'Comments: ' + who.name;
+        document.getElementById('commentFor').value = who.id;
+        modal.querySelectorAll('textarea').forEach(function (t) { t.value = who.comments[t.dataset.period] || ''; });
+        modal.hidden = false;
+        modal.querySelector('textarea').focus();
+    });
+    modal.addEventListener('click', function (e) { if (e.target === modal || e.target.closest('[data-close]')) modal.hidden = true; });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hidden = true; });
+})();
+</script>
+{% endblock %}

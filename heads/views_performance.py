@@ -20,6 +20,7 @@ from django.utils.http import urlencode
 from academics.models import GradeLevel, Quarter, SchoolYear, Section
 from attendance.models import AttendanceSummary
 from core import grading_policy as policy
+from core import periods as P
 from core.caching import cache_page_for_user, remember_filters
 from core.periods import GRADE, HAS_GRADE
 from core.xlsx import Report, safe_filename
@@ -263,7 +264,7 @@ def _performance_data(params, school):
     return {
         'school_years': school_years, 'sy': sy, 'periods': periods, 'period': period, 'prev_period': prev_period,
         'period_name': period_name(period), 'prev_period_name': period_name(prev_period),
-        'period_options': [{'value': q.quarter_label, 'name': period_name(q), 'current': q.is_current_quarter} for q in periods],
+        'period_options': [{'value': q.quarter_label, 'name': period_name(q), 'current': q == P.current(periods), 'locked': q.is_grades_locked} for q in periods],
         'forecast': forecast_spec,
         'grade_levels': grade_levels, 'grade': grade, 'grade_id': str(grade.id) if grade else 'all', 'scope_name': scope_name,
         'status': status, 'table': table,

@@ -15,6 +15,7 @@ Two edits are possible:
            breaks, the print area and the sheet's formulas.
   merges   cells to merge, for templates whose rows are not merged alike (a name cut off in one row
            and not the next); a merge that would overlap an existing one is left out.
+  columns  column widths, or None to hide a column.
 """
 import datetime
 import io
@@ -359,19 +360,72 @@ def sheet_parts(z):
     return out
 
 
-def patch(data, edits=None, *, inserts=None, merges=None, hidden=(), visible=(), active=None, styles=None):
+def set_columns(xml, wanted):
+    """The sheet XML with the given columns changed. wanted: {'F': 4.6, 'I': None}: a width, or None to hide."""
+    wanted = {col_number(k): v for k, v in wanted.items()}
+    found = re.search(r'<cols>(.*?)</cols>', xml, re.S)
+    specs = []                                             # (first, last, attributes), one entry per <col>
+    for m in re.finditer(r'<col\b([^>]*?)/?>', found.group(1) if found else ''):
+        attrs = m.group(1)
+        low, high = int(re.search(r'\bmin="(\d+)"', attrs).group(1)), int(re.search(r'\bmax="(\d+)"', attrs).group(1))
+        specs.append((low, high, re.sub(r'\s*\b(?:min|max)="\d+"', '', attrs)))
+    out = []
+    for low, high, rest in specs:                          # a <col> over a changed column is split around it
+        n = low
+        for number in sorted(k for k in wanted if low <= k <= high):
+            if number > n:
+                out.append((n, number - 1, rest))
+            out.append((number, number, _column_attrs(rest, wanted[number])))
+            n = number + 1
+        if n <= high:
+            out.append((n, high, rest))
+    covered = {n for low, high, _ in specs for n in range(low, min(high, 16384) + 1) if n in wanted}
+    out += [(n, n, _column_attrs(' width="9.14"', width)) for n, width in wanted.items() if n not in covered]
+    body = '<cols>' + ''.join(f'<col min="{a}" max="{b}"{rest}/>' for a, b, rest in sorted(out)) + '</cols>'
+    if found:
+        return xml[:found.start()] + body + xml[found.end():]
+    return xml.replace('<sheetData', body + '<sheetData', 1)
+
+
+def _column_attrs(rest, width):
+    rest = re.sub(r'\s*\b(?:hidden|customWidth)="\d"', '', rest)
+    if width is None:
+        return rest + ' hidden="1"'
+    return re.sub(r'\bwidth="[^"]*"', f'width="{width}"', rest) + ' customWidth="1"'
+
+
+def unshare_formulas(xml):
+    """Every shared formula written out in its own cell, so any of them can be overwritten."""
+    from openpyxl.formula.translate import Translator
+    masters = {}
+    for m in re.finditer(r'<c\b[^>]*?\br="([A-Z]+\d+)"[^>]*>\s*<f\b[^>]*\bt="shared"[^>]*\bsi="(\d+)"[^>/]*>(.*?)</f>', xml, re.S):
+        masters[m.group(2)] = (m.group(1), _unescape(m.group(3)))
+
+    def formula(m):
+        ref, attrs, text = m.group(2), m.group(3), m.group(5) or ''
+        si = re.search(r'\bsi="(\d+)"', attrs)
+        if 't="shared"' not in attrs or not si or si.group(1) not in masters:
+            return m.group(0)
+        origin, source = masters[si.group(1)]
+        translated = Translator('=' + source, origin=origin).translate_formula(ref)[1:] if not text else _unescape(text)
+        return f'{m.group(1)}<f>{escape(translated)}</f>'
+    return re.sub(r'(<c\b[^>]*?\br="([A-Z]+\d+)"[^>]*>\s*)<f\b([^>]*?)(/>|>(.*?)</f>)', formula, xml, flags=re.S)
+
+
+def patch(data, edits=None, *, inserts=None, merges=None, hidden=(), visible=(), active=None, styles=None, columns=None, unshare=()):
     """A copy of the workbook (bytes) with rows inserted and cells set.
 
     edits: {sheet name: {ref: value}} in the rows as they are after the inserts (merges too).
     inserts: {sheet name: [(after, count, like), ...]}: `count` rows after row `after`, looking like
     row `like` of the block; applied in order, each in the rows as they are at that moment.
     Excel recomputes every formula when the copy is opened. hidden / visible change sheet
-    visibility; active is the sheet the file opens on.
+    visibility; active is the sheet the file opens on. unshare: sheets whose shared formulas
+    are to be overwritten.
     """
-    edits, inserts, merges = edits or {}, inserts or {}, merges or {}
+    edits, inserts, merges, columns = edits or {}, inserts or {}, merges or {}, columns or {}
     src = zipfile.ZipFile(io.BytesIO(data))
     parts = sheet_parts(src)
-    missing = [name for name in list(edits) + list(inserts) + list(merges) if name not in parts]
+    missing = [name for name in list(edits) + list(inserts) + list(merges) + list(columns) if name not in parts]
     if missing:
         raise PatchError(f'The template has no sheet named {", ".join(sorted(set(missing)))}.')
     order = list(parts)
@@ -401,11 +455,15 @@ def patch(data, edits=None, *, inserts=None, merges=None, hidden=(), visible=(),
                 elif kind == 'comments':
                     contents[target] = _insert_in_comments(get(target), after, count)
             contents['xl/workbook.xml'] = _insert_in_names(get('xl/workbook.xml'), sheet, order.index(sheet), after, count)
+    for sheet in unshare:
+        contents[parts[sheet]] = unshare_formulas(get(parts[sheet]))
     for sheet, refs in merges.items():
         contents[parts[sheet]] = add_merges(get(parts[sheet]), refs)
     for sheet, cells in edits.items():
         part = parts[sheet]
         contents[part] = set_cells(get(part), cells, (styles or {}).get(sheet))
+    for sheet, wanted in columns.items():
+        contents[parts[sheet]] = set_columns(get(parts[sheet]), wanted)
     if active is not None:
         for sheet, part in parts.items():
             contents[part] = _selected(get(part), sheet == active)
@@ -426,6 +484,96 @@ def patch(data, edits=None, *, inserts=None, merges=None, hidden=(), visible=(),
                 elif name == '[Content_Types].xml':
                     raw = re.sub(r'<Override\b[^>]*calcChain[^>]*/>', '', raw.decode('utf-8')).encode('utf-8')
             dst.writestr(info, raw)
+    return out.getvalue()
+
+
+def replace_shape(data, text, image=None):
+    """The shape that says `text`, in any case and however its words are split (DepEd's school logo circle), goes;
+    a PNG takes its place when one is given."""
+    src = zipfile.ZipFile(io.BytesIO(data))
+    changed = {}
+    wanted = re.sub(r'\s', '', text).lower()
+
+    def says(anchor):
+        return wanted in re.sub(r'\s', '', ''.join(re.findall(r'<a:t[^>]*>([^<]*)</a:t>', anchor))).lower()
+    for name in src.namelist():
+        if not re.fullmatch(r'xl/drawings/drawing\d+\.xml', name):
+            continue
+        xml = src.read(name).decode('utf-8')
+        if not says(xml):
+            continue
+
+        def swap(m):
+            anchor = m.group(0)
+            if not says(anchor):
+                return anchor
+            if not image:
+                return ''
+            place = re.search(r'<xdr:from>.*?</xdr:from>', anchor, re.S).group(0)
+            box = re.search(r'<xdr:ext\b[^>]*/>', anchor) or re.search(r'<a:ext\b[^>]*/>', anchor)
+            cx, cy = [int(v) for v in re.search(r'cx="(\d+)"\s+cy="(\d+)"', box.group(0)).groups()]
+            return (f'<xdr:oneCellAnchor>{place}<xdr:ext cx="{cx}" cy="{cy}"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="900" name="School logo"/>'
+                    '<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="rIdSchoolLogo"/>'
+                    '<a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic>'
+                    '<xdr:clientData/></xdr:oneCellAnchor>')
+        xml = re.sub(r'<xdr:(oneCellAnchor|twoCellAnchor)\b.*?</xdr:\1>', swap, xml, flags=re.S)
+        changed[name] = xml.encode('utf-8')
+        if image:
+            folder, base = posixpath.split(name)
+            rels = posixpath.join(folder, '_rels', base + '.rels')
+            body = src.read(rels).decode('utf-8') if rels in src.namelist() else \
+                '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'
+            changed[rels] = body.replace('</Relationships>', '<Relationship Id="rIdSchoolLogo" Type="http://schemas.openxmlformats.org/officeDocument/'
+                                                              '2006/relationships/image" Target="../media/school_logo.png"/></Relationships>').encode('utf-8')
+    if not changed:
+        return data
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as dst:
+        for info in src.infolist():
+            dst.writestr(info, changed.pop(info.filename, None) or src.read(info.filename))
+        for name, raw in changed.items():
+            dst.writestr(name, raw)
+        if image:
+            dst.writestr('xl/media/school_logo.png', image)
+    return out.getvalue()
+
+
+def rewrite_sheet(data, sheet, replacements):
+    """A copy of the workbook with regular-expression replacements made in one sheet's XML (a formula repeated
+    down a form). replacements: [(pattern, replacement)]."""
+    src = zipfile.ZipFile(io.BytesIO(data))
+    part = sheet_parts(src)[sheet]
+    xml = src.read(part).decode('utf-8')
+    for pattern, replacement in replacements:
+        xml = re.sub(pattern, replacement, xml)
+    return _rezip(src, {part: xml.encode('utf-8')})
+
+
+def drop_external_links(data, sheet_names):
+    """Formulas that point at another copy of this workbook ([1]) point here again, and the link itself goes,
+    so Excel does not ask to update links from a file nobody has."""
+    src = zipfile.ZipFile(io.BytesIO(data))
+    parts = sheet_parts(src)
+    changed = {}
+    for name in sheet_names:
+        xml = src.read(parts[name]).decode('utf-8')
+        changed[parts[name]] = re.sub(r"'\[\d+\]([^']+)'!", r"'\1'!", xml).encode('utf-8')
+    gone = [n for n in src.namelist() if n.startswith('xl/externalLinks/')]
+    workbook = re.sub(r'<externalReferences>.*?</externalReferences>', '', src.read('xl/workbook.xml').decode('utf-8'), flags=re.S)
+    changed['xl/workbook.xml'] = workbook.encode('utf-8')
+    rels = src.read('xl/_rels/workbook.xml.rels').decode('utf-8')
+    changed['xl/_rels/workbook.xml.rels'] = re.sub(r'<Relationship\b[^>]*externalLink[^>]*/>', '', rels).encode('utf-8')
+    types = src.read('[Content_Types].xml').decode('utf-8')
+    changed['[Content_Types].xml'] = re.sub(r'<Override\b[^>]*externalLink[^>]*/>', '', types).encode('utf-8')
+    return _rezip(src, changed, gone)
+
+
+def _rezip(src, changed, gone=()):
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as dst:
+        for info in src.infolist():
+            if info.filename not in gone:
+                dst.writestr(info, changed.get(info.filename) or src.read(info.filename))
     return out.getvalue()
 
 

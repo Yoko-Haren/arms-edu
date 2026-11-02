@@ -550,3 +550,109 @@ class DocumentRequest(models.Model):
             f"Request: {self.student.lrn} — {self.document_name} — "
             f"{self.get_status_display()} ({self.request_date.strftime('%Y-%m-%d')})"
         )
+
+# =============================================================================
+# 9.6 — What advisers add to the school forms
+# =============================================================================
+NUTRITION_STAGE_CHOICES = [
+    ('BOSY', 'Beginning of School Year'),
+    ('EOSY', 'End of School Year'),
+]
+
+
+class LearnerNutrition(models.Model):
+    """A learner's weight and height for SF8, from the adviser's upload. BMI comes from these two."""
+    enrollment = models.ForeignKey(
+        'enrollment.Enrollment',
+        on_delete=models.CASCADE,
+        related_name='nutrition_records',
+    )
+    stage = models.CharField(max_length=4, choices=NUTRITION_STAGE_CHOICES, default='BOSY')
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    height_m = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    bmi_category = models.CharField(max_length=40, blank=True, help_text='As written on the uploaded SF8.')
+    height_for_age = models.CharField(max_length=40, blank=True, help_text='As written on the uploaded SF8.')
+    remarks = models.CharField(max_length=255, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='recorded_nutrition',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [['enrollment', 'stage']]
+        verbose_name = 'SF8 Nutrition Record'
+        verbose_name_plural = 'SF8 Nutrition Records'
+
+    @property
+    def bmi(self):
+        if not self.weight_kg or not self.height_m:
+            return None
+        return round(float(self.weight_kg) / float(self.height_m) ** 2, 2)
+
+    def __str__(self):
+        return f'{self.enrollment.student.lrn} {self.stage}: {self.weight_kg} kg, {self.height_m} m'
+
+
+class BookRecord(models.Model):
+    """A book issued to a learner for SF3, from the adviser's upload."""
+    enrollment = models.ForeignKey(
+        'enrollment.Enrollment',
+        on_delete=models.CASCADE,
+        related_name='book_records',
+    )
+    title = models.CharField(max_length=150)
+    date_issued = models.DateField(null=True, blank=True)
+    date_returned = models.DateField(null=True, blank=True)
+    remarks = models.CharField(max_length=255, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='recorded_books',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [['enrollment', 'title']]
+        ordering = ['title']
+        verbose_name = 'SF3 Book Record'
+        verbose_name_plural = 'SF3 Book Records'
+
+    def __str__(self):
+        return f'{self.enrollment.student.lrn}: {self.title}'
+
+
+class LearnerComment(models.Model):
+    """The adviser's comment on a learner for one grading period, printed on the SF9."""
+    enrollment = models.ForeignKey(
+        'enrollment.Enrollment',
+        on_delete=models.CASCADE,
+        related_name='report_comments',
+    )
+    quarter = models.ForeignKey(
+        'academics.Quarter',
+        on_delete=models.CASCADE,
+        related_name='report_comments',
+    )
+    comment = models.CharField(max_length=300)
+    written_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='written_report_comments',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [['enrollment', 'quarter']]
+        verbose_name = 'SF9 Comment'
+        verbose_name_plural = 'SF9 Comments'
+
+    def __str__(self):
+        return f'{self.enrollment.student.lrn} {self.quarter.quarter_label}'

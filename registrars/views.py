@@ -1123,6 +1123,8 @@ def grade_validation(request):
         if action == 'lock':
             period.is_grades_locked, period.locked_by, period.locked_at = True, request.user, now
             period.save()
+            following = P.current(Quarter.objects.filter(school_year=current_sy).order_by('quarter_number'))
+            P.mark_current(following)
             period_grades.filter(validation_status='Validated').update(validation_status='Finalized')
             period_grades.update(is_locked=True, locked_by=request.user, locked_at=now)
             _log(request, 'LOCK_GRADES', period.id, f'Locked grades for {word} {current_sy.year_label}', 'Quarter')
@@ -1132,17 +1134,19 @@ def grade_validation(request):
             # final grades are what the grade forecaster learns from: retrain it in the background
             from ml_engine import training
             training.start(f'{school.short_name or school.school_name}: {word}, SY {current_sy.year_label} locked', by=_who(request))
-            messages.success(request, f'{word} is locked. Teachers can no longer change its grades.')
+            messages.success(request, f'{word} is locked. Teachers can no longer change its grades.'
+                             + (f' {P.name(following)} is now the current {P.word(school, [period]).lower()}.' if following.pk != period.pk else ''))
         elif action == 'unlock':
             period.is_grades_locked, period.locked_by, period.locked_at = False, None, None
             period.save()
+            P.mark_current(period)
             period_grades.update(is_locked=False, locked_by=None, locked_at=None)
             period_grades.filter(validation_status='Finalized').update(validation_status='Validated')
             _log(request, 'UNLOCK_GRADES', period.id, f'Unlocked grades for {word} {current_sy.year_label}', 'Quarter')
             notify_school_heads(school, 'GRADE_RETURNED', f'{word} grades were unlocked',
                                 f'{_who(request)} unlocked {word} so grades can be corrected.',
                                 reverse('heads-ai-dashboard'))
-            messages.success(request, f'{word} is unlocked.')
+            messages.success(request, f'{word} is unlocked and is the current {P.word(school, [period]).lower()} again.')
         elif period.is_grades_locked:
             messages.error(request, f'{word} is locked. Unlock it to change validation.')
         elif action == 'validate_all':
@@ -1197,7 +1201,7 @@ def grade_validation(request):
     validate_days, validate_overdue = P.deadline_info(period, field='grade_validation_deadline') if period else (None, False)
     return render(request, 'registrars/grades/validation.html', {
         'current_sy': current_sy,
-        'periods': [{'period': p, 'name': P.name(p)} for p in periods],
+        'periods': [{'period': p, 'name': P.name(p), 'current': p == P.current(periods)} for p in periods],
         'period': period,
         'period_name': P.name(period),
         'rows': rows,

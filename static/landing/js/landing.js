@@ -1,4 +1,4 @@
-/* ARMS landing page: header state, mobile menu, section highlighting, scroll-in effects and the photo viewer. */
+/* ARMS landing page: header state, mobile menu, section highlighting, scroll-in effects, the forms chain, the portal tour and the photo viewer. */
 (function () {
     'use strict';
     window.armsLanding = true;
@@ -9,8 +9,14 @@
     var menuBtn = header.querySelector('.menu-btn');
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // A hairline under the header once the page has scrolled.
-    function onScroll() { header.classList.toggle('is-scrolled', window.scrollY > 8); }
+    // The header turns solid once the page has scrolled, and the school rises a little slower than the page.
+    var school = document.querySelector('.hero-school');
+    var phone = window.matchMedia('(max-width: 559px)');
+    function onScroll() {
+        header.classList.toggle('is-scrolled', window.scrollY > 8);
+        if (!school || reduceMotion || phone.matches) { if (school) school.style.transform = ''; return; }
+        if (window.scrollY < window.innerHeight * 1.2) school.style.transform = 'translateY(' + Math.round(window.scrollY * 0.09) + 'px)';
+    }
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
 
@@ -33,6 +39,51 @@
     var closeOnWide = function () { if (wide.matches) setMenu(false); };
     if (wide.addEventListener) wide.addEventListener('change', closeOnWide); else wide.addListener(closeOnWide);
 
+    // The forms chain: choosing a form lights up what it is made from.
+    var chain = document.querySelector('[data-chain]');
+    if (chain) {
+        var forms = Array.prototype.slice.call(chain.querySelectorAll('[data-form]'));
+        var sources = Array.prototype.slice.call(chain.querySelectorAll('[data-source]'));
+        var pick = function (form) {
+            var from = form.getAttribute('data-from').split(' ');
+            forms.forEach(function (f) { f.setAttribute('aria-pressed', f === form ? 'true' : 'false'); });
+            sources.forEach(function (s) { s.classList.toggle('is-on', from.indexOf(s.getAttribute('data-source')) !== -1); });
+            chain.querySelector('[data-form-title]').textContent = form.getAttribute('data-title');
+            chain.querySelector('[data-form-text]').textContent = form.getAttribute('data-text');
+            chain.querySelector('[data-form-who]').textContent = form.getAttribute('data-who');
+        };
+        forms.forEach(function (form) {
+            form.addEventListener('click', function () { pick(form); });
+            form.addEventListener('mouseenter', function () { pick(form); });
+            form.addEventListener('focus', function () { pick(form); });
+        });
+        pick(chain.querySelector('[data-form][aria-pressed="true"]'));
+    }
+
+    // The portal tour: tabs, with the arrow keys moving between them.
+    var tour = document.querySelector('[data-tour]');
+    if (tour) {
+        var tabs = Array.prototype.slice.call(tour.querySelectorAll('[role="tab"]'));
+        var select = function (tab, focus) {
+            tabs.forEach(function (t) {
+                var on = t === tab;
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+                t.tabIndex = on ? 0 : -1;
+                document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+            });
+            if (focus) tab.focus();
+        };
+        tabs.forEach(function (tab, index) {
+            tab.addEventListener('click', function () { select(tab); });
+            tab.addEventListener('keydown', function (e) {
+                var step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+                if (!step) return;
+                e.preventDefault();
+                select(tabs[(index + step + tabs.length) % tabs.length], true);
+            });
+        });
+    }
+
     if (!('IntersectionObserver' in window)) {
         root.classList.remove('js');
     } else {
@@ -49,7 +100,7 @@
                 });
             });
         }, { rootMargin: '-45% 0px -50% 0px' });
-        ['hero', 'features', 'how', 'partner', 'contact'].forEach(function (id) {
+        ['hero', 'forms', 'portals', 'insights', 'how', 'partner', 'contact'].forEach(function (id) {
             var section = document.getElementById(id);
             if (section) spy.observe(section);
         });

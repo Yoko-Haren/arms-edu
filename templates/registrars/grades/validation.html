@@ -40,7 +40,7 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-shield-check" style="color:#123499;"></i> Grade validation</h2>
-            <p class="hint">A class is ready to validate once its teacher submits it. ARMS checks each one first: every learner graded, valid quarterly grades that follow from their scores, saved by the class teacher, and no unusual jumps from the last period.</p>
+            <p class="hint">A class is ready to validate once its teacher submits it. ARMS checks each one first: every learner graded, valid grades that follow from their scores, saved by the class teacher, and no unusual jumps from the last period.</p>
         </div>
     </section>
 
@@ -53,7 +53,7 @@
     <nav aria-label="Grading periods"><div class="seg">
         {% for p in periods %}
         <a href="?period={{ p.period.id }}" {% if p.period.id == period.id %}aria-current="page"{% endif %}>
-            {% if p.period.is_grades_locked %}<i class="fi fi-rr-lock" aria-hidden="true"></i>{% endif %}{{ p.name }}{% if p.period.is_current_quarter %} <span class="pill info" style="padding:0.05rem 0.45rem;font-size:0.66rem;">Current</span>{% endif %}</a>
+            {% if p.period.is_grades_locked %}<i class="fi fi-rr-lock" aria-hidden="true"></i>{% endif %}{{ p.name }}{% if p.current %} <span class="pill info" style="padding:0.05rem 0.45rem;font-size:0.66rem;">Current</span>{% endif %}</a>
         {% endfor %}
     </div></nav>
 

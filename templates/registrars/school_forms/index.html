@@ -16,7 +16,7 @@
     .sf-fields { display: grid; gap: 0.6rem; }
     .sf-fields .field select { width: 100%; }
     .sf-fields .field[hidden] { display: none; }        /* .field is display:flex, which would beat [hidden] */
-    .sf-actions { margin-top: auto; display: flex; justify-content: flex-end; }
+    .sf-actions { margin-top: auto; display: flex; justify-content: flex-end; gap: 0.5rem; flex-wrap: wrap; }
     .sf-head-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
     .sy-pick { min-width: 190px; }
     .hdr { padding: 1rem 1.15rem 1.1rem; }
@@ -24,6 +24,11 @@
     .hdr-grid .head-name { padding: 0.55rem 0.7rem; border-radius: 10px; background: var(--soft); font-weight: 650; font-size: 0.86rem; min-height: 2.35rem; }
     .hdr-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-top: 0.8rem; }
     @media (max-width: 900px) { .hdr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .sf-sum { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; list-style: none; }
+    .sf-sum::-webkit-details-marker { display: none; }
+    .sf-sum span:first-child { flex: 1; }
+    details[open] .sf-sum i { transform: rotate(180deg); }
+    .sf-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
     @media (max-width: 560px) { .hdr-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>
 {% endblock %}
@@ -33,7 +38,7 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-document" style="color:#123499;"></i> School forms</h2>
-            <p class="hint">DepEd's own templates, filled from what ARMS already has: the register, attendance, grades and personnel. Each form downloads as an Excel file to check, sign and print.</p>
+            <p class="hint">DepEd's own templates, filled from what ARMS already has. Your SF1 starts them; advisers add attendance, books and weights; the grades do the rest. {% if system %}SY {{ current_sy.year_label }} is {{ system|lower }}, so the forms print {{ period_word|lower }}s.{% endif %}</p>
         </div>
         {% if years %}
         <form method="get" class="sy-pick">
@@ -60,7 +65,7 @@
         <div class="panel-head" style="margin-bottom:0.6rem;">
             <h3 id="hdrTitle"><i class="fi fi-rr-id-card-clip-alt" style="color:#123499;"></i> Printed on every form</h3>
         </div>
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <input type="hidden" name="action" value="header">
             <input type="hidden" name="sy" value="{{ current_sy.id }}">
@@ -68,7 +73,9 @@
                 <label class="field"><span>Region</span><input type="text" name="region" value="{{ region_label }}" placeholder="Region XI" maxlength="40"></label>
                 <label class="field"><span>Division</span><input type="text" name="division" value="{{ header.division }}" placeholder="Panabo City" maxlength="100"></label>
                 <label class="field"><span>District</span><input type="text" name="district" value="{{ header.district }}" placeholder="Panabo City District I" maxlength="100"></label>
+                <label class="field"><span>Municipality or city, province</span><input type="text" name="place" value="{{ info.place }}" placeholder="Panabo City, Davao del Norte" maxlength="100"></label>
                 <div class="field"><span>School head (signs the forms)</span><div class="head-name">{{ info.head|default:"No school head account" }}</div></div>
+                <label class="field"><span>School logo (report cards){% if has_logo %}: saved{% endif %}</span><input type="file" name="logo" accept="image/png,image/jpeg"></label>
             </div>
             <div class="hdr-actions">
                 <span class="hint" style="margin:0;">School {{ school.school_name }} &middot; ID {{ school.school_id }}. ARMS fills the region, division and district from the SF1 you import.</span>
@@ -76,6 +83,19 @@
             </div>
         </form>
     </section>
+
+    {% if uploads.rows %}
+    <details class="card hdr">
+        <summary class="sf-sum"><span><b>What advisers have uploaded</b></span><span class="pill {% if uploads.behind %}warn{% else %}good{% endif %}">{% if uploads.behind %}{{ uploads.behind }} section{{ uploads.behind|pluralize }} behind on SF2{% else %}Every section is up to date{% endif %}</span><i class="fi fi-rr-angle-small-down"></i></summary>
+        <p class="hint" style="margin:0.6rem 0;">SF4 and the SF9 attendance are only as complete as the SF2 uploads.</p>
+        <div class="sf-wrap"><table class="table">
+            <thead><tr><th scope="col">Section</th><th scope="col">Adviser</th><th scope="col" class="num">SF2 months</th><th scope="col" class="num">SF3 learners</th><th scope="col" class="num">SF8 weighed</th></tr></thead>
+            <tbody>{% for r in uploads.rows %}<tr><td>{{ r.section }}</td><td>{{ r.adviser|default:"No adviser" }}</td>
+                <td class="num">{% if r.months_done < r.months %}<span class="pill warn">{{ r.months_done }} of {{ r.months }}</span>{% else %}{{ r.months_done }} of {{ r.months }}{% endif %}</td>
+                <td class="num">{{ r.books }} of {{ r.learners }}</td><td class="num">{{ r.weighed }} of {{ r.learners }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </details>
+    {% endif %}
 
     <div class="sf-grid">
         {% for c in cards %}
@@ -89,6 +109,7 @@
                 <label class="field"><span>Section</span>
                     <select name="section" required data-section>
                         <option value="">Choose a section</option>
+                        {% if elem %}<optgroup label="Elementary">{% for s in elem %}<option value="{{ s.id }}" {% if picked == s.id|stringformat:"s" %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}</optgroup>{% endif %}
                         {% if jhs %}<optgroup label="Junior High">{% for s in jhs %}<option value="{{ s.id }}" {% if picked == s.id|stringformat:"s" %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}</optgroup>{% endif %}
                         {% if shs %}<optgroup label="Senior High">{% for s in shs %}<option value="{{ s.id }}" data-shs="1" {% if picked == s.id|stringformat:"s" %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}</optgroup>{% endif %}
                     </select>
@@ -107,15 +128,16 @@
                     </select>
                 </label>
                 {% elif c.scope == 'school' %}
-                {% if has_jhs and has_shs %}
+                {% if levels_count > 1 %}
                 <label class="field"><span>Level</span>
                     <select name="level" data-level>
-                        <option value="jhs" {% if level == 'jhs' %}selected{% endif %}>Junior High (Grades 7 to 10)</option>
-                        <option value="shs" {% if level == 'shs' %}selected{% endif %}>Senior High (Grades 11 and 12)</option>
+                        {% if has_elem %}<option value="elem" {% if level == 'elem' %}selected{% endif %}>Elementary (Kindergarten to Grade 6)</option>{% endif %}
+                        {% if has_jhs %}<option value="jhs" {% if level == 'jhs' %}selected{% endif %}>Junior High (Grades 7 to 10)</option>{% endif %}
+                        {% if has_shs %}<option value="shs" {% if level == 'shs' %}selected{% endif %}>Senior High (Grades 11 and 12)</option>{% endif %}
                     </select>
                 </label>
                 {% else %}
-                <input type="hidden" name="level" value="{% if has_shs %}shs{% else %}jhs{% endif %}" data-level>
+                <input type="hidden" name="level" value="{% if has_shs %}shs{% elif has_elem %}elem{% else %}jhs{% endif %}" data-level>
                 {% endif %}
                 {% endif %}
                 {% if 'month' in c.needs %}
@@ -125,15 +147,21 @@
                     </select>
                 </label>
                 {% endif %}
+                {% if 'stage' in c.needs %}
+                <label class="field"><span>Weighing</span>
+                    <select name="stage">{% for value, label in stages %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+                </label>
+                {% endif %}
                 {% if 'semester' in c.needs and semesters %}
-                <label class="field" data-semester><span>Semester (Senior High)</span>
+                <label class="field" data-semester><span>{{ semester_word }} (Senior High)</span>
                     <select name="semester">
-                        {% for s in semesters %}<option value="{{ s.semester_number }}" {% if s.semester_number == semester %}selected{% endif %}>{{ s.semester_label }} Semester</option>{% endfor %}
+                        {% for s in semesters %}<option value="{{ s.semester_number }}" {% if s.semester_number == semester %}selected{% endif %}>{{ s.semester_label }}{% if not s.is_term %} Semester{% endif %}</option>{% endfor %}
                     </select>
                 </label>
                 {% endif %}
             </div>
             <div class="sf-actions">
+                {% if c.code == 'SF9' %}<button type="button" class="btn btn-line btn-sm" data-sf9-zip="{% url 'registrars:school_report_cards' %}" data-sf9-section><i class="fi fi-rr-folder-download"></i> Each learner (zip)</button>{% endif %}
                 <button type="submit" class="btn btn-main btn-sm"><i class="fi fi-rr-download"></i> Download</button>
             </div>
         </form>
@@ -144,6 +172,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'shared/js/sf9-zip.js' %}"></script>
 <script>
 (function () {
     // the semester only matters for Senior High: show it when a Senior High section or level is chosen

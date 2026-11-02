@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_advisory, views_records
+from . import views, views_advisory, views_forms, views_records
 
 app_name = 'teachers'
 
@@ -14,7 +14,14 @@ urlpatterns = [
     path('class-records/<int:assignment_id>/e-class-record/', views_records.class_ecr, name='class_ecr'),
     path('class-records/<int:assignment_id>/class-list.csv', views_records.class_csv, name='class_csv'),
     path('class-records/<int:assignment_id>/mapeh-final-grades/', views_records.class_mapeh_final, name='class_mapeh_final'),
-    path('advisory/<int:section_id>/school-form/', views_records.advisory_form, name='advisory_form'),
+    # School Forms: what the adviser adds to the forms, and the section's forms and report cards
+    path('school-forms/', views_forms.school_forms, name='school_forms'),
+    path('school-forms/upload/', views_forms.form_upload, name='form_upload'),
+    path('school-forms/upload/review/', views_forms.form_review, name='form_review'),
+    path('school-forms/<int:section_id>/download/', views_forms.section_form, name='section_form'),
+    path('school-forms/<int:section_id>/report-cards/', views_forms.report_cards, name='report_cards'),
+    path('school-forms/<int:section_id>/report-card/<int:enrollment_id>/', views_forms.report_card, name='report_card'),
+    path('school-forms/<int:section_id>/comments/', views_forms.save_comment, name='save_comment'),
 
     # My Advisory: every subject's grades for the section the teacher advises, and each learner's record
     path('advisory/', views_advisory.advisory, name='advisory'),

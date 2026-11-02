@@ -87,7 +87,7 @@ def class_records(request):
             'submit_url': reverse('teachers:submit_class', args=[a.id, current.id]) if current else '',
             'ecr_url': reverse('teachers:class_ecr', args=[a.id]) + (f'?period={current.id}' if current else ''),
             'csv_url': reverse('teachers:class_csv', args=[a.id]) + (f'?period={current.id}' if current else ''),
-            'mapeh_url': reverse('teachers:class_mapeh_final', args=[a.id]) if R.is_mapeh(a) else '',
+            'mapeh_url': reverse('teachers:class_mapeh_final', args=[a.id]) if R.is_mapeh(a) and P.prefix(school, periods) != 'T' else '',
         })
     counts = {}
     for c in classes:
@@ -105,26 +105,7 @@ def class_records(request):
         'chip_grade': counts.get('not_started', 0) + counts.get('encoding', 0),
         'chip_done': counts.get('submitted', 0) + counts.get('validated', 0) + counts.get('locked', 0),
         'classes_json': [{k: c[k] for k in ('id', 'grade', 'section', 'subject', 'periods', 'rows')} for c in classes],
-        'advisory': _advisory(request, sy),
     })
-
-
-def _advisory(request, sy):
-    """The section the teacher advises this year, with the school forms an adviser prepares."""
-    if sy is None:
-        return []
-    from academics.models import Section
-    from documentation import form_data as FD
-    out = []
-    for section in Section.objects.filter(school_year=sy, adviser=request.user, is_active=True).select_related('grade_level'):
-        senior = section.grade_level.is_senior_high
-        forms = [('SF1', 'School Register'), ('SF2', 'Daily Attendance'), ('SF3', 'Books Issued and Returned'),
-                 ('SF5', 'End of Semester Status (SF5A)' if senior else 'Report on Promotion')]
-        if not senior:
-            forms.append(('SUMMARY', 'Summary of Final Grades'))
-        out.append({'section': section, 'senior': senior, 'forms': forms, 'months': FD.months_of(sy), 'month': FD.default_month(sy),
-                    'url': reverse('teachers:advisory_form', args=[section.id])})
-    return out
 
 
 # ---------------------------------------------------------------------------------------------
@@ -315,7 +296,7 @@ def class_csv(request, assignment_id):
     response['Content-Disposition'] = f'attachment; filename="{ecr._clean(name).replace(" ", "-")}.csv"'
     response.write('﻿')
     writer = csv.writer(response)
-    writer.writerow(['LRN', 'Learner', 'Sex', 'Quarterly grade'])
+    writer.writerow(['LRN', 'Learner', 'Sex', f'{P.word(assignment.section.school, [period] if period else ()).replace("Quarter", "Quarterly")} grade'])
     for p in R.roster(assignment, include_inactive=False):
         writer.writerow([p['lrn'], R.display_name(p), p['sex'], ''])
     return response
@@ -364,33 +345,6 @@ def class_mapeh_final(request, assignment_id):
         return redirect('teachers:class_record_list')
     try:
         content, name = SF.mapeh_final_grades(assignment)
-    except SF.FormUnavailable as exc:
-        messages.error(request, str(exc))
-        return redirect('teachers:class_record_list')
-    return _xlsx(content, name)
-
-
-ADVISER_FORMS = ('SF1', 'SF2', 'SF3', 'SF5', 'SUMMARY')
-
-
-@login_required
-def advisory_form(request, section_id):
-    """A school form of the teacher's advisory class (SF1, SF2, SF3, SF5 or the summary of final grades)."""
-    profile = _teacher(request)
-    if not profile:
-        return _denied(request)
-    from academics.models import Section
-    from documentation import school_forms as SF
-    section = get_object_or_404(Section.objects.select_related('grade_level', 'strand', 'strand__track', 'adviser', 'school', 'school_year'),
-                                id=section_id, adviser=request.user, school=profile.school)
-    code = request.GET.get('code', '')
-    if code not in ADVISER_FORMS:
-        messages.error(request, 'Choose one of the forms of your advisory class.')
-        return redirect('teachers:class_record_list')
-    sy = section.school_year
-    try:
-        content, name = SF.build(code, school=section.school, sy=sy, section=section, month=SF.month_param(request.GET.get('month')),
-                                 semester=SF.semester_param(sy, request.GET.get('semester')))
     except SF.FormUnavailable as exc:
         messages.error(request, str(exc))
         return redirect('teachers:class_record_list')
