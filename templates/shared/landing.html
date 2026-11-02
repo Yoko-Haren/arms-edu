@@ -9,12 +9,13 @@
     <meta property="og:description" content="Enter it once. Every school form follows. Built with Northern Paramedical &amp; Technological College of Panabo, Inc.">
     <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'shared/logo/arms-mark-512.png' %}">
     {% include 'shared/_favicon.html' %}
+    {% include 'shared/_analytics.html' %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css">
     <link rel="stylesheet" href="{% static 'landing/css/landing.css' %}">
-    <link rel="preload" as="image" type="image/webp" imagesrcset="{% static 'landing/images/web/school-900.webp' %} 900w, {% static 'landing/images/web/school-1600.webp' %} 1600w, {% static 'landing/images/web/school-2932.webp' %} 2932w" imagesizes="max(110vw, 1040px)">
+    <link rel="preload" as="image" type="image/webp" imagesrcset="{% static 'landing/images/web/school-900.webp' %} 900w, {% static 'landing/images/web/school-1600.webp' %} 1600w, {% static 'landing/images/web/school-2400.webp' %} 2400w, {% static 'landing/images/web/school-3840.webp' %} 3840w" imagesizes="max(104vw, 1040px)">
     <script>
         // Scroll-in effects only run with JavaScript; if the page script never starts, show everything.
         document.documentElement.classList.add('js');
@@ -59,7 +60,7 @@
                 <p class="lead">ARMS turns one SF1 and each teacher's class record into checked grades, finished DepEd forms and clear decisions for the school head.</p>
                 <div class="hero-cta">
                     <a class="btn btn-primary btn-lg" href="{% url 'signin' %}">{% if user.is_authenticated %}Go to your dashboard{% else %}Sign in to ARMS{% endif %}<i class="fi fi-rr-arrow-right" aria-hidden="true"></i></a>
-                    <a class="btn btn-ghost btn-lg" href="#forms">See how forms connect</a>
+                    <a class="hero-link" href="#forms">See how forms connect<i class="fi fi-rr-arrow-small-right" aria-hidden="true"></i></a>
                 </div>
             </div>
             <div class="hero-chain" aria-hidden="true">
@@ -69,9 +70,9 @@
             </div>
         </div>
         <div class="hero-school">
-            <img src="{% static 'landing/images/web/school-1600.webp' %}" sizes="max(110vw, 1040px)"
-                 srcset="{% static 'landing/images/web/school-900.webp' %} 900w, {% static 'landing/images/web/school-1600.webp' %} 1600w, {% static 'landing/images/web/school-2932.webp' %} 2932w"
-                 width="2932" height="1044" fetchpriority="high"
+            <img src="{% static 'landing/images/web/school-1600.webp' %}" sizes="max(104vw, 1040px)"
+                 srcset="{% static 'landing/images/web/school-900.webp' %} 900w, {% static 'landing/images/web/school-1600.webp' %} 1600w, {% static 'landing/images/web/school-2400.webp' %} 2400w, {% static 'landing/images/web/school-3840.webp' %} 3840w"
+                 width="3840" height="1367" fetchpriority="high"
                  alt="The two-storey building of Northern Paramedical and Technological College of Panabo, its name on a banner, with bamboo trees around it">
         </div>
         <svg class="hero-curve" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true" focusable="false">
