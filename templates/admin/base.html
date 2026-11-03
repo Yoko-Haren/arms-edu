@@ -55,6 +55,16 @@
             });
         });
     });
+    // sign-in details shown once: copy one account's details as a ready-to-send message
+    document.querySelectorAll('[data-copy-cred]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var text = b.closest('[data-cred]').dataset.cred, label = b.querySelector('span');
+            navigator.clipboard.writeText(text).then(function () {
+                label.textContent = 'Copied';
+                setTimeout(function () { label.textContent = 'Copy'; }, 1500);
+            });
+        });
+    });
     // dialogs
     document.querySelectorAll('[data-open]').forEach(function (b) {
         b.addEventListener('click', function () {

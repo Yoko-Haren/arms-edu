@@ -720,13 +720,21 @@ def section_detail(request, section_id):
 # TEACHER ACCOUNTS
 # =============================================================================
 
+# Words that start a Filipino or Spanish surname: "Dela Cruz", "De los Reyes", "San Jose", "Sta. Maria".
+_SURNAME_PARTICLES = {'de', 'del', 'dela', 'della', 'delos', 'de los', 'la', 'los', 'las', 'san', 'santa', 'santo', 'sta', 'sto',
+                      'da', 'das', 'do', 'dos', 'van', 'von', 'mac', 'mc'}
+
+
 def _split_instructor_name(full_name):
-    """'Gertrude Grace M Tampus' -> ('Gertrude Grace', 'Tampus'); middle initials are dropped."""
+    """'Juan M. Dela Cruz' -> ('Juan', 'Dela Cruz'); middle initials are dropped and surname particles stay with the surname."""
     parts = full_name.replace(',', ' ').split()
     if len(parts) < 2:
         return full_name.strip(), ''
-    given = [p for p in parts[:-1] if len(p.strip('.')) > 1] or parts[:1]
-    return ' '.join(given), parts[-1]
+    start = len(parts) - 1
+    while start > 1 and parts[start - 1].lower().strip('.') in _SURNAME_PARTICLES:
+        start -= 1
+    given = [p for p in parts[:start] if len(p.strip('.')) > 1] or parts[:1]
+    return ' '.join(given), ' '.join(parts[start:])
 
 
 def _school_teacher(request, profile_id):

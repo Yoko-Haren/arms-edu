@@ -8,7 +8,7 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-layers" style="color:#123499;"></i> Add grade levels</h2>
-            <p class="hint">Choose a school, then the levels it offers. Levels it already has are locked.</p>
+            <p class="hint">Choose a school, then the levels it offers, from Kindergarten to Grade 12. Levels it already has are locked.</p>
         </div>
         <a class="btn btn-line btn-sm" href="{% url 'admin_panel:grade_level_list' %}"><i class="fi fi-rr-arrow-small-left"></i> Grade levels</a>
     </section>
@@ -19,16 +19,18 @@
         <section class="card panel" aria-labelledby="glTitle">
             <div class="panel-head"><h3 id="glTitle"><i class="fi fi-rr-layers" style="color:#123499;"></i> Grade levels</h3></div>
             <div class="ap-presets" role="group" aria-label="Quick choices">
+                <button type="button" class="btn btn-line btn-sm" data-grades="0,1,2,3,4,5,6,7,8,9,10,11,12">Kindergarten to Grade 12</button>
+                <button type="button" class="btn btn-line btn-sm" data-grades="0,1,2,3,4,5,6">Kindergarten to Grade 6</button>
+                <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10,11,12">Secondary (7 to 12)</button>
                 <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10">Junior High (7 to 10)</button>
                 <button type="button" class="btn btn-line btn-sm" data-grades="11,12">Senior High (11 to 12)</button>
-                <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10,11,12">Integrated (7 to 12)</button>
                 <button type="button" class="btn btn-ghost btn-sm" data-grades="">Clear</button>
             </div>
             <div class="ap-grades">
-                {% for n in grade_numbers %}
+                {% for n, label, stage in grade_choices %}
                 <label class="ap-grade" data-grade="{{ n }}">
                     <input type="checkbox" name="grades" value="{{ n }}">
-                    <span><b>Grade {{ n }}</b><small data-default="{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}">{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}</small></span>
+                    <span><b>{{ label }}</b><small data-default="{{ stage }}">{{ stage }}</small></span>
                 </label>
                 {% endfor %}
             </div>

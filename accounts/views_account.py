@@ -319,6 +319,7 @@ def password_reset_done(request):
 # =============================================================================
 
 SETTINGS_BASES = {
+    'admin': 'admin/base.html',
     'teacher': 'teachers/base.html',
     'registrar': 'registrars/base.html',
     'schoolhead': 'heads/base.html',

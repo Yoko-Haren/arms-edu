@@ -19,6 +19,8 @@
         </div>
     </section>
 
+    {% include 'admin/_new_accounts.html' %}
+
     <div class="tiles" style="--tiles:3">
         <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-clipboard-list"></i></span><div><span>Registrars</span><b>{{ registrars|length }}</b><small>at this school</small></div></div>
         <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-chalkboard-user"></i></span><div><span>Teachers</span><b>{{ teachers|length }}</b><small>at this school</small></div></div>
@@ -45,7 +47,7 @@
                 <dl class="ap-kv">
                     <div><dt>Name</dt><dd>{{ principal.school.school_name }}</dd></div>
                     <div><dt>School ID</dt><dd>{{ principal.school.school_id }}</dd></div>
-                    <div><dt>Grading</dt><dd>{{ principal.school.get_grading_scale_display }}</dd></div>
+                    <div><dt>DepEd rules</dt><dd>{% if principal.school.grading_policy == 'DO15_2026' %}DO 015, s. 2026{% else %}DO 8, s. 2015{% endif %}</dd></div>
                 </dl>
                 <div class="ap-acts"><a class="btn btn-line" href="{% url 'admin_panel:school_detail' principal.school.id %}"><i class="fi fi-rr-eye"></i> View school</a></div>
                 {% else %}<p class="empty"><i class="fi fi-rr-building"></i>No school assigned.</p>{% endif %}
@@ -91,12 +93,10 @@
                 <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
             </div>
             <div class="tp-modal-body">
-                <label class="field"><span>New password</span>
-                    <input type="password" name="new_password" required minlength="8" autocomplete="new-password">
-                    <small>At least 8 characters.</small></label>
+                <p style="margin:0;font-size:0.86rem;">ARMS makes a new temporary password and shows it once on the next page, with a Copy button. Their current password stops working.</p>
                 <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
                     <button type="button" class="btn btn-line" data-close>Cancel</button>
-                    <button type="submit" class="btn btn-main">Reset password</button>
+                    <button type="submit" class="btn btn-main"><i class="fi fi-rr-key"></i> Make a new password</button>
                 </div>
             </div>
         </form>

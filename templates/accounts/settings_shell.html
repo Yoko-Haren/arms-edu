@@ -6,5 +6,5 @@
 {% block role_label %}{{ request.user.profile.get_role_display|default:"Administrator" }}{% endblock %}
 
 {% block sidebar_nav %}
-<li class="nav-item"><a href="{{ dashboard_url }}" class="nav-link"><i class="fi fi-rr-arrow-left"></i><span>Back to Dashboard</span></a></li>
+<li class="nav-item"><a href="{{ dashboard_url }}" class="nav-link"><i class="fi fi-rr-dashboard"></i><span>Dashboard</span></a></li>
 {% endblock %}

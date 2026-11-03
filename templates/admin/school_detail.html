@@ -16,6 +16,8 @@
         </div>
     </section>
 
+    {% include 'admin/_new_accounts.html' %}
+
     {% if not school.is_active %}
     <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span><b>This school is inactive.</b> Activate it from Actions so its people can sign in.</span></div>
     {% endif %}
@@ -34,19 +36,31 @@
                     {% if school.is_active %}<span class="pill good">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</div>
                 <dl class="ap-kv">
                     <div><dt>Short name</dt><dd>{{ school.short_name|default:"Not set" }}</dd></div>
-                    <div><dt>Grading scale</dt><dd>{{ school.get_grading_scale_display }}</dd></div>
-                    <div><dt>Period type</dt><dd>{{ school.get_period_type_display }}</dd></div>
-                    <div><dt>Passing grade</dt><dd>{{ school.passing_grade }}</dd></div>
-                    <div><dt>Periods a year</dt><dd>{{ school.quarters_count }}</dd></div>
-                    <div><dt>Email domain</dt><dd>{{ school.email_domain|default:"Not set" }}</dd></div>
-                    <div><dt>Contact</dt><dd>{{ school.contact_number|default:"Not set" }}</dd></div>
+                    <div><dt>DepEd rules</dt><dd>{{ policy.short }}</dd></div>
+                    <div><dt>Grading periods</dt><dd>{{ school.quarters_count }} {% if school.period_type == 'TRIMESTRAL' %}terms{% elif school.period_type == 'SEMESTRAL' %}semesters{% else %}quarters{% endif %} a year</dd></div>
+                    <div><dt>Passing grade</dt><dd>{{ school.passing_grade|floatformat:"-2" }}</dd></div>
+                    <div><dt>Email domain</dt><dd>{{ school.email_domain|default:"None: emails are typed" }}</dd></div>
                     <div><dt>Added</dt><dd>{{ school.created_at|date:"F j, Y" }}</dd></div>
                 </dl>
+            </section>
+            <section class="card panel" aria-labelledby="setupTitle">
+                <div class="panel-head"><h3 id="setupTitle"><i class="fi fi-rr-list-check" style="color:#123499;"></i> Setup</h3>
+                    {% if setup_left %}<span class="pill warn">{{ setup_left }} left</span>{% else %}<span class="pill good">Ready</span>{% endif %}</div>
+                <ol class="ap-steps">
+                    {% for step in setup %}
+                    <li class="{% if step.done %}done{% endif %}">
+                        <span class="ico" aria-hidden="true">{% if step.done %}<i class="fi fi-rr-check"></i>{% else %}{{ forloop.counter }}{% endif %}</span>
+                        <div class="txt"><b>{{ step.label }}</b><small>{% if step.done %}Done{% else %}{{ step.hint }}{% endif %}</small></div>
+                        {% if not step.done %}<a class="btn btn-line btn-sm" href="{{ step.url }}">{{ step.action }}</a>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ol>
             </section>
             <section class="card panel" aria-labelledby="actTitle">
                 <div class="panel-head"><h3 id="actTitle"><i class="fi fi-rr-settings" style="color:#123499;"></i> Actions</h3></div>
                 <div class="ap-acts" style="margin-top:0;">
-                    <a class="btn btn-line" href="{% url 'admin_panel:principal_create' %}?school={{ school.id }}"><i class="fi fi-rr-user-add"></i> Assign principal</a>
+                    <a class="btn btn-line" href="{% url 'admin_panel:principal_create' %}?school={{ school.id }}"><i class="fi fi-rr-user-add"></i> Add a principal</a>
+                    <a class="btn btn-line" href="{% url 'admin_panel:registrar_create' %}?school={{ school.id }}"><i class="fi fi-rr-user-add"></i> Add a registrar</a>
                     <a class="btn btn-line" href="{% url 'admin_panel:grade_level_create' %}?school={{ school.id }}"><i class="fi fi-rr-layers"></i> Add grade levels</a>
                     <form method="POST" action="{% url 'admin_panel:school_toggle' school.id %}" data-confirm-title="{% if school.is_active %}Deactivate school{% else %}Activate school{% endif %}" data-confirm-ok="{% if school.is_active %}Deactivate{% else %}Activate{% endif %}" data-confirm="{% if school.is_active %}Deactivate {{ school.school_name }}?{% else %}Activate {{ school.school_name }}?{% endif %}" {% if school.is_active %}data-confirm-danger{% endif %}>
                         {% csrf_token %}
@@ -83,8 +97,8 @@
             <div id="tab-levels" hidden>
                 {% if grade_levels %}
                 <div class="ap-scroll"><table class="table">
-                    <thead><tr><th scope="col">Code</th><th scope="col">Grade</th><th scope="col">Category</th></tr></thead>
-                    <tbody>{% for gl in grade_levels %}<tr><td><span class="code">{{ gl.grade_code }}</span></td><td>{{ gl.grade_name }}</td><td>{{ gl.get_level_category_display }}</td></tr>{% endfor %}</tbody>
+                    <thead><tr><th scope="col">Code</th><th scope="col">Grade</th><th scope="col">Stage</th></tr></thead>
+                    <tbody>{% for gl in grade_levels %}<tr><td><span class="code">{{ gl.grade_code }}</span></td><td>{{ gl.grade_name }}</td><td>{{ gl.stage }}</td></tr>{% endfor %}</tbody>
                 </table></div>
                 {% else %}<p class="empty"><i class="fi fi-rr-layers"></i>No grade levels yet.</p>{% endif %}
                 <div style="margin-top:0.8rem;"><a class="btn btn-line btn-sm" href="{% url 'admin_panel:grade_level_create' %}?school={{ school.id }}"><i class="fi fi-rr-plus"></i> Add grade levels</a></div>
@@ -114,7 +128,7 @@
                     <div>
                         <h3 style="margin-bottom:0.5rem;">Registrars ({{ registrar_count|default:0 }})</h3>
                         {% if registrars %}<ul class="ap-mini">{% for reg in registrars %}<li><div class="ap-who"><div><b>{{ reg.full_name }}</b><small>{{ reg.user.email }}</small></div></div></li>{% endfor %}</ul>
-                        {% else %}<p class="hint">No registrar yet.</p>{% endif %}
+                        {% else %}<p class="hint">No registrar yet. <a href="{% url 'admin_panel:registrar_create' %}?school={{ school.id }}">Add the registrar</a>.</p>{% endif %}
                     </div>
                     <div>
                         <h3 style="margin-bottom:0.5rem;">Teachers ({{ teacher_count|default:0 }})</h3>

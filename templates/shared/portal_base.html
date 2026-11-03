@@ -150,6 +150,10 @@
             align-items: center; gap: 0.8rem; min-width: 300px;
             animation: slideInRight 0.3s ease; border-left: 4px solid var(--secondary-green);
         }
+        .toast.success { border-left-color: #2E7D32; }
+        .toast.success > i { color: #2E7D32; }
+        .toast.error { border-left-color: var(--danger-red); }
+        .toast.warning { border-left-color: var(--warning-orange); }
         @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         
         /* Flash messages */
@@ -160,8 +164,9 @@
             border-left: 4px solid var(--info-text); font-size: 0.82rem; color: var(--text-primary);
         }
         .flash i { font-size: 1.1rem; margin-top: 0.1rem; color: var(--info-text); }
-        .flash.success { border-left-color: var(--secondary-green); }
-        .flash.success i { color: var(--secondary-green); }
+        /* success is green in every portal, so a saved or created thing reads as done at a glance */
+        .flash.success { border-left-color: #2E7D32; background: #f1f8f2; color: #1d4721; }
+        .flash.success i { color: #2E7D32; }
         .flash.error { border-left-color: var(--danger-red); }
         .flash.error i { color: var(--danger-red); }
         .flash.warning { border-left-color: var(--warning-orange); }

@@ -32,6 +32,9 @@ load_dotenv(BASE_DIR / '.env')
 # On Vercel (VERCEL=1) the app runs as a serverless function: a read-only disk except /tmp, no background
 # processes, HTTPS in front. Settings below that say "on Vercel" adjust for that; locally nothing changes.
 ON_VERCEL = bool(os.environ.get('VERCEL'))
+# A Vercel Deploy Hook (Project Settings, Git, Deploy Hooks). Each new deployment trains the grade forecaster during its
+# build (vercel.json), so on Vercel "Retrain now" and a locked grading period ask this hook for one.
+VERCEL_DEPLOY_HOOK_URL = os.environ.get('VERCEL_DEPLOY_HOOK_URL', '').strip()
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False' if ON_VERCEL else 'True').lower() in ('1', 'true', 'yes')
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY:

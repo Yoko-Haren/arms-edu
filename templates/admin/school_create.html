@@ -8,113 +8,123 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-building" style="color:#123499;"></i> {{ title }}</h2>
-            <p class="hint">{% if edit_mode %}Changes apply to everyone at this school.{% else %}A school needs a principal, a registrar, grade levels and a school year before its people can start. Those come next.{% endif %}</p>
+            <p class="hint">{% if edit_mode %}Changes apply to everyone at this school.{% else %}Type the name and ARMS fills in the rest. You can change anything before you create it.{% endif %}</p>
         </div>
         <a class="btn btn-line btn-sm" href="{% if edit_mode %}{% url 'admin_panel:school_detail' school.id %}{% else %}{% url 'admin_panel:school_list' %}{% endif %}"><i class="fi fi-rr-arrow-small-left"></i> {% if edit_mode %}School{% else %}Schools{% endif %}</a>
     </section>
 
-    <form method="POST" id="schoolForm" class="ap-page">
+    {% if form.non_field_errors %}<div class="note risk"><i class="fi fi-rr-exclamation"></i><span>{{ form.non_field_errors|join:" " }}</span></div>{% endif %}
+
+    <form method="POST" id="schoolForm" class="ap-page" novalidate>
         {% csrf_token %}
         <div class="ap-stack">
             <section class="card panel" aria-labelledby="basicTitle">
-                <div class="panel-head"><h3 id="basicTitle"><i class="fi fi-rr-info" style="color:#123499;"></i> Basic information</h3><span class="muted" style="font-size:0.78rem;"><span class="req">*</span> required</span></div>
+                <div class="panel-head"><h3 id="basicTitle"><i class="fi fi-rr-info" style="color:#123499;"></i> The school</h3><span class="muted" style="font-size:0.78rem;"><span class="req">*</span> required</span></div>
                 <div class="ap-form">
-                    <div class="ap-three">
+                    <label class="field {% if form.school_name.errors %}bad{% endif %}"><span>School name <span class="req">*</span></span>
+                        <input type="text" name="school_name" id="schoolName" value="{{ form.school_name.value|default:'' }}" placeholder="e.g. Panabo National High School" required autocomplete="off" {% if not edit_mode %}autofocus{% endif %}>
+                        {% for e in form.school_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                    <div class="ap-two">
                         <label class="field {% if form.school_id.errors %}bad{% endif %}"><span>School ID <span class="req">*</span></span>
-                            <input type="text" name="school_id" id="school_id" value="{{ form.school_id.value|default:'' }}" required autocomplete="off">
-                            <span class="ap-suggest" id="schoolIdPreview"></span>
+                            <input type="text" name="school_id" id="schoolId" value="{{ form.school_id.value|default:'' }}" placeholder="e.g. 405587" required autocomplete="off" inputmode="text">
+                            <small id="schoolIdHint">The ID DepEd gave the school.</small>
                             <span class="err" id="schoolIdError" hidden></span>
                             {% for e in form.school_id.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                        <label class="field {% if form.school_name.errors %}bad{% endif %}" style="grid-column: span 2;"><span>School name <span class="req">*</span></span>
-                            <input type="text" name="school_name" value="{{ form.school_name.value|default:'' }}" required autocomplete="off">
-                            {% for e in form.school_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                        <label class="field {% if form.short_name.errors %}bad{% endif %}"><span>Short name</span>
+                            <input type="text" name="short_name" id="shortName" value="{{ form.short_name.value|default:'' }}" placeholder="Made from the name" autocomplete="off" maxlength="50">
+                            <small id="shortHint">Made from the name. Type over it if the school uses another.</small>
+                            {% for e in form.short_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                     </div>
-                    <div class="ap-three">
-                        <label class="field"><span>Short name <span class="opt">optional</span></span>
-                            <input type="text" name="short_name" value="{{ form.short_name.value|default:'' }}" placeholder="e.g. MNHS" autocomplete="off"></label>
-                        <label class="field {% if form.grading_scale.errors %}bad{% endif %}"><span>Grading scale <span class="req">*</span></span>
-                            <select name="grading_scale" required>
-                                <option value="">Choose one</option>
-                                <option value="PERCENTAGE" {% if form.grading_scale.value == 'PERCENTAGE' %}selected{% endif %}>0-100 Percentage</option>
-                                <option value="NUMERIC_1_5" {% if form.grading_scale.value == 'NUMERIC_1_5' %}selected{% endif %}>1.0 - 5.0 (1.0 highest)</option>
-                                <option value="NUMERIC_5_1" {% if form.grading_scale.value == 'NUMERIC_5_1' %}selected{% endif %}>5.0 - 1.0 (5.0 highest)</option>
-                                <option value="GPA_4" {% if form.grading_scale.value == 'GPA_4' %}selected{% endif %}>0.0 - 4.0 GPA</option>
-                                <option value="GPA_5" {% if form.grading_scale.value == 'GPA_5' %}selected{% endif %}>0.0 - 5.0 GPA</option>
-                                <option value="LETTER" {% if form.grading_scale.value == 'LETTER' %}selected{% endif %}>A - F Letter Grades</option>
-                            </select></label>
-                        <label class="field"><span>Period type</span>
-                            <select name="period_type" id="periodType">
-                                {% for value, label in form.fields.period_type.choices %}
-                                <option value="{{ value }}" {% if form.period_type.value == value %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select></label>
-                    </div>
-                    <div class="ap-three">
-                        <label class="field"><span>Passing grade</span>
-                            <input type="number" name="passing_grade" value="{{ form.passing_grade.value|default:75 }}" step="0.01" min="0" max="100"></label>
-                        <label class="field"><span id="periodCountLabel">Quarters count</span>
-                            <input type="number" name="quarters_count" id="periodCount" value="{{ form.quarters_count.value|default:4 }}" readonly>
-                            <small>Set by the period type.</small></label>
-                        <label class="field"><span>Email domain <span class="opt">optional</span></span>
-                            <input type="text" name="email_domain" value="{{ form.email_domain.value|default:'' }}" placeholder="@deped.gov.ph" autocomplete="off"></label>
-                    </div>
+                    <label class="field {% if form.email_domain.errors %}bad{% endif %}"><span>Email domain <span class="opt">optional</span></span>
+                        <div class="ap-affix"><span aria-hidden="true">@</span><input type="text" name="email_domain" id="emailDomain" value="{{ form.email_domain.value|default:''|cut:'@' }}" placeholder="school.edu.ph" autocomplete="off" spellcheck="false"></div>
+                        <small id="domainHint">With a domain, ARMS makes each sign-in for you, such as juan.delacruz@school.edu.ph. Without one, you type each person's email.</small>
+                        {% for e in form.email_domain.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                    <label class="field"><span>Address <span class="opt">optional</span></span>
+                        <textarea name="address" rows="2" placeholder="Street, barangay, city or municipality, province">{{ form.address.value|default:'' }}</textarea></label>
                 </div>
+            </section>
+
+            <section class="card panel" aria-labelledby="rulesTitle">
+                <div class="panel-head"><h3 id="rulesTitle"><i class="fi fi-rr-scale" style="color:#123499;"></i> DepEd grading rules</h3></div>
+                <p class="hint" style="margin:0 0 0.75rem;">The order the school grades by. It sets the grade descriptors, the honors and the grading periods. The School Head can change it later on the School Year page.</p>
+                <div class="ap-choices" role="radiogroup" aria-labelledby="rulesTitle">
+                    {% for p in policies %}
+                    <label class="ap-choice">
+                        <input type="radio" name="grading_policy" value="{{ p.key }}" data-period="{% for k, v in policy_periods.items %}{% if k == p.key %}{{ v }}{% endif %}{% endfor %}" {% if form.grading_policy.value == p.key %}checked{% endif %}>
+                        <span class="body">
+                            <b>{{ p.name }}{% if p.key == 'DO15_2026' %} <em class="pill info">New, SY 2026-2027</em>{% endif %}</b>
+                            <span>{% if p.key == 'DO15_2026' %}Three terms; Written/Oral Works, Product/Performance Tasks and Examinations; Advancing to Emerging; one Academic Excellence Award. Required in public schools, encouraged for private ones.{% else %}Four quarters; Written Work, Performance Tasks and Quarterly Assessment; Outstanding to Did Not Meet Expectations; With Honors to With Highest Honors (DO 36, s. 2016).{% endif %}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% for e in form.grading_policy.errors %}<span class="err">{{ e }}</span>{% endfor %}
+
+                <div class="field" style="margin-top:0.9rem;"><span id="periodLabel">Grading periods</span>
+                    <div class="seg ap-seg" role="radiogroup" aria-labelledby="periodLabel">
+                        {% for key, cfg in period_config.items %}
+                        <label><input type="radio" name="period_type" value="{{ key }}" {% if form.period_type.value == key %}checked{% endif %}><span>{{ cfg.count }} {{ cfg.plural|lower }}</span></label>
+                        {% endfor %}
+                    </div>
+                    <small id="periodHint"></small>
+                    {% if edit_mode %}<small>School years already started keep their own periods; this applies to new ones.</small>{% endif %}
+                </div>
+
+                <details class="ap-more">
+                    <summary>More settings</summary>
+                    <div class="ap-two" style="margin-top:0.75rem;">
+                        <label class="field"><span>Grading scale</span>
+                            <select name="grading_scale">
+                                {% for value, label in form.fields.grading_scale.choices %}{% if value %}<option value="{{ value }}" {% if form.grading_scale.value == value or not form.grading_scale.value and value == 'PERCENTAGE' %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}
+                            </select>
+                            <small>DepEd schools grade from 0 to 100.</small></label>
+                        <label class="field {% if form.passing_grade.errors %}bad{% endif %}"><span>Passing grade</span>
+                            <input type="number" name="passing_grade" value="{{ form.passing_grade.value|default:75 }}" step="0.01" min="0" max="100">
+                            <small>75 in both DepEd orders.</small>
+                            {% for e in form.passing_grade.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                    </div>
+                </details>
             </section>
 
             {% if not edit_mode %}
-            <section class="card panel" aria-labelledby="gradingTitle">
-                <div class="panel-head"><h3 id="gradingTitle"><i class="fi fi-rr-chart-histogram" style="color:#123499;"></i> Grading system</h3></div>
-                <p class="hint" style="margin:0 0 0.7rem;">The grade ranges of the system you pick are created for this school.</p>
-                <label class="field"><span>Default grading system <span class="req">*</span></span>
-                    <select name="grading_schema_type" id="gradingSchemaType" required>
-                        <option value="">Choose one</option>
-                        <optgroup label="DepEd K-12 (DO 8, s. 2015)">
-                            <option value="DEPED_ELEMENTARY" {% if form.grading_schema_type.value == 'DEPED_ELEMENTARY' %}selected{% endif %}>DepEd Elementary (Quarterly, Grades 1-6)</option>
-                            <option value="DEPED_JHS" {% if form.grading_schema_type.value == 'DEPED_JHS' %}selected{% endif %}>DepEd JHS only (Quarterly, Grades 7-10)</option>
-                            <option value="DEPED_SHS" {% if form.grading_schema_type.value == 'DEPED_SHS' %}selected{% endif %}>DepEd SHS only (Semestral, Grades 11-12)</option>
-                            <option value="DEPED_INTEGRATED" {% if form.grading_schema_type.value == 'DEPED_INTEGRATED' %}selected{% endif %}>DepEd Integrated (JHS Quarterly + SHS Semestral, Grades 7-12)</option>
-                            <option value="DEPED_K12_COMPLETE" {% if form.grading_schema_type.value == 'DEPED_K12_COMPLETE' %}selected{% endif %}>DepEd K-12 Complete (Elementary + JHS + SHS, Grades 1-12)</option>
-                        </optgroup>
-                        <optgroup label="Higher Education (CMO 14, s. 2019)">
-                            <option value="CHED_STANDARD" {% if form.grading_schema_type.value == 'CHED_STANDARD' %}selected{% endif %}>CHED Standard (Semestral)</option>
-                            <option value="CHED_TRIMESTER" {% if form.grading_schema_type.value == 'CHED_TRIMESTER' %}selected{% endif %}>CHED Trimester</option>
-                        </optgroup>
-                        <optgroup label="Technical-Vocational">
-                            <option value="TESDA_COMPETENCY" {% if form.grading_schema_type.value == 'TESDA_COMPETENCY' %}selected{% endif %}>TESDA Competency-Based (Modular)</option>
-                        </optgroup>
-                        <optgroup label="Other">
-                            <option value="CUSTOM" {% if form.grading_schema_type.value == 'CUSTOM' %}selected{% endif %}>Custom grading system</option>
-                        </optgroup>
-                    </select></label>
-                <div class="note" id="schemaPreview" hidden style="margin-top:0.75rem;"><i class="fi fi-rr-info"></i>
-                    <div><b id="schemaName"></b> · <span id="schemaPeriod"></span><div class="ap-ranges" id="schemaRanges"></div></div></div>
-            </section>
-            {% endif %}
-
-            <section class="card panel" aria-labelledby="contactTitle">
-                <div class="panel-head"><h3 id="contactTitle"><i class="fi fi-rr-marker" style="color:#123499;"></i> Contact information</h3></div>
-                <div class="ap-form">
-                    <label class="field"><span>Street address</span>
-                        <textarea name="address" rows="2">{{ form.address.value|default:'' }}</textarea></label>
-                    <div class="ap-two">
-                        <label class="field"><span>Contact number</span>
-                            <input type="text" name="contact_number" value="{{ form.contact_number.value|default:'' }}" placeholder="(082) 300-1234" autocomplete="off"></label>
-                        <label class="field"><span>Theme color</span>
-                            <input type="color" name="theme_color" value="{{ form.theme_color.value|default:'#2c3e50' }}"></label>
-                    </div>
+            <section class="card panel" aria-labelledby="levelsTitle">
+                <div class="panel-head"><h3 id="levelsTitle"><i class="fi fi-rr-layers" style="color:#123499;"></i> Grade levels it offers</h3><span class="muted" id="levelCount" style="font-size:0.78rem;"></span></div>
+                <div class="ap-presets" role="group" aria-label="Quick choices">
+                    <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10,11,12">Secondary (7 to 12)</button>
+                    <button type="button" class="btn btn-line btn-sm" data-grades="0,1,2,3,4,5,6,7,8,9,10,11,12">Kindergarten to Grade 12</button>
+                    <button type="button" class="btn btn-line btn-sm" data-grades="0,1,2,3,4,5,6">Kindergarten to Grade 6</button>
+                    <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10">Junior High</button>
+                    <button type="button" class="btn btn-line btn-sm" data-grades="11,12">Senior High</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-grades="">None for now</button>
+                </div>
+                <div class="ap-grades">
+                    {% for n, label, stage in grade_choices %}
+                    <label class="ap-grade"><input type="checkbox" name="grades" value="{{ n }}" {% if n in chosen_grades %}checked{% endif %}>
+                        <span><b>{{ label }}</b><small>{{ stage }}</small></span></label>
+                    {% endfor %}
                 </div>
             </section>
+            {% endif %}
         </div>
 
         <aside class="ap-side">
-            <section class="card panel" aria-labelledby="saveTitle">
-                <div class="panel-head"><h3 id="saveTitle"><i class="fi fi-rr-settings" style="color:#123499;"></i> Status</h3></div>
-                <label class="check"><input type="checkbox" name="is_active" {% if form.is_active.value or not edit_mode and not form.is_bound %}checked{% endif %}>
+            <section class="card panel" aria-labelledby="sumTitle">
+                <div class="panel-head"><h3 id="sumTitle"><i class="fi fi-rr-list-check" style="color:#123499;"></i> {% if edit_mode %}Summary{% else %}What ARMS will create{% endif %}</h3></div>
+                <dl class="ap-kv" id="summary">
+                    <div><dt>School</dt><dd data-sum="name">Type the name</dd></div>
+                    <div><dt>Short name</dt><dd data-sum="short">&mdash;</dd></div>
+                    <div><dt>Rules</dt><dd data-sum="rules">&mdash;</dd></div>
+                    <div><dt>Periods</dt><dd data-sum="periods">&mdash;</dd></div>
+                    {% if not edit_mode %}<div><dt>Grade levels</dt><dd data-sum="levels">&mdash;</dd></div>{% endif %}
+                    <div><dt>Sign-ins</dt><dd data-sum="signin">&mdash;</dd></div>
+                </dl>
+                <label class="check" style="margin-top:0.9rem;"><input type="checkbox" name="is_active" {% if form.is_active.value %}checked{% endif %}>
                     <span>School is active<small>Its people can sign in.</small></span></label>
                 <div class="ap-acts">
                     <button type="submit" class="btn btn-main"><i class="fi fi-rr-check"></i> {{ submit_text }}</button>
                     <a class="btn btn-line" href="{% if edit_mode %}{% url 'admin_panel:school_detail' school.id %}{% else %}{% url 'admin_panel:school_list' %}{% endif %}">Cancel</a>
                 </div>
+                {% if not edit_mode %}<p class="hint" style="margin:0.8rem 0 0;">Next you add its principal and registrar. ARMS makes their sign-ins and temporary passwords.</p>{% endif %}
             </section>
         </aside>
     </form>
@@ -125,89 +135,99 @@
 {{ period_config|json_script:"periodConfigData" }}
 <script>
 (function () {
-    var DEPED = [['O', 'Outstanding', 90, 100], ['VS', 'Very Satisfactory', 85, 89], ['S', 'Satisfactory', 80, 84], ['FS', 'Fairly Satisfactory', 75, 79], ['DNME', 'Did Not Meet Expectations', 0, 74]];
-    var CHED = [['1.00', 'Excellent', 96, 100], ['1.25', 'Superior', 90, 95], ['1.50', 'Very Good', 85, 89], ['1.75', 'Good', 80, 84], ['2.00', 'Satisfactory', 75, 79], ['2.50', 'Fair', 70, 74], ['3.00', 'Pass', 65, 69], ['5.00', 'Failed', 0, 64]];
-    var SCHEMAS = {
-        DEPED_ELEMENTARY: ['DepEd Elementary, DO 8, s. 2015', 'Quarterly (Grades 1-6)', 1, DEPED],
-        DEPED_JHS: ['DepEd JHS, DO 8, s. 2015', 'Quarterly (Grades 7-10)', 1, DEPED],
-        DEPED_SHS: ['DepEd SHS, DO 8, s. 2015', 'Semestral (Grades 11-12)', 1, DEPED],
-        DEPED_INTEGRATED: ['DepEd Integrated School, DO 8, s. 2015', 'JHS quarterly, SHS semestral (Grades 7-12)', 2, DEPED],
-        DEPED_K12_COMPLETE: ['DepEd K-12 Complete, DO 8, s. 2015', 'Elementary and JHS quarterly, SHS semestral (Grades 1-12)', 3, DEPED],
-        CHED_STANDARD: ['CHED Standard, CMO 14, s. 2019', 'Semestral', 1, CHED],
-        CHED_TRIMESTER: ['CHED Trimester, CMO 14, s. 2019', 'Trimester', 1, CHED],
-        TESDA_COMPETENCY: ['TESDA Competency-Based', 'Modular', 1, [['COC', 'Certificate of Competency', 90, 100], ['NC', 'National Certificate', 80, 89], ['NC-L1', 'NC Level 1', 75, 79], ['NYC', 'Not Yet Competent', 0, 74]]],
-        CUSTOM: ['Custom grading system', 'User-defined', 1, [['A', 'Excellent', 90, 100], ['B', 'Good', 80, 89], ['C', 'Pass', 75, 79], ['F', 'Fail', 0, 74]]]
-    };
-    var schemaSelect = document.getElementById('gradingSchemaType');
-    var preview = document.getElementById('schemaPreview');
-    function showSchema() {
-        var s = SCHEMAS[schemaSelect.value];
-        preview.hidden = !s;
-        if (!s) return;
-        document.getElementById('schemaName').textContent = s[0] + (s[2] > 1 ? ' (' + s[2] + ' grading systems are created)' : '');
-        document.getElementById('schemaPeriod').textContent = s[1];
-        var box = document.getElementById('schemaRanges');
-        box.textContent = '';
-        s[3].forEach(function (r) {
-            var pill = document.createElement('span');
-            pill.className = 'pill';
-            pill.textContent = r[0] + ' ' + r[1] + ' (' + r[2] + '-' + r[3] + ')';
-            box.appendChild(pill);
-        });
-    }
+    var form = document.getElementById('schoolForm');
+    var periods = JSON.parse(document.getElementById('periodConfigData').textContent);
+    var nameInput = document.getElementById('schoolName'), shortInput = document.getElementById('shortName');
+    var idInput = document.getElementById('schoolId'), domainInput = document.getElementById('emailDomain');
+    var SMALL = ['of', 'and', 'the', 'for', 'in', 'at', 'de', 'del', 'la', 'ng', 'sa', 'inc', 'incorporated', 'corp', 'co'];
+    var PUBLIC = ['gmail.com', 'googlemail.com', 'yahoo.com', 'ymail.com', 'outlook.com', 'hotmail.com', 'live.com', 'icloud.com', 'aol.com', 'proton.me', 'protonmail.com'];
 
-    // the number of periods follows the period type
-    var periodConfig = JSON.parse(document.getElementById('periodConfigData').textContent);
-    var periodType = document.getElementById('periodType');
-    function syncPeriodCount() {
-        var cfg = periodConfig[periodType.value];
-        if (!cfg) return;
-        document.getElementById('periodCount').value = cfg.count;
-        document.getElementById('periodCountLabel').textContent = cfg.plural + ' count';
+    // the same initials as admin_panel/accounts.short_name_from
+    function initials(name) {
+        var words = (name.match(/[A-Za-z0-9][A-Za-z0-9'-]*/g) || []).filter(function (w) { return SMALL.indexOf(w.toLowerCase().replace(/'/g, '')) === -1; });
+        if (words.length >= 2) return words.map(function (w) { return w[0]; }).join('').toUpperCase().slice(0, 12);
+        return (words[0] || '').toUpperCase().slice(0, 12);
     }
-    periodType.addEventListener('change', syncPeriodCount);
-    syncPeriodCount();
-
-    if (schemaSelect) {
-        schemaSelect.addEventListener('change', function () {
-            showSchema();
-            // a trimester grading system means trimester periods
-            if (this.value === 'CHED_TRIMESTER') { periodType.value = 'TRIMESTRAL'; syncPeriodCount(); }
-        });
-        showSchema();
-    }
-
-    // suggest a School ID from the name
-    var nameInput = document.querySelector('input[name="school_name"]');
-    var idInput = document.getElementById('school_id');
-    var suggest = document.getElementById('schoolIdPreview');
+    var shortTyped = !!shortInput.value && shortInput.value !== initials(nameInput.value);
+    if (!shortInput.value && nameInput.value) shortInput.value = initials(nameInput.value);
+    shortInput.addEventListener('input', function () { shortTyped = !!shortInput.value; refresh(); });
     nameInput.addEventListener('input', function () {
-        var id = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 8);
-        suggest.textContent = '';
-        if (id && !idInput.value) {
-            var code = document.createElement('code');
-            code.textContent = id;
-            suggest.append('Suggested: ', code);
-        }
-    });
-    suggest.addEventListener('click', function (e) {
-        if (e.target.tagName === 'CODE') { idInput.value = e.target.textContent; suggest.textContent = ''; idInput.dispatchEvent(new Event('blur')); }
+        if (!shortTyped) shortInput.value = initials(nameInput.value);
+        refresh();
     });
 
-    // a new School ID must be free
-    if (!{{ edit_mode|yesno:"true,false" }}) {
-        idInput.addEventListener('blur', function () {
-            if (idInput.value.length < 3) return;
-            fetch('{% url "admin_panel:check_school_id" %}?school_id=' + encodeURIComponent(idInput.value))
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    var error = document.getElementById('schoolIdError');
-                    error.hidden = !d.exists;
-                    error.textContent = d.exists ? 'This School ID already exists.' : '';
-                    idInput.closest('.field').classList.toggle('bad', d.exists);
-                });
+    function domain() { return domainInput.value.trim().toLowerCase().replace(/^@+/, ''); }
+    function checkedValue(name) { var el = form.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : ''; }
+    function checkedText(name) { var el = form.querySelector('input[name="' + name + '"]:checked'); return el ? el.closest('label').querySelector('b').textContent.trim() : ''; }
+
+    // the DepEd order picks its grading periods; the periods can still be changed
+    form.querySelectorAll('input[name="grading_policy"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            var period = form.querySelector('input[name="period_type"][value="' + radio.dataset.period + '"]');
+            if (period) period.checked = true;
+            refresh();
         });
+    });
+    form.querySelectorAll('input[name="period_type"]').forEach(function (r) { r.addEventListener('change', refresh); });
+
+    // grade level presets
+    var gradeBoxes = form.querySelectorAll('input[name="grades"]');
+    form.querySelectorAll('[data-grades]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var pick = button.dataset.grades ? button.dataset.grades.split(',') : [];
+            gradeBoxes.forEach(function (box) { box.checked = pick.indexOf(box.value) !== -1; });
+            refresh();
+        });
+    });
+    gradeBoxes.forEach(function (box) { box.addEventListener('change', refresh); });
+
+    function levelsText() {
+        var on = Array.prototype.filter.call(gradeBoxes, function (b) { return b.checked; }).map(function (b) { return parseInt(b.value, 10); });
+        if (!on.length) return 'None for now';
+        var names = function (n) { return n === 0 ? 'Kindergarten' : 'Grade ' + n; };
+        var straight = on.every(function (n, i) { return i === 0 || n === on[i - 1] + 1; });
+        return (straight && on.length > 2 ? names(on[0]) + ' to ' + names(on[on.length - 1]).replace('Grade ', '') : on.map(names).join(', ')) + ' (' + on.length + ')';
     }
+
+    function refresh() {
+        var d = domain(), problem = '';
+        if (d && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d)) problem = 'Type a domain such as school.edu.ph, without a name before it.';
+        else if (PUBLIC.indexOf(d) !== -1) problem = d + ' belongs to a public mail service, so ARMS would make addresses that belong to other people. Leave it blank and type each email instead.';
+        var hint = document.getElementById('domainHint');
+        hint.textContent = problem || (d ? 'Staff sign in as firstname.lastname@' + d + '; the registrar as ' + (shortInput.value || 'short').toLowerCase().replace(/[^a-z0-9]/g, '') + '.registrar@' + d + '.'
+                                         : 'With a domain, ARMS makes each sign-in for you, such as juan.delacruz@school.edu.ph. Without one, you type each person’s email.');
+        hint.classList.toggle('err', !!problem);
+        domainInput.closest('.field').classList.toggle('bad', !!problem);
+
+        var p = periods[checkedValue('period_type')];
+        document.getElementById('periodHint').textContent = p ? p.basis : '';
+        var sum = function (key, value) { var el = document.querySelector('[data-sum="' + key + '"]'); if (el) el.textContent = value; };
+        sum('name', nameInput.value.trim() || 'Type the name');
+        sum('short', shortInput.value.trim() || '—');
+        sum('rules', checkedText('grading_policy').replace(/\s*New, SY 2026-2027$/, '') || '—');
+        sum('periods', p ? p.count + ' ' + p.plural.toLowerCase() + ' a school year' : '—');
+        sum('levels', levelsText());
+        sum('signin', d && !problem ? 'name@' + d : 'Typed for each person');
+        var count = document.getElementById('levelCount');
+        if (count) { var n = form.querySelectorAll('input[name="grades"]:checked').length; count.textContent = n ? n + ' selected' : ''; }
+    }
+    domainInput.addEventListener('input', refresh);
+    domainInput.addEventListener('blur', function () { domainInput.value = domain(); refresh(); });
+
+    // a School ID must be free
+    var idError = document.getElementById('schoolIdError');
+    idInput.addEventListener('blur', function () {
+        if (!idInput.value.trim()) return;
+        fetch('{% url "admin_panel:check_school_id" %}?school_id=' + encodeURIComponent(idInput.value.trim()))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var taken = d.exists && idInput.value.trim() !== '{{ school.school_id|default:""|escapejs }}';
+                idError.hidden = !taken;
+                idError.textContent = taken ? 'Another school already has this School ID.' : '';
+                idInput.closest('.field').classList.toggle('bad', taken);
+            }).catch(function () {});
+    });
+    refresh();
 })();
 </script>
 {% endblock %}

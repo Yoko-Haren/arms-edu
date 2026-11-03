@@ -1,4 +1,5 @@
 {% extends 'admin/base.html' %}
+{% load static %}
 
 {% block title %}New Registrar - ARMS{% endblock %}
 {% block subtitle %}Registrars &bull; New account{% endblock %}
@@ -8,68 +9,81 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-user-add" style="color:#123499;"></i> Add a registrar</h2>
-            <p class="hint">Pick a school and its registrar account is made for you as shortname.registrar@email-domain. A temporary password is shown once after you create it.</p>
+            <p class="hint">Choosing the school is enough: ARMS makes the school's registrar account and a temporary password. Type a name only if the account is for one person.</p>
         </div>
         <a class="btn btn-line btn-sm" href="{% url 'admin_panel:registrar_list' %}"><i class="fi fi-rr-arrow-small-left"></i> Registrars</a>
     </section>
 
-    {% if schools %}
-    <form method="post" class="ap-page">
+    {% if not schools %}
+    <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>No active school yet. <a href="{% url 'admin_panel:school_create' %}">Add a school first</a>.</span></div>
+    {% else %}
+    <form method="post" class="ap-page" data-account-form="registrar" data-suggest-url="{% url 'admin_panel:suggest_account' %}">
         {% csrf_token %}
-        <section class="card panel" aria-labelledby="schTitle">
-            <div class="panel-head"><h3 id="schTitle"><i class="fi fi-rr-building" style="color:#123499;"></i> School</h3></div>
+        <section class="card panel" aria-labelledby="accTitle">
+            <div class="panel-head"><h3 id="accTitle"><i class="fi fi-rr-id-badge" style="color:#123499;"></i> The registrar</h3><span class="muted" style="font-size:0.78rem;"><span class="req">*</span> required</span></div>
             <div class="ap-form">
                 <label class="field {% if form.school.errors %}bad{% endif %}"><span>School <span class="req">*</span></span>
-                    <select name="school" id="schoolSelect" required>
+                    <select name="school" required>
                         <option value="">Choose a school</option>
-                        {% for s in schools %}
-                        <option value="{{ s.id }}" data-account="{{ s.registrar_account|default:'' }}" data-name="{{ s.short_name }} Registrar" {% if s.registrar_exists %}data-exists="1"{% endif %}
-                                {% if form.school.value|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }} ({{ s.school_id }}){% if s.registrar_exists %}, registrar already created{% elif not s.registrar_account %}, no email domain{% endif %}</option>
-                        {% endfor %}
+                        {% for s in schools %}<option value="{{ s.id }}" {% if form.school.value|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }} ({{ s.school_id }})</option>{% endfor %}
                     </select>
                     {% for e in form.school.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                <div class="note warn" id="accountWarning" hidden><i class="fi fi-rr-triangle-warning"></i><span></span></div>
+                <div class="note" id="schoolNote" hidden><i class="fi fi-rr-info"></i><span></span></div>
+                <div class="ap-two">
+                    <label class="field {% if form.first_name.errors %}bad{% endif %}"><span>First name <span class="opt">optional</span></span>
+                        <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="Leave blank for the school's account" autocomplete="off">
+                        {% for e in form.first_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                    <label class="field {% if form.last_name.errors %}bad{% endif %}"><span>Last name <span class="opt">optional</span></span>
+                        <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" autocomplete="off">
+                        {% for e in form.last_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                </div>
+                <label class="field {% if form.email.errors %}bad{% endif %}"><span>Sign-in email</span>
+                    <input type="email" name="email" value="{{ form.email.value|default:'' }}" autocomplete="off" spellcheck="false">
+                    <small id="emailHint">Choose the school first.</small>
+                    {% for e in form.email.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                <label class="field {% if form.password.errors %}bad{% endif %}"><span>Temporary password</span>
+                    <div class="ap-pw"><input type="text" name="password" value="{{ form.password.value|default:'' }}" autocomplete="off" spellcheck="false">
+                        <button type="button" class="btn btn-line btn-sm" id="pwAgain" title="Make another"><i class="fi fi-rr-refresh"></i> <span>New</span></button>
+                        <button type="button" class="btn btn-line btn-sm" id="pwCopy"><i class="fi fi-rr-copy"></i> <span>Copy</span></button></div>
+                    <small>Made for you. It works once: ARMS asks for a new password at the first sign-in.</small>
+                    {% for e in form.password.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                <details class="ap-more" {% if form.employee_id.errors %}open{% endif %}>
+                    <summary>Employee ID and designation</summary>
+                    <div class="ap-two" style="margin-top:0.75rem;">
+                        <label class="field {% if form.employee_id.errors %}bad{% endif %}"><span>Employee ID <span class="opt">optional</span></span>
+                            <input type="text" name="employee_id" value="{{ form.employee_id.value|default:'' }}" autocomplete="off">
+                            {% for e in form.employee_id.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                        <label class="field"><span>Designation</span>
+                            <input type="text" name="designation" value="{{ form.designation.value|default:'Registrar' }}" list="designations" autocomplete="off">
+                            <datalist id="designations"><option value="Registrar"><option value="School Registrar"><option value="Assistant Registrar"><option value="Records Officer"></datalist></label>
+                    </div>
+                </details>
             </div>
         </section>
 
         <aside class="ap-side">
-            <section class="card panel" aria-labelledby="signTitle">
-                <div class="panel-head"><h3 id="signTitle"><i class="fi fi-rr-key" style="color:#123499;"></i> Sign-in</h3></div>
+            <section class="card panel" aria-labelledby="prevTitle">
+                <div class="panel-head"><h3 id="prevTitle"><i class="fi fi-rr-key" style="color:#123499;"></i> Their sign-in</h3></div>
                 <dl class="ap-kv">
-                    <div><dt>Name</dt><dd id="previewName">Pick a school</dd></div>
-                    <div><dt>Username and email</dt><dd id="previewAccount">Pick a school</dd></div>
+                    <div><dt>Name</dt><dd data-preview="name">Choose a school</dd></div>
+                    <div><dt>School</dt><dd data-preview="school">Choose a school</dd></div>
+                    <div><dt>Role</dt><dd>Registrar</dd></div>
                 </dl>
+                <div class="ap-signin" style="margin-top:0.8rem;"><span>Signs in with</span><code data-preview="email">&mdash;</code>
+                    <span style="margin-top:0.4rem;">Temporary password</span><code data-preview="password">&mdash;</code></div>
                 <div class="ap-acts">
-                    <button class="btn btn-main" type="submit" id="createBtn" disabled><i class="fi fi-rr-user-add"></i> Create account</button>
+                    <button class="btn btn-main" type="submit"><i class="fi fi-rr-user-add"></i> Create account</button>
                     <a class="btn btn-line" href="{% url 'admin_panel:registrar_list' %}">Cancel</a>
                 </div>
+                <p class="hint" style="margin:0.8rem 0 0;">The next page shows these details once, with a Copy button.</p>
             </section>
         </aside>
     </form>
-    {% else %}
-    <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>No active school yet. <a href="{% url 'admin_panel:school_create' %}">Create a school first</a>.</span></div>
     {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-(function () {
-    var select = document.getElementById('schoolSelect');
-    if (!select) return;
-    var warning = document.getElementById('accountWarning');
-    function show() {
-        var option = select.options[select.selectedIndex], account = option.dataset.account, problem = '';
-        if (select.value && !account) problem = 'This school has no Short Name or Email Domain yet. Edit the school to add them first.';
-        else if (option.dataset.exists) problem = 'The registrar account ' + account + ' already exists for this school.';
-        warning.hidden = !problem;
-        warning.querySelector('span').textContent = problem;
-        document.getElementById('previewName').textContent = (!problem && account) ? option.dataset.name : 'Pick a school';
-        document.getElementById('previewAccount').textContent = (!problem && account) ? account : 'Pick a school';
-        document.getElementById('createBtn').disabled = !account || !!problem;
-    }
-    select.addEventListener('change', show);
-    show();
-})();
-</script>
+{{ school_data|json_script:"schoolData" }}
+<script src="{% static 'shared/js/admin-account-form.js' %}"></script>
 {% endblock %}

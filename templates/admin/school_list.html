@@ -26,15 +26,11 @@
         <h3 id="slTitle" class="sr-only">School list</h3>
         <form method="get" class="ap-filters" data-autosubmit role="search">
             <label class="search"><i class="fi fi-rr-search"></i><input type="search" name="search" value="{{ search }}" placeholder="Find a name, ID or address" aria-label="Find a name, ID or address"></label>
-            <label class="field"><span>Grading scale</span>
+            <label class="field"><span>DepEd rules</span>
                 <select name="grading">
-                    <option value="">All scales</option>
-                    <option value="PERCENTAGE" {% if grading_filter == 'PERCENTAGE' %}selected{% endif %}>0-100 Percentage</option>
-                    <option value="NUMERIC_1_5" {% if grading_filter == 'NUMERIC_1_5' %}selected{% endif %}>1.0 - 5.0 Numeric</option>
-                    <option value="NUMERIC_5_1" {% if grading_filter == 'NUMERIC_5_1' %}selected{% endif %}>5.0 - 1.0 Numeric</option>
-                    <option value="GPA_4" {% if grading_filter == 'GPA_4' %}selected{% endif %}>0.0 - 4.0 GPA</option>
-                    <option value="GPA_5" {% if grading_filter == 'GPA_5' %}selected{% endif %}>0.0 - 5.0 GPA</option>
-                    <option value="LETTER" {% if grading_filter == 'LETTER' %}selected{% endif %}>A - F Letter</option>
+                    <option value="">Both orders</option>
+                    <option value="DO15_2026" {% if grading_filter == 'DO15_2026' %}selected{% endif %}>DO 015, s. 2026</option>
+                    <option value="DO8_2015" {% if grading_filter == 'DO8_2015' %}selected{% endif %}>DO 8, s. 2015</option>
                 </select></label>
             <label class="field"><span>Status</span>
                 <select name="status">
@@ -57,7 +53,7 @@
             <li><article class="ap-row {% if not school.is_active %}off{% endif %}" style="--cols: minmax(240px, 1.6fr) minmax(130px, 0.8fr) minmax(110px, 0.7fr) minmax(120px, 0.7fr) 5.5rem auto;">
                 <div class="ap-who"><div><a class="name" href="{% url 'admin_panel:school_detail' school.id %}">{{ school.school_name }}</a>
                     <small>{{ school.school_id }}{% if school.short_name %} · {{ school.short_name }}{% endif %}</small></div></div>
-                <div class="ap-cell"><span>Grading</span>{{ school.get_grading_scale_display }}</div>
+                <div class="ap-cell"><span>DepEd rules</span>{% if school.grading_policy == 'DO15_2026' %}DO 015, s. 2026{% else %}DO 8, s. 2015{% endif %}<small>{{ school.quarters_count }} {% if school.period_type == 'TRIMESTRAL' %}terms{% elif school.period_type == 'SEMESTRAL' %}semesters{% else %}quarters{% endif %}</small></div>
                 <div class="ap-cell"><span>Periods</span>{{ school.get_period_type_display }}</div>
                 <div class="ap-cell"><span>Staff</span>{{ school.teacher_count|default:0 }} teacher{{ school.teacher_count|pluralize }}, {{ school.registrar_count|default:0 }} registrar{{ school.registrar_count|pluralize }}</div>
                 <div>{% if school.is_active %}<span class="pill good">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</div>

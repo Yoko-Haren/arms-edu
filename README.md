@@ -169,7 +169,7 @@ All settings come from `.env`. The full list with examples is in `.env.example`.
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | The Supabase project and its keys. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | The Google sign-in OAuth client. The redirect URI for local use is `http://127.0.0.1:8000/accounts/google/callback/`. |
 | `GOOGLE_BINDING_REQUIRED` | `False` lets users skip linking a Google account. |
-| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` | The mail account for verification and password-reset codes. For Gmail, use an App Password. |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` | The mail account for verification and password-reset codes, and for the sign-in details the administrator sends from the Requests page. For Gmail, use an App Password. |
 | `ARMS_CONTACT_EMAIL` | Where contact-form messages go. |
 | `DEMO_PASSWORD` | The password of the demo accounts. It is generated on the first `seed_demo` run if empty. |
 | `PORO_AI_ENABLED`, `OLLAMA_URL`, `PORO_AI_MODEL`, `PORO_AI_BASE_MODEL`, `PORO_AI_WRITE_TIMEOUT` | Poro AI and its local model. `PORO_AI_ENABLED` is off by default on Vercel. |
@@ -177,6 +177,7 @@ All settings come from `.env`. The full list with examples is in `.env.example`.
 | `REMEMBER_ME_DAYS` | How long Remember me keeps a user signed in. The default is 30. |
 | `REDIS_URL` | Optional shared cache when the app runs on several servers. |
 | `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | Extra host names and origins when deployed, comma separated. |
+| `VERCEL_DEPLOY_HOOK_URL` | A Vercel Deploy Hook (Project Settings, Git, Deploy Hooks) for the main branch. On Vercel, "Retrain now" and a locked grading period ask it for a new deployment, whose build retrains the grade forecaster. |
 
 On Vercel the whole app is one function with a 500 MB limit, mostly taken by numpy, pandas, scipy, scikit-learn and XGBoost. Vercel serves the collected static files from its CDN, so `vercel.json` leaves `static/`, `staticfiles/` and `design/` out of the function (`excludeFiles`). Templates the code opens at run time live inside the apps (`documentation/sf_templates`, `grades/ecr_templates`), not in `static/`.
 

@@ -449,21 +449,25 @@ class GradeLevel(models.Model):
         verbose_name = 'Grade Level'
         verbose_name_plural = 'Grade Levels'
 
+    @staticmethod
+    def category_of(number):
+        """Kindergarten (0), Elementary (1-6), Junior High (7-10) or Senior High (11-12)."""
+        return 'KINDER' if number == 0 else 'ELEM' if number <= 6 else 'JHS' if number <= 10 else 'SHS'
+
+    @property
+    def stage(self):
+        """The level's stage from its number, so rows saved before categories followed the number read right too."""
+        return dict(self.LEVEL_CATEGORY_CHOICES)[self.category_of(self.grade_number)]
+
+    def _set_category(self):
+        self.level_category = self.category_of(self.grade_number)
+        self.is_senior_high = self.level_category == 'SHS'
+
     def clean(self):
-        if self.grade_number >= 11:
-            self.is_senior_high = True
-            self.level_category = 'SHS'
-        else:
-            self.is_senior_high = False
-            self.level_category = 'JHS'
+        self._set_category()
 
     def save(self, *args, **kwargs):
-        if self.grade_number >= 11:
-            self.is_senior_high = True
-            self.level_category = 'SHS'
-        else:
-            self.is_senior_high = False
-            self.level_category = 'JHS'
+        self._set_category()
         super().save(*args, **kwargs)
 
     def __str__(self):

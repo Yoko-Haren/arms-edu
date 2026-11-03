@@ -1,0 +1,20 @@
+{% if new_accounts %}
+{% url 'signin' as signin_path %}
+<section class="card panel ap-creds" aria-labelledby="credsTitle">
+    <div class="panel-head">
+        <h3 id="credsTitle"><i class="fi fi-rr-key"></i> Sign-in details</h3>
+        <span class="pill good">Shown once</span>
+    </div>
+    <p class="hint">Give these to {% if new_accounts|length == 1 %}its owner{% else %}their owners{% endif %}. ARMS asks for a new password at the first sign-in, and this page will not show the temporary one again.</p>
+    <ul class="ap-cred-list">
+        {% for a in new_accounts %}
+        <li data-cred="ARMS sign-in for {{ a.name }} ({{ a.role }})&#10;Sign in at: {{ request.scheme }}://{{ request.get_host }}{{ signin_path }}&#10;Email: {{ a.username }}&#10;Temporary password: {{ a.password }}&#10;You choose your own password at the first sign-in.">
+            <div class="who"><span>{{ a.role }}</span><b>{{ a.name }}</b></div>
+            <div><span>Signs in with</span><code>{{ a.username }}</code></div>
+            <div><span>Temporary password</span><code class="pw">{{ a.password }}</code></div>
+            <button type="button" class="btn btn-line btn-sm" data-copy-cred><i class="fi fi-rr-copy"></i> <span>Copy</span></button>
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}

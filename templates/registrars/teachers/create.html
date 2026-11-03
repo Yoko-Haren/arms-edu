@@ -51,10 +51,10 @@
             <div class="tc-form">
                 <div class="two">
                     <label class="field {% if form.first_name.errors %}bad{% endif %}"><span>First name <span class="req">*</span></span>
-                        <input type="text" name="first_name" id="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="e.g. Gertrude Grace" required autocomplete="off">
+                        <input type="text" name="first_name" id="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="e.g. Juan" required autocomplete="off">
                         {% for e in form.first_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                     <label class="field {% if form.last_name.errors %}bad{% endif %}"><span>Last name <span class="req">*</span></span>
-                        <input type="text" name="last_name" id="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="e.g. Tampus" required autocomplete="off">
+                        <input type="text" name="last_name" id="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="e.g. Dela Cruz" required autocomplete="off">
                         {% for e in form.last_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                 </div>
                 <label class="field {% if form.email.errors %}bad{% endif %}"><span>Email {% if email_domain %}<span class="opt">optional</span>{% else %}<span class="req">*</span>{% endif %}</span>

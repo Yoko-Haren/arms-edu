@@ -138,3 +138,69 @@
 .tp .ap-log { margin: 0.7rem 0 0; padding: 0.7rem 0.85rem; border-radius: 10px; background: var(--soft); color: #344054; font-size: 0.76rem;
               font-family: Consolas, 'Courier New', monospace; max-height: 14rem; overflow: auto; white-space: pre-wrap; }
 .tp .ap-scroll { overflow-x: auto; }
+
+/* forms that fill themselves in */
+.tp .ap-affix { display: flex; align-items: stretch; }
+.tp .ap-affix > span { display: inline-flex; align-items: center; padding: 0 0.7rem; border: 1.5px solid #dfe4ec; border-right: 0; border-radius: 10px 0 0 10px; background: #eef1f6; color: var(--muted); font-weight: 650; }
+.tp .ap-affix > input { border-top-left-radius: 0; border-bottom-left-radius: 0; min-width: 0; flex: 1; }
+.tp .field small.err { color: var(--risk); }
+.tp .ap-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+.tp .ap-choice { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.85rem 0.95rem; border: 1.5px solid #dfe4ec; border-radius: 14px; background: #fff; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.tp .ap-choice:hover { border-color: #b9c6e6; }
+.tp .ap-choice:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.tp .ap-choice input { accent-color: var(--brand); width: 17px; height: 17px; margin: 0.15rem 0 0; flex-shrink: 0; }
+.tp .ap-choice .body { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.tp .ap-choice b { font-size: 0.88rem; font-weight: 700; color: var(--ink); display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.tp .ap-choice b em { font-style: normal; font-size: 0.68rem; }
+.tp .ap-choice .body > span { font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+.tp .ap-seg { align-self: flex-start; }
+.tp .ap-seg label { position: relative; margin: 0; cursor: pointer; }
+.tp .ap-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.tp .ap-seg span { display: inline-flex; padding: 0.42rem 0.9rem; border-radius: 9px; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.tp .ap-seg label:hover span { color: var(--brand); background: #fff; }
+.tp .ap-seg input:checked + span { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12); }
+.tp .ap-seg input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+.tp .ap-more { margin-top: 0.9rem; border-top: 1px solid var(--line); padding-top: 0.75rem; }
+.tp .ap-more summary { cursor: pointer; font-size: 0.82rem; font-weight: 650; color: var(--brand); }
+.tp .ap-pw { display: flex; gap: 0.4rem; align-items: stretch; }
+.tp .ap-pw input { flex: 1; min-width: 0; font-family: Consolas, 'Courier New', monospace; letter-spacing: 0.03em; }
+.tp .ap-pw .btn { flex-shrink: 0; }
+.tp .ap-signin { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.75rem 0.85rem; border-radius: 12px; background: var(--soft); }
+.tp .ap-signin span { font-size: 0.72rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.tp .ap-signin code { font-size: 0.86rem; font-weight: 650; color: var(--brand); overflow-wrap: anywhere; }
+.tp .ap-signin small { font-size: 0.76rem; color: var(--muted); }
+@media (max-width: 760px) { .tp .ap-choices { grid-template-columns: minmax(0, 1fr); } }
+
+/* sign-in details shown once after an account is made or its password is reset */
+.tp .ap-creds { border: 1.5px solid #b7dfbb; background: linear-gradient(180deg, var(--good-bg), #fff 70%); }
+.tp .ap-creds .panel-head h3 i { color: var(--good); }
+.tp .ap-cred-list { list-style: none; margin: 0.7rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.tp .ap-cred-list li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 0.5rem 1rem; align-items: center;
+                       padding: 0.7rem 0.85rem; border: 1px solid #d7eed9; border-radius: 12px; background: #fff; }
+.tp .ap-cred-list li > div { min-width: 0; }
+.tp .ap-cred-list span { display: block; font-size: 0.68rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.tp .ap-cred-list b { font-size: 0.9rem; }
+.tp .ap-cred-list code { font-size: 0.86rem; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
+.tp .ap-cred-list code.pw { font-family: Consolas, 'Courier New', monospace; color: var(--good); letter-spacing: 0.03em; }
+@media (max-width: 760px) { .tp .ap-cred-list li { grid-template-columns: minmax(0, 1fr); } }
+
+/* setup steps on a school's page */
+.tp .ap-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.tp .ap-steps li { display: flex; gap: 0.7rem; align-items: center; padding: 0.6rem 0; border-top: 1px solid #f0f3f7; }
+.tp .ap-steps li:first-child { border-top: 0; padding-top: 0.1rem; }
+.tp .ap-steps .ico { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+                     background: var(--soft); color: var(--faint); border: 1.5px dashed #c9d2e0; font-size: 0.8rem; }
+.tp .ap-steps li.done .ico { background: var(--good-bg); color: var(--good); border: 0; }
+.tp .ap-steps .txt { flex: 1; min-width: 0; }
+.tp .ap-steps .txt b { display: block; font-size: 0.86rem; }
+.tp .ap-steps .txt small { display: block; font-size: 0.76rem; color: var(--muted); }
+.tp .ap-steps li.done .txt b { color: var(--muted); }
+.tp .field small.warn-text { color: var(--warn); }
+
+/* "Send sign-in details" on a request */
+.tp .ap-pick { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.tp .ap-pick li { padding: 0.6rem 0.75rem; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.tp .ap-pick li:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.tp .ap-pick li.missing { border-style: dashed; color: var(--muted); font-size: 0.82rem; background: var(--soft); }
+.tp .ap-pick li.missing a { color: var(--brand); font-weight: 650; }
+.tp .field small a { color: var(--brand); font-weight: 650; }

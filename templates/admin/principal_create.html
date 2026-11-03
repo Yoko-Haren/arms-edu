@@ -1,4 +1,5 @@
 {% extends 'admin/base.html' %}
+{% load static %}
 
 {% block title %}New Principal - ARMS{% endblock %}
 {% block subtitle %}Principals &bull; New account{% endblock %}
@@ -8,114 +9,81 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-user-add" style="color:#123499;"></i> Add a principal</h2>
-            <p class="hint">Creates the school head's sign-in. The password you set is temporary: they choose their own at the first sign-in.</p>
+            <p class="hint">Choose the school and type the name. ARMS makes the sign-in email and a temporary password; the principal picks their own password at the first sign-in.</p>
         </div>
         <a class="btn btn-line btn-sm" href="{% url 'admin_panel:principal_list' %}"><i class="fi fi-rr-arrow-small-left"></i> Principals</a>
     </section>
 
     {% if not schools %}
-    <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>No active school yet. <a href="{% url 'admin_panel:school_create' %}">Create a school first</a>.</span></div>
-    {% endif %}
-
-    <form method="POST" id="principalForm" class="ap-page">
+    <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>No active school yet. <a href="{% url 'admin_panel:school_create' %}">Add a school first</a>.</span></div>
+    {% else %}
+    <form method="POST" class="ap-page" data-account-form="principal" data-suggest-url="{% url 'admin_panel:suggest_account' %}">
         {% csrf_token %}
         <section class="card panel" aria-labelledby="accTitle">
-            <div class="panel-head"><h3 id="accTitle"><i class="fi fi-rr-id-badge" style="color:#123499;"></i> Account details</h3><span class="muted" style="font-size:0.78rem;"><span class="req">*</span> required</span></div>
+            <div class="panel-head"><h3 id="accTitle"><i class="fi fi-rr-id-badge" style="color:#123499;"></i> The principal</h3><span class="muted" style="font-size:0.78rem;"><span class="req">*</span> required</span></div>
             <div class="ap-form">
+                <label class="field {% if form.school.errors %}bad{% endif %}"><span>School <span class="req">*</span></span>
+                    <select name="school" required>
+                        <option value="">Choose a school</option>
+                        {% for s in schools %}<option value="{{ s.id }}" {% if form.school.value|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }} ({{ s.school_id }})</option>{% endfor %}
+                    </select>
+                    {% for e in form.school.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                <div class="note" id="schoolNote" hidden><i class="fi fi-rr-info"></i><span></span></div>
                 <div class="ap-two">
                     <label class="field {% if form.first_name.errors %}bad{% endif %}"><span>First name <span class="req">*</span></span>
-                        <input type="text" name="first_name" id="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="e.g. Juan" required autocomplete="off">
+                        <input type="text" name="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="e.g. Juan" required autocomplete="off">
                         {% for e in form.first_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                     <label class="field {% if form.last_name.errors %}bad{% endif %}"><span>Last name <span class="req">*</span></span>
-                        <input type="text" name="last_name" id="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="e.g. Dela Cruz" required autocomplete="off">
+                        <input type="text" name="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="e.g. Dela Cruz" required autocomplete="off">
                         {% for e in form.last_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                 </div>
-                <div class="ap-two">
-                    <label class="field {% if form.username.errors %}bad{% endif %}"><span>Username <span class="req">*</span></span>
-                        <input type="text" name="username" id="username" value="{{ form.username.value|default:'' }}" placeholder="e.g. juan.delacruz" required autocomplete="off">
-                        <span class="ap-suggest" id="usernamePreview"></span>
-                        <span class="err" id="usernameError" hidden></span>
-                        {% for e in form.username.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                    <label class="field {% if form.email.errors %}bad{% endif %}"><span>Email <span class="req">*</span></span>
-                        <input type="email" name="email" value="{{ form.email.value|default:'' }}" placeholder="e.g. juan.delacruz@deped.gov.ph" required autocomplete="off">
-                        {% for e in form.email.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                </div>
-                <div class="ap-two">
-                    <label class="field {% if form.password.errors %}bad{% endif %}"><span>Temporary password <span class="req">*</span></span>
-                        <input type="password" name="password" required minlength="6" autocomplete="new-password">
-                        <small>At least 6 characters.</small>
-                        {% for e in form.password.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                    <label class="field {% if form.confirm_password.errors %}bad{% endif %}"><span>Confirm password <span class="req">*</span></span>
-                        <input type="password" name="confirm_password" required autocomplete="new-password">
-                        {% for e in form.confirm_password.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                </div>
-                <div class="ap-two">
-                    <label class="field {% if form.employee_id.errors %}bad{% endif %}"><span>Employee ID <span class="opt">optional</span></span>
-                        <input type="text" name="employee_id" value="{{ form.employee_id.value|default:'' }}" placeholder="e.g. DEP-2024-001" autocomplete="off">
-                        {% for e in form.employee_id.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                    <label class="field"><span>Designation</span>
-                        <input type="text" name="designation" value="{{ form.designation.value|default:'Principal' }}" placeholder="e.g. Principal IV" required autocomplete="off"></label>
-                </div>
+                <label class="field {% if form.email.errors %}bad{% endif %}"><span>Sign-in email</span>
+                    <input type="email" name="email" value="{{ form.email.value|default:'' }}" autocomplete="off" spellcheck="false">
+                    <small id="emailHint">Choose the school first.</small>
+                    {% for e in form.email.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                <label class="field {% if form.password.errors %}bad{% endif %}"><span>Temporary password</span>
+                    <div class="ap-pw"><input type="text" name="password" value="{{ form.password.value|default:'' }}" autocomplete="off" spellcheck="false" aria-describedby="pwHint">
+                        <button type="button" class="btn btn-line btn-sm" id="pwAgain" title="Make another"><i class="fi fi-rr-refresh"></i> <span>New</span></button>
+                        <button type="button" class="btn btn-line btn-sm" id="pwCopy"><i class="fi fi-rr-copy"></i> <span>Copy</span></button></div>
+                    <small id="pwHint">Made for you. It works once: ARMS asks for a new password at the first sign-in.</small>
+                    {% for e in form.password.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                <details class="ap-more" {% if form.employee_id.errors %}open{% endif %}>
+                    <summary>Employee ID and designation</summary>
+                    <div class="ap-two" style="margin-top:0.75rem;">
+                        <label class="field {% if form.employee_id.errors %}bad{% endif %}"><span>Employee ID <span class="opt">optional</span></span>
+                            <input type="text" name="employee_id" value="{{ form.employee_id.value|default:'' }}" placeholder="e.g. 4100231" autocomplete="off">
+                            {% for e in form.employee_id.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+                        <label class="field"><span>Designation</span>
+                            <input type="text" name="designation" value="{{ form.designation.value|default:'Principal' }}" list="designations" autocomplete="off">
+                            <datalist id="designations"><option value="Principal"><option value="School Director"><option value="School Principal I"><option value="School Principal II"><option value="Head Teacher"><option value="Assistant Principal"></datalist></label>
+                    </div>
+                </details>
             </div>
         </section>
 
         <aside class="ap-side">
-            <section class="card panel" aria-labelledby="schoolTitle">
-                <div class="panel-head"><h3 id="schoolTitle"><i class="fi fi-rr-building" style="color:#123499;"></i> School</h3></div>
-                <label class="field {% if form.school.errors %}bad{% endif %}"><span>Assign to <span class="req">*</span></span>
-                    <select name="school" required {% if not schools %}disabled{% endif %}>
-                        <option value="">Choose a school</option>
-                        {% for s in schools %}
-                        <option value="{{ s.id }}" {% if form.school.value|stringformat:"s" == s.id|stringformat:"s" or request.GET.school == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }} ({{ s.school_id }})</option>
-                        {% endfor %}
-                    </select>
-                    {% for e in form.school.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
+            <section class="card panel" aria-labelledby="prevTitle">
+                <div class="panel-head"><h3 id="prevTitle"><i class="fi fi-rr-key" style="color:#123499;"></i> Their sign-in</h3></div>
+                <dl class="ap-kv">
+                    <div><dt>Name</dt><dd data-preview="name">Type the name</dd></div>
+                    <div><dt>School</dt><dd data-preview="school">Choose a school</dd></div>
+                    <div><dt>Role</dt><dd>School Head</dd></div>
+                </dl>
+                <div class="ap-signin" style="margin-top:0.8rem;"><span>Signs in with</span><code data-preview="email">&mdash;</code>
+                    <span style="margin-top:0.4rem;">Temporary password</span><code data-preview="password">&mdash;</code></div>
                 <div class="ap-acts">
-                    <button type="submit" class="btn btn-main" {% if not schools %}disabled{% endif %}><i class="fi fi-rr-user-add"></i> Create account</button>
+                    <button type="submit" class="btn btn-main"><i class="fi fi-rr-user-add"></i> Create account</button>
                     <a class="btn btn-line" href="{% url 'admin_panel:principal_list' %}">Cancel</a>
                 </div>
+                <p class="hint" style="margin:0.8rem 0 0;">The next page shows these details once, with a Copy button.</p>
             </section>
         </aside>
     </form>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-(function () {
-    var first = document.getElementById('first_name'), last = document.getElementById('last_name');
-    var username = document.getElementById('username'), suggest = document.getElementById('usernamePreview');
-    function suggestion() {
-        var f = first.value.toLowerCase().replace(/[^a-z]/g, '').substring(0, 3);
-        var l = last.value.toLowerCase().replace(/[^a-z]/g, '');
-        return f && l ? f + '.' + l : f || l;
-    }
-    function refresh() {
-        suggest.textContent = '';
-        var made = suggestion();
-        if (made && !username.value) {
-            var code = document.createElement('code');
-            code.textContent = made;
-            suggest.append('Suggested: ', code);
-        }
-    }
-    first.addEventListener('input', refresh);
-    last.addEventListener('input', refresh);
-    suggest.addEventListener('click', function (e) {
-        if (e.target.tagName === 'CODE') { username.value = e.target.textContent; suggest.textContent = ''; username.dispatchEvent(new Event('blur')); }
-    });
-    // a new username must be free
-    username.addEventListener('blur', function () {
-        if (username.value.length < 3) return;
-        fetch('{% url "admin_panel:check_username" %}?username=' + encodeURIComponent(username.value))
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                var error = document.getElementById('usernameError');
-                error.hidden = !d.exists;
-                error.textContent = d.exists ? 'This username is already taken.' : '';
-                username.closest('.field').classList.toggle('bad', d.exists);
-            });
-    });
-})();
-</script>
+{{ school_data|json_script:"schoolData" }}
+<script src="{% static 'shared/js/admin-account-form.js' %}"></script>
 {% endblock %}

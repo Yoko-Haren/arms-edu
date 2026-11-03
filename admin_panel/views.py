@@ -25,11 +25,15 @@ from enrollment.models import Enrollment
 
 from core.caching import remember_filters
 
+from core import grading_policy
+
+from . import accounts as A
+from .emails import email_ready, send_sign_in_email
 from .forms import (
     SchoolForm, PrincipalCreationForm, PrincipalEditForm,
     RegistrarCreationForm, GradeLevelForm, SchoolYearForm, QuarterForm,
-    QuarterUpdateForm, GRADE_NUMBERS, PERIOD_CONFIG, period_config,
-    default_registrar_account,
+    QuarterUpdateForm, GRADE_CHOICES, PERIOD_CONFIG, POLICY_PERIODS, period_config,
+    add_grade_levels, grade_stage,
 )
 
 
@@ -203,10 +207,12 @@ def school_list(request):
             Q(address__icontains=search)
         )
 
-    # ✅ FIXED: Filter by grading_scale instead of school_type
+    # the DepEd order a school grades by (core/grading_policy.py)
     grading_filter = request.GET.get('grading', '')
-    if grading_filter:
-        schools = schools.filter(grading_scale=grading_filter)
+    if grading_filter in grading_policy.POLICIES:
+        schools = schools.filter(grading_policy=grading_filter)
+    else:
+        grading_filter = ''
 
     status = request.GET.get('status', 'active')
     if status == 'inactive':
@@ -233,36 +239,33 @@ def school_list(request):
     }
     return render(request, 'admin/school_list.html', context)
 
+def _school_form_page(request, form, school=None):
+    return render(request, 'admin/school_create.html', {
+        'form': form, 'school': school, 'edit_mode': school is not None,
+        'title': f'Edit: {school.school_name}' if school else 'Add a school',
+        'submit_text': 'Save changes' if school else 'Create school',
+        'policies': list(grading_policy.POLICIES.values()), 'policy_periods': POLICY_PERIODS,
+        'period_config': PERIOD_CONFIG,
+        'grade_choices': [(n, label, grade_stage(n)) for n, label in GRADE_CHOICES],
+        'chosen_grades': [int(g) for g in form['grades'].value() or []] if form.is_bound else list(range(7, 13)),
+    })
+
+
 @login_required
 @user_passes_test(is_admin, login_url='admin_panel:login')
 def school_create(request):
-    if request.method == 'POST':
-        form = SchoolForm(request.POST)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    school = form.save(commit=False)
-                    school.save()
-                    
-                    schema_type = form.cleaned_data.get('grading_schema_type')
-                    if schema_type and not GradingSchema.objects.filter(school=school).exists():
-                        form._create_default_schema(school, schema_type)
-                    
-                    messages.success(request, f'School "{school.school_name}" created!')
-                    return redirect('admin_panel:school_list')
-            except Exception as e:
-                messages.error(request, f'Error: {str(e)}')
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f'{field}: {error}')
-    else:
-        form = SchoolForm()
-    
-    return render(request, 'admin/school_create.html', {
-        'form': form, 'edit_mode': False, 'period_config': PERIOD_CONFIG,
-        'title': 'Create New School', 'submit_text': 'Create School',
-    })
+    # a request from the website can open this page with the school's name already typed (?name=)
+    form = SchoolForm(request.POST or None, initial={'grading_policy': grading_policy.DO15_2026, 'period_type': 'TRIMESTRAL',
+                                                     'is_active': True, 'school_name': request.GET.get('name', '')[:200]})
+    if request.method == 'POST' and form.is_valid():
+        with transaction.atomic():
+            school = form.save()
+        levels = getattr(form, 'grades_added', 0)
+        messages.success(request, f'{school.school_name} is added{f" with {levels} grade level" + ("s" if levels != 1 else "") if levels else ""}. '
+                                  'Next, give it a principal and a registrar.')
+        _log_admin_action(request, 'CREATE_SCHOOL', f'Added {school.school_name} ({school.school_id})')
+        return redirect('admin_panel:school_detail', school_id=school.id)
+    return _school_form_page(request, form)
 
 @login_required
 @user_passes_test(is_admin, login_url='admin_panel:login')
@@ -289,7 +292,21 @@ def school_detail(request, school_id):
         'registrar_count': registrars.count(),
         'teacher_count': teachers.count(),
         'student_count': students.count(),
+        'new_accounts': A.pop_new_accounts(request),
     }
+    # what the school still needs before its people can start, in the order the admin does it
+    context['setup'] = [
+        {'done': context['principal_count'] > 0, 'label': 'Principal', 'hint': 'Signs in as the School Head.',
+         'url': f"{reverse('admin_panel:principal_create')}?school={school.id}", 'action': 'Add the principal'},
+        {'done': context['registrar_count'] > 0, 'label': 'Registrar', 'hint': 'Enrolls learners from SF1 and adds the teachers.',
+         'url': f"{reverse('admin_panel:registrar_create')}?school={school.id}", 'action': 'Add the registrar'},
+        {'done': context['grade_level_count'] > 0, 'label': 'Grade levels', 'hint': 'The ones it offers, Kindergarten to Grade 12.',
+         'url': f"{reverse('admin_panel:grade_level_create')}?school={school.id}", 'action': 'Add grade levels'},
+        {'done': context['current_sy'] is not None, 'label': 'Current school year', 'hint': 'With its grading periods.',
+         'url': f"{reverse('admin_panel:school_year_manage')}?school={school.id}", 'action': 'Start the school year'},
+    ]
+    context['setup_left'] = sum(not step['done'] for step in context['setup'])
+    context['policy'] = grading_policy.POLICIES.get(school.grading_policy, grading_policy.POLICIES[grading_policy.DEFAULT])
     return render(request, 'admin/school_detail.html', context)
 
 
@@ -297,16 +314,13 @@ def school_detail(request, school_id):
 @user_passes_test(is_admin, login_url='admin_panel:login')
 def school_edit(request, school_id):
     school = get_object_or_404(School, id=school_id)
-    if request.method == 'POST':
-        form = SchoolForm(request.POST, instance=school)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'School "{school.school_name}" updated!')
-            return redirect('admin_panel:school_detail', school_id=school.id)
-        _form_errors_to_messages(request, form)
-    else:
-        form = SchoolForm(instance=school)
-    return render(request, 'admin/school_create.html', {'form': form, 'school': school, 'edit_mode': True, 'period_config': PERIOD_CONFIG, 'title': f'Edit: {school.school_name}', 'submit_text': 'Update School'})
+    form = SchoolForm(request.POST or None, instance=school)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'{school.school_name} is updated.')
+        _log_admin_action(request, 'UPDATE_SCHOOL', f'Updated {school.school_name}')
+        return redirect('admin_panel:school_detail', school_id=school.id)
+    return _school_form_page(request, form, school)
 
 
 @login_required
@@ -381,17 +395,41 @@ def principal_list(request):
     return render(request, 'admin/principal_list.html', context)
 
 
+def _account_schools(role):
+    """The active schools for the account forms, with what the forms fill in for each one."""
+    schools = list(School.objects.filter(is_active=True).order_by('school_name'))
+    staff = {}
+    for profile in UserProfile.objects.filter(role=role, is_active=True, school__in=schools).select_related('user'):
+        staff.setdefault(profile.school_id, []).append(profile.full_name)
+    data = {}
+    for school in schools:
+        data[school.id] = {'name': school.school_name, 'short': school.short_name, 'domain': A.normalize_domain(school.email_domain),
+                           'staff': staff.get(school.id, []),
+                           'registrar': A.registrar_email(school) if role == 'registrar' else None}
+    return schools, data
+
+
+def _create_account_page(request, form_class, *, role, group_name, position_title, role_label, template):
+    schools, data = _account_schools(role)
+    form = form_class(request.POST or None, initial={'school': request.GET.get('school'), 'designation': group_name,
+                                                     'password': A.temporary_password()})
+    if request.method == 'POST' and form.is_valid():
+        d = form.cleaned_data
+        user = A.create_staff(school=d['school'], role=role, group_name=group_name, position_title=position_title,
+                              first_name=d['first_name'], last_name=d['last_name'], email=d['email'], password=d['password'],
+                              employee_id=d.get('employee_id'), designation=d.get('designation') or group_name)
+        A.remember_new_accounts(request, [A.account_card(user, d['password'], role_label)])
+        messages.success(request, f'{user.get_full_name()} can now sign in as the {role_label} of {d["school"].school_name}.')
+        _log_admin_action(request, f'CREATE_{role.upper()}', f'Added {role_label} {user.username} for {d["school"].school_name}')
+        return redirect('admin_panel:school_detail', school_id=d['school'].id)
+    return render(request, template, {'form': form, 'schools': schools, 'school_data': data})
+
+
 @login_required
 @user_passes_test(is_admin, login_url='admin_panel:login')
 def principal_create(request):
-    schools = School.objects.filter(is_active=True)
-    form = PrincipalCreationForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        user, school = _create_school_staff(form.cleaned_data, 'schoolhead', 'Principal', 'School Principal')
-        messages.success(request, f'Principal "{user.get_full_name()}" created for {school.school_name}.')
-        return redirect('admin_panel:principal_list')
-    _form_errors_to_messages(request, form)
-    return render(request, 'admin/principal_create.html', {'schools': schools, 'form': form})
+    return _create_account_page(request, PrincipalCreationForm, role='schoolhead', group_name='Principal',
+                                position_title='School Principal', role_label='School Head', template='admin/principal_create.html')
 
 
 def _form_errors_to_messages(request, form):
@@ -399,32 +437,6 @@ def _form_errors_to_messages(request, form):
         for field, errors in form.errors.items():
             for error in errors:
                 messages.error(request, f'{field}: {error}')
-
-
-def _create_school_staff(data, role, group_name, position_title):
-    """Create a school-scoped user, profile, and role group together."""
-    with transaction.atomic():
-        user = User.objects.create_user(
-            username=data['username'].strip().lower(),
-            email=data['email'].strip().lower(),
-            password=data['password'],
-            first_name=data['first_name'].strip(),
-            last_name=data['last_name'].strip(),
-            is_active=True,
-            is_staff=False,
-        )
-        profile = user.profile
-        profile.role = role
-        profile.school = data['school']
-        profile.employee_number = data.get('employee_id') or None
-        profile.designation = data.get('designation') or group_name
-        profile.position_title = position_title
-        profile.employment_status = 'Regular_Permanent'
-        profile.must_change_password = True  # the admin-issued password is temporary
-        profile.save()
-        group, _ = Group.objects.get_or_create(name=group_name)
-        user.groups.add(group)
-    return user, data['school']
 
 
 @login_required
@@ -455,35 +467,25 @@ def registrar_list(request):
 @login_required
 @user_passes_test(is_admin, login_url='admin_panel:login')
 def registrar_create(request):
-    """Create a school's default registrar account; the admin only picks the school."""
-    form = RegistrarCreationForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        school = form.cleaned_data['school']
-        password = secrets.token_urlsafe(9)
-        user, school = _create_school_staff({
-            'username': form.account,
-            'email': form.account,
-            'password': password,
-            'first_name': school.short_name,
-            'last_name': 'Registrar',
-            'school': school,
-            'designation': 'School Registrar',
-        }, 'registrar', 'Registrar', 'School Registrar')
-        messages.success(
-            request,
-            f'Registrar account created for {school.school_name}. '
-            f'Username: {user.username} — Temporary password: {password} '
-            '(shown only once; copy it now).'
-        )
-        return redirect('admin_panel:registrar_list')
-    _form_errors_to_messages(request, form)
+    return _create_account_page(request, RegistrarCreationForm, role='registrar', group_name='Registrar',
+                                position_title='School Registrar', role_label='Registrar', template='admin/registrar_create.html')
 
-    taken = set(User.objects.values_list('username', flat=True))
-    schools = list(School.objects.filter(is_active=True))
-    for school in schools:
-        school.registrar_account = default_registrar_account(school)
-        school.registrar_exists = school.registrar_account in taken
-    return render(request, 'admin/registrar_create.html', {'form': form, 'schools': schools})
+
+@login_required
+@user_passes_test(is_admin, login_url='admin_panel:login')
+def suggest_account(request):
+    """The sign-in email the account forms would make: firstname.lastname@ or shortname.registrar@ the school's domain."""
+    school = School.objects.filter(pk=request.GET.get('school') or None, is_active=True).first()
+    if school is None:
+        return JsonResponse({'email': None, 'domain': '', 'taken': False})
+    first, last = ' '.join(request.GET.get('first', '').split()), ' '.join(request.GET.get('last', '').split())
+    if request.GET.get('role') == 'registrar' and not (first and last):
+        email = A.registrar_email(school)
+    else:
+        email = A.person_email(school, first, last) if first and last else None
+    typed = request.GET.get('email', '').strip().lower()
+    return JsonResponse({'email': email, 'domain': A.normalize_domain(school.email_domain),
+                         'taken': bool(typed) and A.email_taken(typed)})
 
 
 @login_required
@@ -494,7 +496,8 @@ def principal_detail(request, principal_id):
     registrars = get_school_registrars(school) if school else UserProfile.objects.none()
     teachers = get_school_teachers(school) if school else UserProfile.objects.none()
     student_count = get_school_students(school).count() if school else 0
-    context = {'principal': principal, 'registrars': registrars, 'teachers': teachers, 'student_count': student_count}
+    context = {'principal': principal, 'registrars': registrars, 'teachers': teachers, 'student_count': student_count,
+               'new_accounts': A.pop_new_accounts(request)}
     return render(request, 'admin/principal_detail.html', context)
 
 
@@ -517,15 +520,10 @@ def principal_toggle_status(request, principal_id):
 def principal_reset_password(request, principal_id):
     principal = get_object_or_404(UserProfile, id=principal_id, role='schoolhead')
     if request.method == 'POST':
-        new_password = request.POST.get('new_password')
-        if new_password and len(new_password) >= 8:
-            principal.user.set_password(new_password)
-            principal.user.save()
-            principal.must_change_password = True
-            principal.save(update_fields=['must_change_password', 'updated_at'])
-            messages.success(request, f'Password reset for "{principal.full_name}".')
-        else:
-            messages.error(request, 'Password must be at least 8 characters.')
+        password = A.reset_temporary_password(principal.user)
+        A.remember_new_accounts(request, [A.account_card(principal.user, password, 'School Head')])
+        messages.success(request, f'{principal.full_name} has a new temporary password. Their old one no longer works.')
+        _log_admin_action(request, 'RESET_PASSWORD', f'New temporary password for {principal.user.username}')
     return redirect('admin_panel:principal_detail', principal_id=principal.id)
 
 
@@ -558,25 +556,13 @@ def grade_level_list(request):
 @login_required
 @user_passes_test(is_admin, login_url='admin_panel:login')
 def grade_level_create(request):
-    """Add one or more grade levels (Grades 7-12) to a school."""
+    """Add one or more grade levels (Kindergarten to Grade 12) to a school."""
     form = GradeLevelForm(request.POST or None, initial={'school': request.GET.get('school')})
     if request.method == 'POST' and form.is_valid():
         school = form.cleaned_data['school']
-        created = 0
         with transaction.atomic():
-            for number in form.cleaned_data['grades']:
-                # level_category / is_senior_high are set by GradeLevel.save()
-                _, was_created = GradeLevel.objects.get_or_create(
-                    school=school,
-                    grade_code=f'G{number}',
-                    defaults={
-                        'grade_name': f'Grade {number}',
-                        'grade_number': number,
-                        'sort_order': number,
-                    },
-                )
-                created += was_created
-        skipped = len(form.cleaned_data['grades']) - created
+            created = add_grade_levels(school, form.cleaned_data['grades'])
+        skipped = len(set(form.cleaned_data['grades'])) - created
         if created:
             note = f' ({skipped} already existed)' if skipped else ''
             messages.success(request, f'{created} grade level(s) added to {school.school_name}.{note}')
@@ -591,7 +577,7 @@ def grade_level_create(request):
     return render(request, 'admin/grade_level_create.html', {
         'form': form,
         'schools': School.objects.filter(is_active=True),
-        'grade_numbers': GRADE_NUMBERS,
+        'grade_choices': [(n, label, grade_stage(n)) for n, label in GRADE_CHOICES],
         'existing_grades': existing,
         'selected_school': request.POST.get('school') or request.GET.get('school', ''),
     })
@@ -859,6 +845,17 @@ def request_list(request):
         )
     counts = {key: ContactRequest.objects.filter(rule).count() for key, (_, rule) in REQUEST_VIEWS.items()}
     page = Paginator(requests_qs, 20).get_page(request.GET.get('page'))
+
+    # what the "Send sign-in details" dialog offers: each school's School Head and registrar accounts
+    schools = list(School.objects.filter(is_active=True).order_by('school_name'))
+    accounts = {}
+    for profile in (UserProfile.objects.filter(is_active=True, role__in=SIGN_IN_ROLES, school__in=schools)
+                    .select_related('user').order_by('role', 'user__last_name')):
+        accounts.setdefault(str(profile.school_id), []).append(_account_row(profile))
+    for item in page:
+        item.match_school = _match_school(item.school_name, schools) if item.topic == ContactRequest.TOPIC_SCHOOL else None
+        own = _own_accounts(item.email) if item.topic == ContactRequest.TOPIC_SUPPORT else []
+        item.own_accounts = [_account_row(profile) for profile in own]
     return render(request, 'admin/request_list.html', {
         'page': page,
         'show': show,
@@ -866,7 +863,52 @@ def request_list(request):
         'tabs': [(key, label, counts[key]) for key, (label, _) in REQUEST_VIEWS.items()],
         'statuses': ContactRequest.STATUS_CHOICES,
         'contact_email': settings.ARMS_CONTACT_EMAIL,
+        'schools': schools,
+        'school_accounts': accounts,
+        'email_ready': email_ready(),
+        'sender': settings.EMAIL_HOST_USER or settings.DEFAULT_FROM_EMAIL,
+        'new_accounts': A.pop_new_accounts(request),
     })
+
+
+SIGN_IN_ROLES = ('schoolhead', 'registrar')
+ROLE_LABELS = {'schoolhead': 'School Head', 'registrar': 'Registrar', 'teacher': 'Teacher'}
+
+
+def _account_row(profile):
+    return {'id': profile.id, 'name': profile.full_name, 'role': ROLE_LABELS.get(profile.role, profile.get_role_display()),
+            'email': profile.user.username, 'signed_in': profile.user.last_login is not None}
+
+
+def _match_school(name, schools):
+    """The ARMS school a request is about: same name or short name, or a close spelling of the name."""
+    import difflib
+    import re
+
+    def key(value):
+        return re.sub(r'[^a-z0-9]+', ' ', (value or '').lower()).strip()
+
+    target = key(name)
+    if not target:
+        return None
+    best, score = None, 0.0
+    for school in schools:
+        if target in (key(school.school_name), key(school.short_name)):
+            return school
+        ratio = difflib.SequenceMatcher(None, key(school.school_name), target).ratio()
+        if ratio > score:
+            best, score = school, ratio
+    return best if score >= 0.75 else None
+
+
+def _own_accounts(email):
+    """The accounts of someone asking for sign-in help: the ones signing in with the email they wrote from."""
+    email = (email or '').strip()
+    if not email:
+        return []
+    return list(UserProfile.objects.filter(is_active=True, user__is_superuser=False, school__isnull=False)
+                .filter(Q(user__email__iexact=email) | Q(user__username__iexact=email)).exclude(role='admin')
+                .select_related('user', 'school'))
 
 
 @login_required
@@ -888,6 +930,55 @@ def request_update(request, request_id):
     return redirect(back)
 
 
+@login_required
+@user_passes_test(is_admin, login_url='admin_panel:login')
+@require_POST
+def request_send_accounts(request, request_id):
+    """Answer a request by email with sign-in details: each chosen account gets a fresh temporary password, sent from
+    the ARMS mailbox to the person who wrote. Nothing changes when the email cannot be sent."""
+    contact = get_object_or_404(ContactRequest, pk=request_id)
+    back = request.POST.get('next', '')
+    if not back.startswith('/admin-panel/requests/'):
+        back = reverse('admin_panel:request_list')
+    if not email_ready():
+        messages.error(request, 'Email is not set up on this server. Add EMAIL_HOST_USER and EMAIL_HOST_PASSWORD '
+                                '(a Gmail app password) to its environment variables, then send again.')
+        return redirect(back)
+
+    school = School.objects.filter(pk=request.POST.get('school') or None).first()
+    allowed = Q(user__email__iexact=contact.email) | Q(user__username__iexact=contact.email)
+    if school is not None:
+        allowed |= Q(school=school, role__in=SIGN_IN_ROLES)
+    ids = [i for i in request.POST.getlist('accounts') if i.isdigit()]
+    chosen = list(UserProfile.objects.filter(allowed, pk__in=ids, is_active=True, user__is_superuser=False)
+                  .exclude(role='admin').select_related('user', 'school').order_by('role', 'user__last_name'))
+    if not chosen:
+        messages.error(request, 'Tick at least one account to send.')
+        return redirect(back)
+
+    school = school or chosen[0].school
+    note = request.POST.get('note', '').strip()[:2000]
+    try:
+        with transaction.atomic():
+            cards = [A.account_card(p.user, A.reset_temporary_password(p.user), ROLE_LABELS.get(p.role, p.get_role_display()))
+                     for p in chosen]
+            send_sign_in_email(to_email=contact.email, to_name=contact.name, school_name=school.school_name if school else '',
+                               cards=cards, note=note, signin_url=request.build_absolute_uri(reverse('signin')),
+                               first_time=contact.topic == ContactRequest.TOPIC_SCHOOL)
+    except Exception as exc:                     # the passwords stay as they were (the transaction rolled back)
+        messages.error(request, f'The email could not be sent, so no password was changed. The mail server said: {exc}')
+        return redirect(back)
+
+    contact.status, contact.handled_by, contact.handled_at = 'done', request.user, timezone.now()
+    contact.save(update_fields=['status', 'handled_by', 'handled_at'])
+    A.remember_new_accounts(request, cards)
+    count = len(cards)
+    messages.success(request, f'Sent {count} account{"s" if count != 1 else ""} to {contact.email} from {settings.EMAIL_HOST_USER}. '
+                              'The request is marked done.')
+    _log_admin_action(request, 'SEND_SIGN_IN', f'Emailed sign-in details of {", ".join(c["username"] for c in cards)} to {contact.email}')
+    return redirect(back)
+
+
 
 # =============================================================================
 # GRADE FORECASTER: the model behind every School Head forecast
@@ -899,8 +990,12 @@ def request_update(request, request_id):
 @user_passes_test(is_admin, login_url='admin_panel:login')
 def forecaster(request):
     from ml_engine import report, training
+    model = report.summary()
+    on_vercel = getattr(settings, 'ON_VERCEL', False)
     return render(request, 'admin/forecaster.html', {
-        'model': report.summary(), 'run': report.run_status(), 'log': training.log_tail(),
+        'model': model, 'run': report.run_status(), 'log': [] if on_vercel else training.log_tail(),
+        'on_vercel': on_vercel, 'hook_ready': training.deploy_hook_ready(), 'last_deploy': training.last_deploy() if on_vercel else None,
+        'deploying': training.deploying(model['trained_at'] if model else None) if on_vercel else None,
     })
 
 
@@ -909,11 +1004,23 @@ def forecaster(request):
 @require_POST
 def forecaster_retrain(request):
     from ml_engine import training
-    if training.start('Started by the System Administrator', by=request.user.get_full_name() or request.user.username):
-        messages.success(request, 'Retraining started. It takes about a minute, and this page updates when it ends.')
+    by = request.user.get_full_name() or request.user.username
+    if training.start('Started by the System Administrator', by=by):
+        if getattr(settings, 'ON_VERCEL', False):
+            messages.success(request, 'Retraining started: Vercel is building a new deployment, which trains the model on every '
+                                      'school\'s grades. The new model goes live when the build ends, in about 5 minutes.')
+        else:
+            messages.success(request, 'Retraining started. It takes about a minute, and this page updates when it ends.')
         _log_admin_action(request, 'RETRAIN_MODEL', 'Started retraining the grade forecaster')
+    elif getattr(settings, 'ON_VERCEL', False) and not training.deploy_hook_ready():
+        messages.error(request, 'Retraining on Vercel needs a Deploy Hook. In Vercel, open the project\'s Settings, then Git, '
+                                'then Deploy Hooks; create one for the main branch, and add its URL as the environment variable '
+                                'VERCEL_DEPLOY_HOOK_URL. Redeploy once so ARMS can read it.')
+    elif getattr(settings, 'ON_VERCEL', False) and training.deploying():
+        messages.info(request, 'A new deployment is already building. It retrains the model; check back in a few minutes.')
     elif getattr(settings, 'ON_VERCEL', False):
-        messages.info(request, 'On Vercel the model is retrained with each deployment: redeploy the project to retrain it.')
+        messages.error(request, 'Vercel did not accept the Deploy Hook. Check VERCEL_DEPLOY_HOOK_URL in the project\'s '
+                                'environment variables.')
     else:
         messages.info(request, 'A retraining run is already going.')
     return redirect('admin_panel:forecaster')

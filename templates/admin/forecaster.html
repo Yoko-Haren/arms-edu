@@ -12,10 +12,25 @@
         </div>
         <form method="post" action="{% url 'admin_panel:forecaster_retrain' %}">
             {% csrf_token %}
-            <button type="submit" class="btn btn-main" {% if run.state == 'running' %}disabled{% endif %}><i class="fi fi-rr-refresh"></i> Retrain now</button>
+            <button type="submit" class="btn btn-main" {% if run.state == 'running' or deploying %}disabled{% endif %}><i class="fi fi-rr-refresh"></i> {% if deploying %}Building&hellip;{% else %}Retrain now{% endif %}</button>
         </form>
     </section>
 
+    {% if on_vercel %}
+    <section class="card panel" aria-labelledby="gfRun">
+        <div class="panel-head">
+            <h3 id="gfRun"><i class="fi fi-rr-refresh" style="color:#123499;"></i> Retraining</h3>
+            <span class="pill {% if deploying %}info{% elif not hook_ready %}warn{% else %}good{% endif %}">{% if deploying %}Building a new deployment{% elif not hook_ready %}Needs a Deploy Hook{% else %}Ready{% endif %}</span>
+        </div>
+        {% if deploying %}
+        <p class="hint" style="margin:0;">Vercel is building a new deployment, asked for {{ deploying.timestamp|timesince }} ago{% if deploying.user_name %} by {{ deploying.user_name }}{% endif %}. Its build trains the model on every school's grades; the page shows the new model once the build is live, usually within 5 minutes.</p>
+        {% elif hook_ready %}
+        <p class="hint" style="margin:0;">On Vercel, retraining builds a new deployment, and the build trains the model. Retrain now asks for one; locking a grading period does too, at most once every 15 minutes.{% if last_deploy %} The last one was asked for {{ last_deploy.timestamp|date:"M j, Y g:i A" }}.{% endif %}</p>
+        {% else %}
+        <div class="note warn" style="margin:0;"><i class="fi fi-rr-triangle-warning"></i><span>To retrain from here, give ARMS a Vercel Deploy Hook: in Vercel open the project's <b>Settings</b>, then <b>Git</b>, then <b>Deploy Hooks</b>; create one for the <b>main</b> branch; add its URL as the environment variable <b>VERCEL_DEPLOY_HOOK_URL</b>; then redeploy once. Until then the model is retrained with each deployment.</span></div>
+        {% endif %}
+    </section>
+    {% else %}
     <section class="card panel" aria-labelledby="gfRun">
         <div class="panel-head">
             <h3 id="gfRun"><i class="fi fi-rr-refresh" style="color:#123499;"></i> Retraining</h3>
@@ -24,9 +39,10 @@
         <p class="hint" style="margin:0;">{% if run.reason %}{{ run.reason }}{% if run.by %} &middot; {{ run.by }}{% endif %}{% if run.started %} &middot; started {{ run.started|date:"M j, Y g:i A" }}{% endif %}{% if run.finished %} &middot; ended {{ run.finished|date:"g:i A" }}{% endif %}.{% endif %}
             {% if run.detail %}{{ run.detail }}{% endif %}
             A run takes about {% if model.seconds %}{{ model.seconds|floatformat:0 }} seconds{% else %}a minute{% endif %}. Pages keep the current model until the new one is saved.</p>
-        {% if log %}<pre class="ap-log" aria-label="Last lines of the training log">{{ log|join:"
-" }}</pre>{% endif %}
+        {% if log %}<pre class="ap-log" aria-label="Last lines of the training log">{% for line in log %}{{ line }}
+{% endfor %}</pre>{% endif %}
     </section>
+    {% endif %}
 
     {% if model %}
     <div class="tiles" style="--tiles:4">
@@ -66,7 +82,12 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if run.state == 'running' %}
+{% if deploying %}
+<script>
+// while Vercel builds, look again every 30 seconds; the new deployment serves the new model
+setTimeout(function () { window.location.reload(); }, 30000);
+</script>
+{% elif run.state == 'running' %}
 <script>
 // while a run is going, check every 5 seconds and reload the page once it ends
 (function () {

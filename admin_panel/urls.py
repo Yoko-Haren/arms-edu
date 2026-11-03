@@ -50,6 +50,7 @@ urlpatterns = [
     # Requests from the landing page and the sign-in help dialog
     path('requests/', views.request_list, name='request_list'),
     path('requests/<int:request_id>/status/', views.request_update, name='request_update'),
+    path('requests/<int:request_id>/send-sign-in/', views.request_send_accounts, name='request_send_accounts'),
 
     # Grade forecaster: status, accuracy and retraining
     path('forecaster/', views.forecaster, name='forecaster'),
@@ -62,4 +63,5 @@ urlpatterns = [
     path('api/school/<int:school_id>/school-years/', views.get_school_years_for_school, name='get_school_years'),
     path('api/check-school-id/', views.check_school_id, name='check_school_id'),
     path('api/check-username/', views.check_username, name='check_username'),
+    path('api/suggest-account/', views.suggest_account, name='suggest_account'),
 ]

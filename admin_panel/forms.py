@@ -9,15 +9,39 @@ import re
 from academics.models import School, GradeLevel, SchoolYear, Quarter, GradingSchema
 from academics.school_years import PERIOD_CONFIG, period_config  # noqa: F401 (grading periods follow School.period_type)
 from accounts.models import UserProfile
+from core import grading_policy
+
+from .accounts import (domain_problem, email_taken, normalize_domain, person_email, registrar_email, short_name_from,
+                       temporary_password)
+
+# Kindergarten (0) to Grade 12, the levels a DepEd school can offer.
+GRADE_CHOICES = [(0, 'Kindergarten')] + [(n, f'Grade {n}') for n in range(1, 13)]
+GRADE_NUMBERS = [n for n, _ in GRADE_CHOICES]
+# The grading periods each DepEd order is written for: DO 015, s. 2026 brought the three terms of DO 009, s. 2026.
+POLICY_PERIODS = {grading_policy.DO15_2026: 'TRIMESTRAL', grading_policy.DO8_2015: 'QUARTERLY'}
+MIN_PASSWORD = 10
 
 
-def default_registrar_account(school):
-    """Default registrar login for a school: <short name>.registrar@<email domain>."""
-    slug = re.sub(r'[^a-z0-9]+', '', (school.short_name or '').lower())
-    domain = (school.email_domain or '').strip().lower().lstrip('@')
-    if not slug or not domain:
-        return None
-    return f'{slug}.registrar@{domain}'
+def grade_stage(number):
+    """The note under a grade level's name on the forms (Kindergarten's own name is its stage)."""
+    return 'Before Grade 1' if number == 0 else 'Elementary' if number <= 6 else 'Junior High' if number <= 10 else 'Senior High'
+
+
+def add_grade_levels(school, numbers):
+    """Add the grade levels a school offers; ones it already has are skipped. Returns how many were added."""
+    added = 0
+    for number in sorted(set(numbers)):
+        _, made = GradeLevel.objects.get_or_create(
+            school=school, grade_code='K' if number == 0 else f'G{number}',
+            defaults={'grade_name': 'Kindergarten' if number == 0 else f'Grade {number}', 'grade_number': number,
+                      'sort_order': number},
+        )
+        added += made
+    return added
+
+
+def _one_line(value):
+    return ' '.join((value or '').split())
 
 
 # =============================================================================
@@ -39,107 +63,71 @@ class AdminLoginForm(forms.Form):
 # =============================================================================
 
 class SchoolForm(forms.ModelForm):
-    """School form that auto-creates grading schema(s) on save."""
+    """A school and, when it is new, the grade levels it offers.
 
-    grading_schema_type = forms.ChoiceField(
-        choices=[
-            ('', '--- Select Grading System ---'),
-            # ===== SEPARATE (Single Level) =====
-            ('DEPED_JHS', 'DepEd JHS Only — DO 8, s. 2015 (Quarterly, Grades 7-10)'),
-            ('DEPED_SHS', 'DepEd SHS Only — DO 8, s. 2015 (Semestral, Grades 11-12)'),
-            # ===== INTEGRATED (Combined) =====
-            ('DEPED_INTEGRATED', 'DepEd Integrated School — DO 8, s. 2015 (JHS Quarterly + SHS Semestral, Grades 7-12)'),
-            # ===== ELEMENTARY =====
-            ('DEPED_ELEMENTARY', 'DepEd Elementary — DO 8, s. 2015 (Quarterly, Grades 1-6)'),
-            # ===== K-12 COMPLETE =====
-            ('DEPED_K12_COMPLETE', 'DepEd K-12 Complete — DO 8, s. 2015 (Quarterly G1-10 + Semestral G11-12)'),
-            # ===== HIGHER EDUCATION =====
-            ('CHED_STANDARD', 'CHED Standard — CMO 14, s. 2019 (Semestral)'),
-            ('CHED_TRIMESTER', 'CHED Trimester — CMO 14, s. 2019 (Trimester)'),
-            # ===== TECH-VOC =====
-            ('TESDA_COMPETENCY', 'TESDA Competency-Based — COC/NC (Modular)'),
-            # ===== CUSTOM =====
-            ('CUSTOM', 'Custom Grading System'),
-        ],
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Grading System',
-        required=False,
-        help_text='Select the grading system based on school type and grade levels offered.'
-    )
+    The short name is made from the name when left blank, the number of grading periods follows the period type, and
+    the grade ranges of DepEd's K to 12 are created for a new school (the DepEd order it follows is grading_policy).
+    """
+
+    grades = forms.TypedMultipleChoiceField(choices=GRADE_CHOICES, coerce=int, required=False)
 
     class Meta:
         model = School
         fields = [
-            'school_id', 'school_name', 'short_name',
-            'grading_scale', 'period_type', 'passing_grade',
-            'quarters_count', 'email_domain',
-            'address', 'contact_number', 'theme_color', 'is_active',
+            'school_id', 'school_name', 'short_name', 'email_domain', 'address',
+            'grading_policy', 'period_type', 'grading_scale', 'passing_grade', 'quarters_count', 'is_active',
         ]
-        widgets = {
-            'school_id': forms.TextInput(attrs={'class': 'form-control'}),
-            'school_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'short_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'grading_scale': forms.Select(choices=[
-                ('', '--- Select ---'),
-                ('PERCENTAGE', '0-100 Percentage'),
-                ('NUMERIC_1_5', '1.0 - 5.0 (1.0 highest)'),
-                ('NUMERIC_5_1', '5.0 - 1.0 (5.0 highest)'),
-                ('GPA_4', '0.0 - 4.0 GPA'),
-                ('GPA_5', '0.0 - 5.0 GPA'),
-                ('LETTER', 'A - F Letter Grades'),
-            ], attrs={'class': 'form-select'}),
-            'period_type': forms.Select(attrs={'class': 'form-select'}),
-            'passing_grade': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100'}),
-            'quarters_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '2', 'max': '4'}),
-            'email_domain': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '@school.edu (optional)'}),
-            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
-            'contact_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'theme_color': forms.TextInput(attrs={'class': 'form-control', 'type': 'color'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        }
-        labels = {
-            'school_id': 'School ID',
-            'school_name': 'School Name',
-            'short_name': 'Short Name',
-            'grading_scale': 'Grading Scale',
-            'period_type': 'Period Type',
-            'passing_grade': 'Passing Grade',
-            'quarters_count': 'Number of Quarters',
-            'email_domain': 'Email Domain',
-            'address': 'Street Address',
-            'contact_number': 'Contact Number',
-            'theme_color': 'Theme Color',
-            'is_active': 'Active',
-        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # The count always follows the period type (see clean()).
-        self.fields['quarters_count'].required = False
+        for name in ('short_name', 'quarters_count', 'grading_scale', 'passing_grade'):
+            self.fields[name].required = False
+
+    def clean_school_id(self):
+        school_id = _one_line(self.cleaned_data.get('school_id'))
+        if School.objects.exclude(pk=self.instance.pk).filter(school_id__iexact=school_id).exists():
+            raise ValidationError('Another school already has this School ID.')
+        return school_id
+
+    def clean_school_name(self):
+        return _one_line(self.cleaned_data.get('school_name'))
+
+    def clean_short_name(self):
+        short = _one_line(self.cleaned_data.get('short_name')).upper()
+        return short or short_name_from(self.cleaned_data.get('school_name', ''))
+
+    def clean_email_domain(self):
+        domain = normalize_domain(self.cleaned_data.get('email_domain'))
+        problem = domain_problem(domain)
+        if problem:
+            raise ValidationError(problem)
+        return f'@{domain}' if domain else ''
+
+    def clean_grading_scale(self):
+        return self.cleaned_data.get('grading_scale') or 'PERCENTAGE'
+
+    def clean_passing_grade(self):
+        value = self.cleaned_data.get('passing_grade')
+        return 75.0 if value is None else value
 
     def clean(self):
         cleaned_data = super().clean()
+        if not cleaned_data.get('short_name') and cleaned_data.get('school_name'):
+            cleaned_data['short_name'] = short_name_from(cleaned_data['school_name'])
         period_type = cleaned_data.get('period_type')
         if period_type in PERIOD_CONFIG:
             cleaned_data['quarters_count'] = PERIOD_CONFIG[period_type]['count']
         return cleaned_data
 
-    def clean_school_id(self):
-        school_id = self.cleaned_data.get('school_id')
-        if school_id:
-            existing = School.objects.exclude(pk=self.instance.pk).filter(school_id=school_id)
-            if existing.exists():
-                raise ValidationError('This School ID already exists.')
-        return school_id
-
     def save(self, commit=True):
+        creating = self.instance.pk is None
         school = super().save(commit=False)
         if commit:
             school.save()
-            # Auto-create grading schema(s) if school is new
-            schema_type = self.cleaned_data.get('grading_schema_type')
-            if schema_type and not GradingSchema.objects.filter(school=school).exists():
-                self._create_default_schema(school, schema_type)
+            if creating:
+                if not GradingSchema.objects.filter(school=school).exists():
+                    self._create_default_schema(school, 'DEPED_K12_COMPLETE')
+                self.grades_added = add_grade_levels(school, self.cleaned_data.get('grades') or [])
         return school
 
     def _create_default_schema(self, school, schema_type):
@@ -246,76 +234,69 @@ class SchoolForm(forms.ModelForm):
 # PRINCIPAL CREATION
 # =============================================================================
 
-class PrincipalCreationForm(forms.Form):
-    """Form for creating a principal (school head) account via UserProfile."""
+class _StaffAccountForm(forms.Form):
+    """A school account whose email is also its username. The email is made from the school's email domain when left
+    blank, and the temporary password is generated when left blank."""
 
-    first_name = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'First Name'})
-    )
-    last_name = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Last Name'})
-    )
-    username = forms.CharField(
-        max_length=150,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'})
-    )
-    email = forms.EmailField(
-        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email'})
-    )
-    password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'}),
-        help_text='Minimum 6 characters'
-    )
-    confirm_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm Password'})
-    )
-    school = forms.ModelChoiceField(
-        queryset=School.objects.filter(is_active=True),
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='Assign to School'
-    )
-    employee_id = forms.CharField(
-        max_length=50,
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Employee ID (optional)'})
-    )
-    designation = forms.CharField(
-        max_length=150,
-        initial='Principal',
-        widget=forms.TextInput(attrs={'class': 'form-control'})
-    )
+    role_label = 'account'
 
-    def clean_username(self):
-        username = self.cleaned_data.get('username', '').strip().lower()
-        if User.objects.filter(username__iexact=username).exists():
-            raise ValidationError('This username is already taken.')
-        return username
+    school = forms.ModelChoiceField(queryset=School.objects.filter(is_active=True))
+    first_name = forms.CharField(max_length=100, required=False)
+    last_name = forms.CharField(max_length=100, required=False)
+    email = forms.EmailField(required=False)
+    password = forms.CharField(max_length=128, required=False, strip=True)
+    employee_id = forms.CharField(max_length=50, required=False)
+    designation = forms.CharField(max_length=150, required=False)
 
-    def clean_email(self):
-        email = self.cleaned_data.get('email', '').strip().lower()
-        if User.objects.filter(email__iexact=email).exists():
-            raise ValidationError('This email is already in use.')
-        return email
+    def clean_first_name(self):
+        return _one_line(self.cleaned_data.get('first_name'))
+
+    def clean_last_name(self):
+        return _one_line(self.cleaned_data.get('last_name'))
 
     def clean_employee_id(self):
-        emp_id = self.cleaned_data.get('employee_id')
+        emp_id = _one_line(self.cleaned_data.get('employee_id'))
         if emp_id and UserProfile.objects.filter(employee_number=emp_id).exists():
-            raise ValidationError('This Employee ID is already assigned.')
+            raise ValidationError('Another account already has this Employee ID.')
         return emp_id
 
+    def clean_password(self):
+        password = self.cleaned_data.get('password') or temporary_password()
+        if len(password) < MIN_PASSWORD:
+            raise ValidationError(f'Use at least {MIN_PASSWORD} characters, or leave it blank for ARMS to make one.')
+        return password
+
+    def suggested_email(self, school, cleaned):
+        raise NotImplementedError
+
     def clean(self):
-        cleaned_data = super().clean()
-        password = cleaned_data.get('password')
-        confirm = cleaned_data.get('confirm_password')
+        cleaned = super().clean()
+        school = cleaned.get('school')
+        if school is None or self.errors.get('first_name') or self.errors.get('last_name'):
+            return cleaned
+        email = (cleaned.get('email') or '').strip().lower()
+        if not email:
+            email = self.suggested_email(school, cleaned)
+            if not email and 'email' not in self.errors:
+                self.add_error('email', f'{school.school_name} has no email domain in ARMS, so type the {self.role_label}\'s '
+                                        'email. It is also their username.')
+        elif email_taken(email):
+            self.add_error('email', 'That email already has an ARMS account.')
+        cleaned['email'] = email
+        return cleaned
 
-        if password and len(password) < 6:
-            raise ValidationError({'password': 'Password must be at least 6 characters.'})
-        if password and password != confirm:
-            raise ValidationError({'confirm_password': 'Passwords do not match.'})
 
-        return cleaned_data
+class PrincipalCreationForm(_StaffAccountForm):
+    """The School Head's account."""
+
+    role_label = 'principal'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['first_name'].required = self.fields['last_name'].required = True
+
+    def suggested_email(self, school, cleaned):
+        return person_email(school, cleaned.get('first_name'), cleaned.get('last_name'))
 
 
 class PrincipalEditForm(forms.Form):
@@ -356,41 +337,34 @@ class PrincipalEditForm(forms.Form):
         return emp_id
 
 
-class RegistrarCreationForm(forms.Form):
-    """Creates the default registrar account of a school; only the school is chosen."""
+class RegistrarCreationForm(_StaffAccountForm):
+    """A registrar's account. With no name it is the school's registrar account: '<short name> Registrar' signing in as
+    shortname.registrar@<email domain>."""
 
-    school = forms.ModelChoiceField(
-        queryset=School.objects.filter(is_active=True),
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        label='School',
-    )
+    role_label = 'registrar'
 
-    def clean_school(self):
-        school = self.cleaned_data['school']
-        account = default_registrar_account(school)
-        if not account:
-            raise ValidationError(
-                f'{school.school_name} needs a Short Name and an Email Domain before '
-                'its registrar account can be generated. Edit the school first.'
-            )
-        if User.objects.filter(Q(username__iexact=account) | Q(email__iexact=account)).exists():
-            raise ValidationError(f'The registrar account {account} already exists.')
-        self.account = account
-        return school
+    def suggested_email(self, school, cleaned):
+        if cleaned.get('first_name') and cleaned.get('last_name'):
+            return person_email(school, cleaned['first_name'], cleaned['last_name'])
+        return registrar_email(school)
+
+    def clean(self):
+        cleaned = super().clean()
+        school = cleaned.get('school')
+        if school is not None and not (cleaned.get('first_name') and cleaned.get('last_name')):
+            cleaned['first_name'] = school.short_name or short_name_from(school.school_name)
+            cleaned['last_name'] = 'Registrar'
+        return cleaned
 
 
 # =============================================================================
 # GRADE LEVEL FORM
 # =============================================================================
 
-# The GradeLevel model only supports Grades 7-12 (JHS / SHS).
-GRADE_NUMBERS = list(range(7, 13))
-
-
 class GradeLevelForm(forms.Form):
     school = forms.ModelChoiceField(queryset=School.objects.filter(is_active=True))
     grades = forms.TypedMultipleChoiceField(
-        choices=[(n, f'Grade {n}') for n in GRADE_NUMBERS],
+        choices=GRADE_CHOICES,
         coerce=int,
         error_messages={'required': 'Select at least one grade level.'},
     )

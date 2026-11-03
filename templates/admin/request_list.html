@@ -26,6 +26,8 @@
         </div>
     </section>
 
+    {% include 'admin/_new_accounts.html' %}
+
     {% for item in page %}
     <article class="card panel ap-req {% if item.status == 'new' %}new{% endif %}">
         <div class="ap-req-top">
@@ -42,7 +44,8 @@
         </div>
         {% if item.message %}<p class="ap-msg">{{ item.message }}</p>{% endif %}
         <div class="ap-req-acts">
-            <a class="btn btn-main btn-sm" href="mailto:{{ item.email }}?subject=Re%3A%20your%20ARMS%20{% if item.topic == 'school' %}request{% else %}sign-in%20question{% endif %}"><i class="fi fi-rr-reply-all" aria-hidden="true"></i> Reply by email</a>
+            <button type="button" class="btn btn-main btn-sm" data-open="send{{ item.id }}"><i class="fi fi-rr-paper-plane" aria-hidden="true"></i> Send sign-in details</button>
+            <a class="btn btn-line btn-sm" href="mailto:{{ item.email }}?subject=Re%3A%20your%20ARMS%20{% if item.topic == 'school' %}request{% else %}sign-in%20question{% endif %}"><i class="fi fi-rr-reply-all" aria-hidden="true"></i> Write your own</a>
             <form method="post" action="{% url 'admin_panel:request_update' item.id %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
@@ -56,6 +59,44 @@
             {% if not item.email_sent %}<small class="warn"><i class="fi fi-rr-triangle-warning" aria-hidden="true"></i>The email to {{ contact_email }} was not sent. Check the email settings.</small>{% endif %}
         </div>
     </article>
+
+    <div class="tp-modal" id="send{{ item.id }}" role="dialog" aria-modal="true" aria-labelledby="sendTitle{{ item.id }}" hidden>
+        <form class="tp-modal-card" style="width:min(580px,100%);" method="post" action="{% url 'admin_panel:request_send_accounts' item.id %}" data-send>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <div class="tp-modal-head">
+                <div><h2 id="sendTitle{{ item.id }}"><i class="fi fi-rr-paper-plane" style="color:#123499;"></i> Send sign-in details</h2>
+                    <p class="hint">To {{ item.name }} ({{ item.email }}), from {{ sender }}.</p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="tp-modal-body ap-form">
+                {% if item.topic == 'school' %}
+                <label class="field"><span>School in ARMS</span>
+                    <select name="school" data-school>
+                        <option value="">Choose the school</option>
+                        {% for s in schools %}<option value="{{ s.id }}" {% if item.match_school and item.match_school.id == s.id %}selected{% endif %}>{{ s.school_name }}</option>{% endfor %}
+                    </select>
+                    <small data-match>{% if item.match_school %}Matched from "{{ item.school_name }}" in the request.{% else %}No school in ARMS matches "{{ item.school_name|default:'the request' }}" yet. <a href="{% url 'admin_panel:school_create' %}{% if item.school_name %}?name={{ item.school_name|urlencode }}{% endif %}">Add the school</a>, then its principal and registrar.{% endif %}</small></label>
+                <div class="field"><span>Accounts to send</span>
+                    <ul class="ap-pick" data-accounts></ul></div>
+                {% else %}
+                <div class="field"><span>Their account</span>
+                    {% if item.own_accounts %}
+                    <ul class="ap-pick">{% for a in item.own_accounts %}<li><label class="check"><input type="checkbox" name="accounts" value="{{ a.id }}" checked><span>{{ a.name }}, {{ a.role }}<small>{{ a.email }}</small></span></label></li>{% endfor %}</ul>
+                    {% else %}<p class="hint" style="margin:0;">No ARMS account signs in with {{ item.email }}. Write your own reply instead.</p>{% endif %}</div>
+                {% endif %}
+                <label class="field"><span>Message <span class="opt">optional</span></span>
+                    <textarea name="note" rows="3">{% if item.topic == 'school' %}Thank you for choosing ARMS. Your school is set up, and these are the accounts of its School Head and registrar.{% else %}Here is a new temporary password for your ARMS account.{% endif %}</textarea>
+                    <small>Shown above the accounts in the email.</small></label>
+                <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>Each ticked account gets a new temporary password, and its current one stops working. They choose their own at the next sign-in.</span></div>
+                {% if not email_ready %}<div class="note risk"><i class="fi fi-rr-exclamation"></i><span>Email is not set up on this server: add EMAIL_HOST_USER and EMAIL_HOST_PASSWORD (a Gmail app password) to its environment variables.</span></div>{% endif %}
+                <div style="display:flex;justify-content:flex-end;gap:0.5rem;">
+                    <button type="button" class="btn btn-line" data-close>Cancel</button>
+                    <button type="submit" class="btn btn-main" data-send-btn {% if not email_ready %}disabled{% endif %}><i class="fi fi-rr-paper-plane"></i> Send email</button>
+                </div>
+            </div>
+        </form>
+    </div>
     {% empty %}
     <section class="card panel"><p class="empty"><i class="fi fi-rr-inbox"></i>{% if search %}No request matches "{{ search }}".{% elif show == 'new' %}No new requests. You are all caught up.{% else %}No requests yet.{% endif %}</p></section>
     {% endfor %}
@@ -64,4 +105,53 @@
     {% include 'admin/_pages.html' with page=page %}
     {% endwith %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ school_accounts|json_script:"schoolAccounts" }}
+<script>
+(function () {
+    var accounts = JSON.parse(document.getElementById('schoolAccounts').textContent);
+    var ready = {{ email_ready|yesno:"true,false" }};
+    var addUrls = { principal: '{% url "admin_panel:principal_create" %}', registrar: '{% url "admin_panel:registrar_create" %}' };
+    document.querySelectorAll('form[data-send]').forEach(function (form) {
+        var select = form.querySelector('[data-school]'), list = form.querySelector('[data-accounts]'), send = form.querySelector('[data-send-btn]');
+        function sync() { send.disabled = !ready || !form.querySelector('input[name="accounts"]:checked'); }
+        function draw() {
+            if (!list) return sync();
+            list.textContent = '';
+            var rows = accounts[select.value] || [];
+            rows.forEach(function (a) {
+                var li = document.createElement('li'), label = document.createElement('label'), box = document.createElement('input'), text = document.createElement('span'), small = document.createElement('small');
+                label.className = 'check';
+                box.type = 'checkbox'; box.name = 'accounts'; box.value = a.id; box.checked = true;
+                box.addEventListener('change', sync);
+                text.textContent = a.name + ', ' + a.role;
+                small.textContent = a.email + (a.signed_in ? ' \u00b7 has signed in before' : ' \u00b7 never signed in');
+                text.appendChild(small); label.append(box, text); li.appendChild(label); list.appendChild(li);
+            });
+            var roles = rows.map(function (a) { return a.role; });
+            [['School Head', 'principal'], ['Registrar', 'registrar']].forEach(function (pair) {
+                if (!select.value || roles.indexOf(pair[0]) !== -1) return;
+                var li = document.createElement('li'), a = document.createElement('a');
+                li.className = 'missing';
+                a.href = addUrls[pair[1]] + '?school=' + select.value;
+                a.textContent = 'Add the ' + (pair[1] === 'principal' ? 'principal' : 'registrar');
+                li.append('No ' + pair[0] + ' account yet. ', a);
+                list.appendChild(li);
+            });
+            if (!select.value) { var li = document.createElement('li'); li.className = 'missing'; li.textContent = 'Choose the school to see its accounts.'; list.appendChild(li); }
+            sync();
+        }
+        if (select) select.addEventListener('change', function () {
+            var note = form.querySelector('[data-match]');
+            if (note && select.value) note.textContent = 'Sending the accounts of ' + select.options[select.selectedIndex].text + '.';
+            draw();
+        });
+        form.querySelectorAll('input[name="accounts"]').forEach(function (b) { b.addEventListener('change', sync); });
+        form.addEventListener('submit', function () { send.disabled = true; send.innerHTML = '<i class="fi fi-rr-refresh"></i> Sending\u2026'; });
+        draw();
+    });
+})();
+</script>
 {% endblock %}

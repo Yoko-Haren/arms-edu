@@ -5,12 +5,16 @@ Training reads every school's grades and takes about a minute, so it never runs 
 model says whether a run is going, why it started, who started it and how the last one ended. Two things start a
 run: the System Administrator (Admin Portal, Grade Forecaster) and the registrar locking a grading period, which
 makes that period's grades final. Pages pick up the new model by themselves (ml_engine.forecast.load).
+
+On Vercel nothing can run after a request and the disk is read-only, but every deployment trains the model while it
+builds (vercel.json). There a run is a new deployment, asked for through the project's Deploy Hook
+(settings.VERCEL_DEPLOY_HOOK_URL); each request is written to the activity log, which says when the last one began.
 """
 import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -54,10 +58,59 @@ def running():
     return status().get('state') == 'running'
 
 
+DEPLOY_ACTION = 'RETRAIN_DEPLOY'
+DEPLOY_GAP = timedelta(minutes=15)               # one deployment at a time: a build takes a few minutes
+
+
+def deploy_hook_ready():
+    return bool(getattr(settings, 'VERCEL_DEPLOY_HOOK_URL', ''))
+
+
+def last_deploy():
+    """The latest deployment ARMS asked Vercel for, from the activity log, or None."""
+    from audit.models import ActivityLog
+    return ActivityLog.objects.filter(action_type=DEPLOY_ACTION).order_by('-timestamp').first()
+
+
+def deploying(trained_at=None):
+    """Whether a deployment asked for in the last 20 minutes has not yet brought a newer model."""
+    last = last_deploy()
+    if last is None or timezone.now() - last.timestamp > STALE:
+        return None
+    if trained_at is not None:
+        trained = trained_at if timezone.is_aware(trained_at) else timezone.make_aware(trained_at, dt_timezone.utc)
+        if trained >= last.timestamp:
+            return None
+    return last
+
+
+def start_deploy(reason, by=''):
+    """On Vercel: ask for a new deployment, whose build retrains the model. True when Vercel accepted it; False when the
+    hook is not set, a deployment was asked for less than 15 minutes ago, or Vercel refused."""
+    import urllib.request
+    from audit.models import ActivityLog
+
+    if not deploy_hook_ready():
+        return False
+    last = last_deploy()
+    if last is not None and timezone.now() - last.timestamp < DEPLOY_GAP:
+        return False
+    try:
+        with urllib.request.urlopen(urllib.request.Request(settings.VERCEL_DEPLOY_HOOK_URL, method='POST'), timeout=10) as reply:
+            if reply.status >= 300:
+                return False
+    except OSError:
+        return False
+    ActivityLog.objects.create(user_name=by or 'ARMS', user_role='admin', action_type=DEPLOY_ACTION, resource_type='Grade forecaster',
+                               details_json={'description': reason}, ip_address='127.0.0.1')
+    return True
+
+
 def start(reason, by=''):
-    """Start a background run unless one is going. True when it started. Never on Vercel: there the disk is read-only
-    and nothing runs after a request ends, so the model is trained during each deployment instead (vercel.json)."""
-    if getattr(settings, 'ON_VERCEL', False) or running():
+    """Start a run unless one is going. True when it started. On Vercel the run is a new deployment (start_deploy)."""
+    if getattr(settings, 'ON_VERCEL', False):
+        return start_deploy(reason, by)
+    if running():
         return False
     try:
         _write({'state': 'running', 'reason': reason, 'by': by, 'started_at': timezone.now().isoformat()})
