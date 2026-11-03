@@ -17,12 +17,12 @@
     <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>No active school yet. <a href="{% url 'admin_panel:school_create' %}">Create a school first</a>.</span></div>
     {% endif %}
 
-    <form method="POST" id="principalForm" class="ad-page">
+    <form method="POST" id="principalForm" class="ap-page">
         {% csrf_token %}
         <section class="card panel" aria-labelledby="accTitle">
             <div class="panel-head"><h3 id="accTitle"><i class="fi fi-rr-id-badge" style="color:#123499;"></i> Account details</h3><span class="muted" style="font-size:0.78rem;"><span class="req">*</span> required</span></div>
-            <div class="ad-form">
-                <div class="ad-two">
+            <div class="ap-form">
+                <div class="ap-two">
                     <label class="field {% if form.first_name.errors %}bad{% endif %}"><span>First name <span class="req">*</span></span>
                         <input type="text" name="first_name" id="first_name" value="{{ form.first_name.value|default:'' }}" placeholder="e.g. Juan" required autocomplete="off">
                         {% for e in form.first_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
@@ -30,17 +30,17 @@
                         <input type="text" name="last_name" id="last_name" value="{{ form.last_name.value|default:'' }}" placeholder="e.g. Dela Cruz" required autocomplete="off">
                         {% for e in form.last_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                 </div>
-                <div class="ad-two">
+                <div class="ap-two">
                     <label class="field {% if form.username.errors %}bad{% endif %}"><span>Username <span class="req">*</span></span>
                         <input type="text" name="username" id="username" value="{{ form.username.value|default:'' }}" placeholder="e.g. juan.delacruz" required autocomplete="off">
-                        <span class="ad-suggest" id="usernamePreview"></span>
+                        <span class="ap-suggest" id="usernamePreview"></span>
                         <span class="err" id="usernameError" hidden></span>
                         {% for e in form.username.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                     <label class="field {% if form.email.errors %}bad{% endif %}"><span>Email <span class="req">*</span></span>
                         <input type="email" name="email" value="{{ form.email.value|default:'' }}" placeholder="e.g. juan.delacruz@deped.gov.ph" required autocomplete="off">
                         {% for e in form.email.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                 </div>
-                <div class="ad-two">
+                <div class="ap-two">
                     <label class="field {% if form.password.errors %}bad{% endif %}"><span>Temporary password <span class="req">*</span></span>
                         <input type="password" name="password" required minlength="6" autocomplete="new-password">
                         <small>At least 6 characters.</small>
@@ -49,7 +49,7 @@
                         <input type="password" name="confirm_password" required autocomplete="new-password">
                         {% for e in form.confirm_password.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                 </div>
-                <div class="ad-two">
+                <div class="ap-two">
                     <label class="field {% if form.employee_id.errors %}bad{% endif %}"><span>Employee ID <span class="opt">optional</span></span>
                         <input type="text" name="employee_id" value="{{ form.employee_id.value|default:'' }}" placeholder="e.g. DEP-2024-001" autocomplete="off">
                         {% for e in form.employee_id.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
@@ -59,7 +59,7 @@
             </div>
         </section>
 
-        <aside class="ad-side">
+        <aside class="ap-side">
             <section class="card panel" aria-labelledby="schoolTitle">
                 <div class="panel-head"><h3 id="schoolTitle"><i class="fi fi-rr-building" style="color:#123499;"></i> School</h3></div>
                 <label class="field {% if form.school.errors %}bad{% endif %}"><span>Assign to <span class="req">*</span></span>
@@ -70,7 +70,7 @@
                         {% endfor %}
                     </select>
                     {% for e in form.school.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
-                <div class="ad-acts">
+                <div class="ap-acts">
                     <button type="submit" class="btn btn-main" {% if not schools %}disabled{% endif %}><i class="fi fi-rr-user-add"></i> Create account</button>
                     <a class="btn btn-line" href="{% url 'admin_panel:principal_list' %}">Cancel</a>
                 </div>

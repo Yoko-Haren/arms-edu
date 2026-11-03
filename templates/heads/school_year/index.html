@@ -196,18 +196,18 @@
     </div>
 </div>
 
-<div class="ad-modal hp" id="newYearModal" role="dialog" aria-modal="true" aria-labelledby="newYearTitle" {% if not open_form %}hidden{% endif %}>
-    <div class="ad-modal-card" tabindex="-1">
+<div class="ap-modal hp" id="newYearModal" role="dialog" aria-modal="true" aria-labelledby="newYearTitle" {% if not open_form %}hidden{% endif %}>
+    <div class="ap-modal-card" tabindex="-1">
         <form method="post" novalidate>
             {% csrf_token %}
-            <div class="ad-modal-head">
+            <div class="ap-modal-head">
                 <div>
                     <h3 id="newYearTitle"><i class="fi fi-rr-calendar" style="color:#123499;"></i> Start a new school year</h3>
                     <p class="hint">Choose how the year is graded, then the starting year and the class dates; the rest follows, as in the admin panel.</p>
                 </div>
                 <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
             </div>
-            <div class="ad-modal-body">
+            <div class="ap-modal-body">
                 {% if form_errors %}<div class="form-errors" role="alert">{{ form_errors }}</div>{% endif %}
                 <fieldset class="systems">
                     <legend>Grading system</legend>

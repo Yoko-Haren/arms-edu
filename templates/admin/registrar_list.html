@@ -18,9 +18,9 @@
         <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-ban"></i></span><div><span>Inactive</span><b>{{ inactive_count }}</b><small>cannot sign in</small></div></div>
     </div>
 
-    <section class="card panel ad-list" aria-labelledby="rlTitle">
+    <section class="card panel ap-list" aria-labelledby="rlTitle">
         <h3 id="rlTitle" class="sr-only">Registrar list</h3>
-        <form method="get" class="ad-filters" data-autosubmit role="search">
+        <form method="get" class="ap-filters" data-autosubmit role="search">
             <label class="search"><i class="fi fi-rr-search"></i><input type="search" name="search" value="{{ search }}" placeholder="Find a name, email or school" aria-label="Find a name, email or school"></label>
             <label class="field"><span>Status</span>
                 <select name="status">
@@ -31,13 +31,13 @@
         </form>
 
         {% if registrars %}
-        <ol class="ad-rows">
+        <ol class="ap-rows">
             {% for registrar in registrars %}
-            <li><article class="ad-row" style="--cols: minmax(240px, 1.4fr) minmax(200px, 1.4fr) minmax(110px, 0.6fr) 5.5rem;">
-                <div class="ad-who"><span class="avatar {% if not registrar.is_active %}off{% endif %}" aria-hidden="true">{{ registrar.user.first_name|first|upper }}{{ registrar.user.last_name|first|upper }}</span>
+            <li><article class="ap-row" style="--cols: minmax(240px, 1.4fr) minmax(200px, 1.4fr) minmax(110px, 0.6fr) 5.5rem;">
+                <div class="ap-who"><span class="avatar {% if not registrar.is_active %}off{% endif %}" aria-hidden="true">{{ registrar.user.first_name|first|upper }}{{ registrar.user.last_name|first|upper }}</span>
                     <div><b>{{ registrar.full_name }}</b><small>{{ registrar.user.email }}</small></div></div>
-                <div class="ad-cell"><span>School</span>{{ registrar.school.school_name|default:"No school assigned" }}</div>
-                <div class="ad-cell"><span>Employee ID</span>{{ registrar.employee_number|default:"Not set" }}</div>
+                <div class="ap-cell"><span>School</span>{{ registrar.school.school_name|default:"No school assigned" }}</div>
+                <div class="ap-cell"><span>Employee ID</span>{{ registrar.employee_number|default:"Not set" }}</div>
                 <div>{% if registrar.is_active and registrar.user.is_active %}<span class="pill good">Active</span>{% else %}<span class="pill risk">Inactive</span>{% endif %}</div>
             </article></li>
             {% endfor %}

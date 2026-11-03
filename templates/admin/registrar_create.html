@@ -14,11 +14,11 @@
     </section>
 
     {% if schools %}
-    <form method="post" class="ad-page">
+    <form method="post" class="ap-page">
         {% csrf_token %}
         <section class="card panel" aria-labelledby="schTitle">
             <div class="panel-head"><h3 id="schTitle"><i class="fi fi-rr-building" style="color:#123499;"></i> School</h3></div>
-            <div class="ad-form">
+            <div class="ap-form">
                 <label class="field {% if form.school.errors %}bad{% endif %}"><span>School <span class="req">*</span></span>
                     <select name="school" id="schoolSelect" required>
                         <option value="">Choose a school</option>
@@ -32,14 +32,14 @@
             </div>
         </section>
 
-        <aside class="ad-side">
+        <aside class="ap-side">
             <section class="card panel" aria-labelledby="signTitle">
                 <div class="panel-head"><h3 id="signTitle"><i class="fi fi-rr-key" style="color:#123499;"></i> Sign-in</h3></div>
-                <dl class="ad-kv">
+                <dl class="ap-kv">
                     <div><dt>Name</dt><dd id="previewName">Pick a school</dd></div>
                     <div><dt>Username and email</dt><dd id="previewAccount">Pick a school</dd></div>
                 </dl>
-                <div class="ad-acts">
+                <div class="ap-acts">
                     <button class="btn btn-main" type="submit" id="createBtn" disabled><i class="fi fi-rr-user-add"></i> Create account</button>
                     <a class="btn btn-line" href="{% url 'admin_panel:registrar_list' %}">Cancel</a>
                 </div>

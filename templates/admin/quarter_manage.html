@@ -12,12 +12,12 @@
         </div>
     </section>
 
-    <div class="ad-page wide-side">
-        <aside class="ad-side">
+    <div class="ap-page wide-side">
+        <aside class="ap-side">
             <form method="POST" class="card panel" aria-labelledby="newTitle">
                 {% csrf_token %}
                 <div class="panel-head"><h3 id="newTitle"><i class="fi fi-rr-plus" style="color:#123499;"></i> Add a grading period</h3></div>
-                <div class="ad-form">
+                <div class="ap-form">
                     <label class="field"><span>School year <span class="req">*</span></span>
                         <select name="school_year" id="periodSchoolYear" required>
                             <option value="">Choose a school year</option>
@@ -26,7 +26,7 @@
                     <label class="field"><span><span id="periodLabel">Period</span> <span class="req">*</span></span>
                         <select name="quarter_number" id="periodNumber" required><option value="">Choose a school year first</option></select>
                         <small id="periodHint">The periods depend on the school's period type.</small></label>
-                    <div class="ad-two">
+                    <div class="ap-two">
                         <label class="field"><span>Date start <span class="req">*</span></span><input type="date" name="date_start" id="newStart" required></label>
                         <label class="field"><span>Date end <span class="req">*</span></span><input type="date" name="date_end" id="newEnd" required></label>
                     </div>
@@ -37,9 +37,9 @@
             </form>
         </aside>
 
-        <div class="ad-stack">
+        <div class="ap-stack">
             <section class="card panel" aria-label="Filters">
-                <form method="get" class="ad-filters" data-autosubmit>
+                <form method="get" class="ap-filters" data-autosubmit>
                     <label class="field" style="flex-basis:260px;"><span>School</span>
                         <select name="school">
                             <option value="">All schools</option>
@@ -57,12 +57,12 @@
             <section class="card panel" aria-label="{{ sy.school.school_name }}, {{ sy.year_label }}">
                 <div class="panel-head">
                     <h3><i class="fi fi-rr-calendar" style="color:#123499;"></i> {{ sy.school.school_name }}, {{ sy.year_label }}</h3>
-                    <div class="ad-count">{% if sy.is_current %}<span class="pill info">Current year</span>{% endif %}<span class="pill">{{ sy.periods|length }} of {{ sy.period_cfg.count }} {{ sy.period_cfg.plural|lower }}</span></div>
+                    <div class="ap-count">{% if sy.is_current %}<span class="pill info">Current year</span>{% endif %}<span class="pill">{{ sy.periods|length }} of {{ sy.period_cfg.count }} {{ sy.period_cfg.plural|lower }}</span></div>
                 </div>
 
                 {% for quarter in sy.periods %}
-                <article class="ad-period {% if quarter.is_current_quarter %}current{% endif %}">
-                    <div class="ad-period-top">
+                <article class="ap-period {% if quarter.is_current_quarter %}current{% endif %}">
+                    <div class="ap-period-top">
                         <h4><span class="code">{{ quarter.quarter_label }}</span> {{ sy.period_cfg.noun }} {{ quarter.quarter_number }}
                             {% if quarter.is_current_quarter %}<span class="pill info">Current</span>{% endif %}
                             {% if quarter.is_grades_locked %}<span class="pill warn"><i class="fi fi-rr-lock"></i> Locked</span>{% endif %}</h4>
@@ -74,7 +74,7 @@
                         <div><small>End</small><b>{{ quarter.date_end|date:"M j, Y" }}</b></div>
                         <div><small>Grades due</small><b>{{ quarter.grade_encoding_deadline|date:"M j, Y"|default:"Not set" }}</b></div>
                     </div>
-                    <details class="ad-edit">
+                    <details class="ap-edit">
                         <summary>Edit dates and status</summary>
                         <form method="POST" action="{% url 'admin_panel:quarter_update' quarter.id %}">
                             {% csrf_token %}

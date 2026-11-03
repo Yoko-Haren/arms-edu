@@ -6,7 +6,7 @@
 {% block content %}
 <div class="tp">
     <section class="card tp-head">
-        <div class="ad-who">
+        <div class="ap-who">
             <span class="avatar {% if not principal.is_active %}off{% endif %}" aria-hidden="true">{{ principal.user.first_name|first|upper }}{{ principal.user.last_name|first|upper }}</span>
             <div>
                 <h2>{{ principal.full_name }}</h2>
@@ -25,12 +25,12 @@
         <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-graduation-cap"></i></span><div><span>Learners</span><b>{{ student_count }}</b><small>enrolled</small></div></div>
     </div>
 
-    <div class="ad-page wide-side">
-        <aside class="ad-stack">
+    <div class="ap-page wide-side">
+        <aside class="ap-stack">
             <section class="card panel" aria-labelledby="persTitle">
                 <div class="panel-head"><h3 id="persTitle"><i class="fi fi-rr-id-badge" style="color:#123499;"></i> Account</h3>
                     {% if principal.is_active %}<span class="pill good">Active</span>{% else %}<span class="pill risk">Inactive</span>{% endif %}</div>
-                <dl class="ad-kv">
+                <dl class="ap-kv">
                     <div><dt>Username</dt><dd>{{ principal.user.username }}</dd></div>
                     <div><dt>Role</dt><dd>{{ principal.get_role_display }}</dd></div>
                     <div><dt>Employee ID</dt><dd>{{ principal.employee_number|default:"Not set" }}</dd></div>
@@ -42,17 +42,17 @@
             <section class="card panel" aria-labelledby="schTitle">
                 <div class="panel-head"><h3 id="schTitle"><i class="fi fi-rr-building" style="color:#123499;"></i> School</h3></div>
                 {% if principal.school %}
-                <dl class="ad-kv">
+                <dl class="ap-kv">
                     <div><dt>Name</dt><dd>{{ principal.school.school_name }}</dd></div>
                     <div><dt>School ID</dt><dd>{{ principal.school.school_id }}</dd></div>
                     <div><dt>Grading</dt><dd>{{ principal.school.get_grading_scale_display }}</dd></div>
                 </dl>
-                <div class="ad-acts"><a class="btn btn-line" href="{% url 'admin_panel:school_detail' principal.school.id %}"><i class="fi fi-rr-eye"></i> View school</a></div>
+                <div class="ap-acts"><a class="btn btn-line" href="{% url 'admin_panel:school_detail' principal.school.id %}"><i class="fi fi-rr-eye"></i> View school</a></div>
                 {% else %}<p class="empty"><i class="fi fi-rr-building"></i>No school assigned.</p>{% endif %}
             </section>
             <section class="card panel" aria-labelledby="actTitle">
                 <div class="panel-head"><h3 id="actTitle"><i class="fi fi-rr-settings" style="color:#123499;"></i> Actions</h3></div>
-                <div class="ad-acts" style="margin-top:0;">
+                <div class="ap-acts" style="margin-top:0;">
                     <button type="button" class="btn btn-line" data-open="resetPassword"><i class="fi fi-rr-key"></i> Reset password</button>
                     <form method="POST" action="{% url 'admin_panel:principal_toggle' principal.id %}" data-confirm-title="{% if principal.is_active %}Deactivate account{% else %}Activate account{% endif %}" data-confirm-ok="{% if principal.is_active %}Deactivate{% else %}Activate{% endif %}" data-confirm="{% if principal.is_active %}Deactivate {{ principal.full_name }}? They can no longer sign in until you activate them again.{% else %}Activate {{ principal.full_name }} so they can sign in again?{% endif %}" {% if principal.is_active %}data-confirm-danger{% endif %}>
                         {% csrf_token %}
@@ -70,12 +70,12 @@
             </div>
             <div id="tab-registrars">
                 {% if registrars %}
-                <ul class="ad-mini">{% for reg in registrars %}<li><div class="ad-who"><div><b>{{ reg.full_name }}</b><small>{{ reg.user.email }}</small></div></div><span class="pill">{{ reg.created_at|date:"M j, Y" }}</span></li>{% endfor %}</ul>
+                <ul class="ap-mini">{% for reg in registrars %}<li><div class="ap-who"><div><b>{{ reg.full_name }}</b><small>{{ reg.user.email }}</small></div></div><span class="pill">{{ reg.created_at|date:"M j, Y" }}</span></li>{% endfor %}</ul>
                 {% else %}<p class="empty"><i class="fi fi-rr-clipboard-list"></i>No registrar at this school yet.</p>{% endif %}
             </div>
             <div id="tab-teachers" hidden>
                 {% if teachers %}
-                <ul class="ad-mini">{% for teacher in teachers|slice:":15" %}<li><div class="ad-who"><div><b>{{ teacher.full_name }}</b><small>{{ teacher.user.email }}</small></div></div><span class="pill info">{{ teacher.teaching_area|default:"No subject" }}</span></li>{% endfor %}</ul>
+                <ul class="ap-mini">{% for teacher in teachers|slice:":15" %}<li><div class="ap-who"><div><b>{{ teacher.full_name }}</b><small>{{ teacher.user.email }}</small></div></div><span class="pill info">{{ teacher.teaching_area|default:"No subject" }}</span></li>{% endfor %}</ul>
                 {% if teachers|length > 15 %}<p class="hint">and {{ teachers|length|add:"-15" }} more, on the registrar's Teachers page.</p>{% endif %}
                 {% else %}<p class="empty"><i class="fi fi-rr-chalkboard-user"></i>No teacher at this school yet. The registrar adds them.</p>{% endif %}
             </div>

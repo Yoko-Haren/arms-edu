@@ -15,7 +15,7 @@
 
     <section class="card panel" aria-labelledby="glTitle">
         <h3 id="glTitle" class="sr-only">Grade level list</h3>
-        <form method="get" class="ad-filters" data-autosubmit>
+        <form method="get" class="ap-filters" data-autosubmit>
             <label class="field" style="flex-basis:320px;"><span>School</span>
                 <select name="school">
                     <option value="">All schools</option>
@@ -25,7 +25,7 @@
         </form>
 
         {% if grade_levels %}
-        <div class="ad-scroll" style="margin-top:0.9rem;"><table class="table">
+        <div class="ap-scroll" style="margin-top:0.9rem;"><table class="table">
             <thead><tr><th scope="col">Code</th><th scope="col">Grade</th><th scope="col">Category</th><th scope="col">School</th><th scope="col">Added</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
             <tbody>
                 {% for gl in grade_levels %}

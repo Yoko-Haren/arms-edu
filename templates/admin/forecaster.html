@@ -24,7 +24,7 @@
         <p class="hint" style="margin:0;">{% if run.reason %}{{ run.reason }}{% if run.by %} &middot; {{ run.by }}{% endif %}{% if run.started %} &middot; started {{ run.started|date:"M j, Y g:i A" }}{% endif %}{% if run.finished %} &middot; ended {{ run.finished|date:"g:i A" }}{% endif %}.{% endif %}
             {% if run.detail %}{{ run.detail }}{% endif %}
             A run takes about {% if model.seconds %}{{ model.seconds|floatformat:0 }} seconds{% else %}a minute{% endif %}. Pages keep the current model until the new one is saved.</p>
-        {% if log %}<pre class="ad-log" aria-label="Last lines of the training log">{{ log|join:"
+        {% if log %}<pre class="ap-log" aria-label="Last lines of the training log">{{ log|join:"
 " }}</pre>{% endif %}
     </section>
 
@@ -38,7 +38,7 @@
 
     <section class="card panel" aria-labelledby="gfTests">
         <div class="panel-head"><h3 id="gfTests"><i class="fi fi-rr-list-check" style="color:#123499;"></i> Tested on grading periods it had not seen</h3></div>
-        <div class="ad-scroll"><table class="table">
+        <div class="ap-scroll"><table class="table">
             <thead><tr><th scope="col">Held-out period</th><th scope="col" class="num">Grades</th><th scope="col" class="num">Off on average</th>
                 <th scope="col" class="num">Within 2</th><th scope="col" class="num">Within 5</th>
                 <th scope="col" class="num">Below-75 warnings right</th><th scope="col">Best simple rule</th></tr></thead>
@@ -55,7 +55,7 @@
 
     <section class="card panel" aria-labelledby="gfLean">
         <div class="panel-head"><h3 id="gfLean"><i class="fi fi-rr-scale" style="color:#123499;"></i> What the forecasts lean on most</h3></div>
-        <ul class="ad-lean">
+        <ul class="ap-lean">
             {% for f in model.lean %}<li><span>{{ f.name }}</span><span class="bar"><i style="width: {{ f.share }}%"></i></span><b>{{ f.share }}%</b></li>{% endfor %}
         </ul>
     </section>

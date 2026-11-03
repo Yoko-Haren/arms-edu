@@ -22,9 +22,9 @@
             <div><span>Inactive</span><b>{{ inactive_count }}</b></div></div>
     </div>
 
-    <section class="card panel ad-list" aria-labelledby="slTitle">
+    <section class="card panel ap-list" aria-labelledby="slTitle">
         <h3 id="slTitle" class="sr-only">School list</h3>
-        <form method="get" class="ad-filters" data-autosubmit role="search">
+        <form method="get" class="ap-filters" data-autosubmit role="search">
             <label class="search"><i class="fi fi-rr-search"></i><input type="search" name="search" value="{{ search }}" placeholder="Find a name, ID or address" aria-label="Find a name, ID or address"></label>
             <label class="field"><span>Grading scale</span>
                 <select name="grading">
@@ -52,16 +52,16 @@
         </form>
 
         {% if schools %}
-        <ol class="ad-rows">
+        <ol class="ap-rows">
             {% for school in schools %}
-            <li><article class="ad-row {% if not school.is_active %}off{% endif %}" style="--cols: minmax(240px, 1.6fr) minmax(130px, 0.8fr) minmax(110px, 0.7fr) minmax(120px, 0.7fr) 5.5rem auto;">
-                <div class="ad-who"><div><a class="name" href="{% url 'admin_panel:school_detail' school.id %}">{{ school.school_name }}</a>
+            <li><article class="ap-row {% if not school.is_active %}off{% endif %}" style="--cols: minmax(240px, 1.6fr) minmax(130px, 0.8fr) minmax(110px, 0.7fr) minmax(120px, 0.7fr) 5.5rem auto;">
+                <div class="ap-who"><div><a class="name" href="{% url 'admin_panel:school_detail' school.id %}">{{ school.school_name }}</a>
                     <small>{{ school.school_id }}{% if school.short_name %} · {{ school.short_name }}{% endif %}</small></div></div>
-                <div class="ad-cell"><span>Grading</span>{{ school.get_grading_scale_display }}</div>
-                <div class="ad-cell"><span>Periods</span>{{ school.get_period_type_display }}</div>
-                <div class="ad-cell"><span>Staff</span>{{ school.teacher_count|default:0 }} teacher{{ school.teacher_count|pluralize }}, {{ school.registrar_count|default:0 }} registrar{{ school.registrar_count|pluralize }}</div>
+                <div class="ap-cell"><span>Grading</span>{{ school.get_grading_scale_display }}</div>
+                <div class="ap-cell"><span>Periods</span>{{ school.get_period_type_display }}</div>
+                <div class="ap-cell"><span>Staff</span>{{ school.teacher_count|default:0 }} teacher{{ school.teacher_count|pluralize }}, {{ school.registrar_count|default:0 }} registrar{{ school.registrar_count|pluralize }}</div>
                 <div>{% if school.is_active %}<span class="pill good">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</div>
-                <div class="ad-end">
+                <div class="ap-end">
                     <details class="more">
                         <summary class="btn btn-ghost btn-sm" aria-label="Actions for {{ school.school_name }}"><i class="fi fi-rr-menu-dots"></i></summary>
                         <div class="menu">

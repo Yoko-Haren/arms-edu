@@ -19,22 +19,22 @@ kind: 'track' (on track for an award), 'close' (within a few points of one) or '
     {% endif %}
 </section>
 {% if items|length > preview %}
-<div class="ad-modal" id="{{ list_id }}Modal" role="dialog" aria-modal="true" aria-labelledby="{{ list_id }}ModalTitle" hidden>
-    <div class="ad-modal-card" tabindex="-1">
-        <div class="ad-modal-head">
+<div class="ap-modal" id="{{ list_id }}Modal" role="dialog" aria-modal="true" aria-labelledby="{{ list_id }}ModalTitle" hidden>
+    <div class="ap-modal-card" tabindex="-1">
+        <div class="ap-modal-head">
             <div>
                 <h3 id="{{ list_id }}ModalTitle"><i class="fi {{ icon }}" style="color:#123499;"></i> {{ title }} <span class="count">{{ items|length }}</span></h3>
                 <p class="hint">{{ grade_label }} &middot; SY {{ sy.year_label }} &middot; grades through {{ graded_through }}.</p>
             </div>
             <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
         </div>
-        <div class="ad-modal-tools">
-            <label class="ad-search"><i class="fi fi-rr-search"></i><input type="search" data-filter placeholder="Find a learner or section" aria-label="Find a learner or section"></label>
+        <div class="ap-modal-tools">
+            <label class="ap-search"><i class="fi fi-rr-search"></i><input type="search" data-filter placeholder="Find a learner or section" aria-label="Find a learner or section"></label>
             <span class="tools-count" aria-live="polite"></span>
         </div>
-        <div class="ad-modal-body">
+        <div class="ap-modal-body">
             <ul class="ho-items">{% for l in items %}{% include 'heads/honors/_item.html' %}{% endfor %}</ul>
-            <p class="ad-none" hidden>No learner matches.</p>
+            <p class="ap-none" hidden>No learner matches.</p>
         </div>
     </div>
 </div>

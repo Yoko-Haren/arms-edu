@@ -27,7 +27,7 @@
             <div><span>Learners</span><b>{{ total_students }}</b><small>enrolled in all schools</small></div></div>
     </div>
 
-    <div class="ad-grid">
+    <div class="ap-grid">
         <section class="card panel" aria-labelledby="todoTitle">
             <div class="panel-head"><h3 id="todoTitle"><i class="fi fi-rr-checkbox" style="color:#123499;"></i> To do</h3></div>
             {% if schools_without_principal or schools_without_sy or new_request_count %}
@@ -55,7 +55,7 @@
 
         <section class="card panel" aria-labelledby="quickTitle">
             <div class="panel-head"><h3 id="quickTitle"><i class="fi fi-rr-bolt" style="color:#123499;"></i> Set up</h3></div>
-            <div class="ad-quick">
+            <div class="ap-quick">
                 <a class="btn btn-line" href="{% url 'admin_panel:school_create' %}"><i class="fi fi-rr-building"></i> New school</a>
                 <a class="btn btn-line" href="{% url 'admin_panel:principal_create' %}"><i class="fi fi-rr-user-add"></i> New principal</a>
                 <a class="btn btn-line" href="{% url 'admin_panel:registrar_create' %}"><i class="fi fi-rr-clipboard-list"></i> New registrar</a>
@@ -66,14 +66,14 @@
         </section>
     </div>
 
-    <div class="ad-grid even">
+    <div class="ap-grid even">
         <section class="card panel" aria-labelledby="newSchools">
             <div class="panel-head"><h3 id="newSchools"><i class="fi fi-rr-building" style="color:#123499;"></i> Newest schools</h3>
                 <a class="btn btn-ghost btn-sm" href="{% url 'admin_panel:school_list' %}">All schools <i class="fi fi-rr-angle-small-right"></i></a></div>
             {% if recent_schools %}
-            <ul class="ad-mini">
+            <ul class="ap-mini">
                 {% for school in recent_schools %}
-                <li><div class="ad-who"><div><a class="name" href="{% url 'admin_panel:school_detail' school.id %}">{{ school.school_name }}</a><small>{{ school.school_id }} · {{ school.get_period_type_display }}</small></div></div>
+                <li><div class="ap-who"><div><a class="name" href="{% url 'admin_panel:school_detail' school.id %}">{{ school.school_name }}</a><small>{{ school.school_id }} · {{ school.get_period_type_display }}</small></div></div>
                     {% if school.is_active %}<span class="pill good">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</li>
                 {% endfor %}
             </ul>
@@ -84,9 +84,9 @@
             <div class="panel-head"><h3 id="newHeads"><i class="fi fi-rr-user" style="color:#123499;"></i> Newest principals</h3>
                 <a class="btn btn-ghost btn-sm" href="{% url 'admin_panel:principal_list' %}">All principals <i class="fi fi-rr-angle-small-right"></i></a></div>
             {% if recent_principals %}
-            <ul class="ad-mini">
+            <ul class="ap-mini">
                 {% for principal in recent_principals %}
-                <li><div class="ad-who"><span class="avatar {% if not principal.is_active %}off{% endif %}" aria-hidden="true">{{ principal.user.first_name|first|upper }}{{ principal.user.last_name|first|upper }}</span>
+                <li><div class="ap-who"><span class="avatar {% if not principal.is_active %}off{% endif %}" aria-hidden="true">{{ principal.user.first_name|first|upper }}{{ principal.user.last_name|first|upper }}</span>
                         <div><a class="name" href="{% url 'admin_panel:principal_detail' principal.id %}">{{ principal.full_name }}</a><small>{{ principal.school_name|default:"No school assigned" }}</small></div></div>
                     {% if principal.is_active %}<span class="pill good">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</li>
                 {% endfor %}

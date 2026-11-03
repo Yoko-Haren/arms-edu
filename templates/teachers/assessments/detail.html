@@ -6,9 +6,9 @@
 
 {% block extra_css %}
 <style>
-    .ad-meta { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-top: 0.4rem; font-size: 0.8rem; color: var(--muted); }
-    .ad-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1rem; }
-    @media (max-width: 1100px) { .ad-grid { grid-template-columns: 1fr; } }
+    .ap-meta { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-top: 0.4rem; font-size: 0.8rem; color: var(--muted); }
+    .ap-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1rem; }
+    @media (max-width: 1100px) { .ap-grid { grid-template-columns: 1fr; } }
     .share { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .share input { flex: 1 1 260px; font-family: Consolas, 'Courier New', monospace; font-size: 0.82rem; }
     .code { display: inline-flex; gap: 0.4rem; align-items: baseline; font-size: 0.8rem; color: var(--muted); margin-top: 0.6rem; }
@@ -52,7 +52,7 @@
     <section class="card tp-head">
         <div style="min-width:0;">
             <h2><i class="fi fi-rr-list-check" style="color:#123499;"></i> {{ a.title }}</h2>
-            <div class="ad-meta">
+            <div class="ap-meta">
                 <span class="pill {{ state_tone }}">{{ state_label }}</span>
                 <span>{{ type }}</span><span aria-hidden="true">·</span><span>{{ a.subject.subject_code }} {{ a.subject.subject_name }}</span><span aria-hidden="true">·</span>
                 <span>{{ section }}</span><span aria-hidden="true">·</span><span>{{ res.questions|length }} question{{ res.questions|length|pluralize }}, {{ res.points|floatformat:"-2" }} point{{ res.points|pluralize }}</span>
@@ -67,7 +67,7 @@
         </div>
     </section>
 
-    <div class="ad-grid">
+    <div class="ap-grid">
         <section class="card panel" aria-labelledby="shareTitle">
             <div class="panel-head"><h3 id="shareTitle"><i class="fi fi-rr-link-alt" style="color:#123499;"></i> Link for learners</h3></div>
             {% if state == 'draft' %}

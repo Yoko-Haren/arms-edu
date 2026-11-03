@@ -14,19 +14,19 @@
     </section>
 
     {% if schools %}
-    <form method="POST" class="ad-page">
+    <form method="POST" class="ap-page">
         {% csrf_token %}
         <section class="card panel" aria-labelledby="glTitle">
             <div class="panel-head"><h3 id="glTitle"><i class="fi fi-rr-layers" style="color:#123499;"></i> Grade levels</h3></div>
-            <div class="ad-presets" role="group" aria-label="Quick choices">
+            <div class="ap-presets" role="group" aria-label="Quick choices">
                 <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10">Junior High (7 to 10)</button>
                 <button type="button" class="btn btn-line btn-sm" data-grades="11,12">Senior High (11 to 12)</button>
                 <button type="button" class="btn btn-line btn-sm" data-grades="7,8,9,10,11,12">Integrated (7 to 12)</button>
                 <button type="button" class="btn btn-ghost btn-sm" data-grades="">Clear</button>
             </div>
-            <div class="ad-grades">
+            <div class="ap-grades">
                 {% for n in grade_numbers %}
-                <label class="ad-grade" data-grade="{{ n }}">
+                <label class="ap-grade" data-grade="{{ n }}">
                     <input type="checkbox" name="grades" value="{{ n }}">
                     <span><b>Grade {{ n }}</b><small data-default="{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}">{% if n >= 11 %}Senior High{% else %}Junior High{% endif %}</small></span>
                 </label>
@@ -34,7 +34,7 @@
             </div>
         </section>
 
-        <aside class="ad-side">
+        <aside class="ap-side">
             <section class="card panel" aria-labelledby="schTitle">
                 <div class="panel-head"><h3 id="schTitle"><i class="fi fi-rr-building" style="color:#123499;"></i> School</h3></div>
                 <label class="field"><span>School <span class="req">*</span></span>
@@ -42,7 +42,7 @@
                         <option value="">Choose a school</option>
                         {% for s in schools %}<option value="{{ s.id }}" {% if selected_school|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }}</option>{% endfor %}
                     </select></label>
-                <div class="ad-acts">
+                <div class="ap-acts">
                     <button type="submit" class="btn btn-main" id="submitBtn" disabled><i class="fi fi-rr-check"></i> Add grade levels</button>
                     <a class="btn btn-line" href="{% url 'admin_panel:grade_level_list' %}">Cancel</a>
                 </div>
@@ -62,9 +62,9 @@
     var select = document.getElementById('schoolSelect');
     if (!select) return;
     var existing = JSON.parse(document.getElementById('existingGradesData').textContent);
-    var options = document.querySelectorAll('.ad-grade');
+    var options = document.querySelectorAll('.ap-grade');
     var submit = document.getElementById('submitBtn');
-    function refreshSubmit() { submit.disabled = !select.value || !document.querySelector('.ad-grade input:checked'); }
+    function refreshSubmit() { submit.disabled = !select.value || !document.querySelector('.ap-grade input:checked'); }
     // levels the chosen school already has are locked
     function refreshExisting() {
         var have = existing[select.value] || [];

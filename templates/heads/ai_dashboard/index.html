@@ -84,7 +84,7 @@
 
 {% block content %}
 <div id="armsLive" data-fingerprint="{{ live_fingerprint }}" hidden></div>
-<div class="ad hp">
+<div class="hp">
 
     <!-- 1. Guided filters: what to review, then which grade, then which period -->
     <section class="card guide" aria-label="Choose what to review" data-skel-keep>
@@ -276,18 +276,18 @@
     {% if forecast and forecast.series %}{{ forecast|json_script:"dashForecast" }}{% endif %}
 
     {% if status and ladder %}
-    <div class="ad-modal" id="ladderModal" role="dialog" aria-modal="true" aria-labelledby="ladderModalTitle" hidden>
-        <div class="ad-modal-card" tabindex="-1">
-            <div class="ad-modal-head">
+    <div class="ap-modal" id="ladderModal" role="dialog" aria-modal="true" aria-labelledby="ladderModalTitle" hidden>
+        <div class="ap-modal-card" tabindex="-1">
+            <div class="ap-modal-head">
                 <div>
                     <h3 id="ladderModalTitle"><span id="ladderModalName"></span> <span class="muted" id="ladderModalCount"></span></h3>
                     <p class="hint">{{ scope_name }}{% if scope_detail %} &middot; {{ scope_detail }}{% endif %} &middot; {{ period_name }}.{% if ladder_word != 'section' %} Open one to review it.{% endif %}</p>
                 </div>
                 <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
             </div>
-            <div class="ad-modal-tools">
-                <label class="ad-search"><i class="fi fi-rr-search"></i><input type="search" id="ladderSearch" placeholder="Find a {{ ladder_word }}" aria-label="Find a {{ ladder_word }}"></label>
-                <label class="ad-sortby">Sort by
+            <div class="ap-modal-tools">
+                <label class="ap-search"><i class="fi fi-rr-search"></i><input type="search" id="ladderSearch" placeholder="Find a {{ ladder_word }}" aria-label="Find a {{ ladder_word }}"></label>
+                <label class="ap-sortby">Sort by
                     <select id="ladderSort">
                         <option value="high">Highest average first</option>
                         <option value="low">Lowest average first</option>
@@ -296,7 +296,7 @@
                 </label>
                 <span class="tools-count" id="ladderCount" aria-live="polite"></span>
             </div>
-            <div class="ad-modal-body">
+            <div class="ap-modal-body">
                 {% for step in ladder %}{% if step.more %}
                 <ul class="ladder-all ladder-items level-{{ step.level.key }}" data-level="{{ step.level.key }}"
                     data-title="{{ step.level.name }} ({{ step.level.letter }}, {{ step.level.range }})" hidden>
@@ -305,7 +305,7 @@
                     {% endfor %}
                 </ul>
                 {% endif %}{% endfor %}
-                <p class="ad-none" id="ladderNone" hidden>No {{ ladder_word }} matches.</p>
+                <p class="ap-none" id="ladderNone" hidden>No {{ ladder_word }} matches.</p>
             </div>
         </div>
     </div>
@@ -388,22 +388,22 @@
     var opener = null;
     function openDialog(dialog, from) {
         opener = from; dialog.hidden = false; document.body.style.overflow = 'hidden';
-        dialog.querySelector('.ad-modal-card').focus();
+        dialog.querySelector('.ap-modal-card').focus();
     }
     function closeDialog(dialog) {
         dialog.hidden = true; document.body.style.overflow = '';
         if (opener) opener.focus();
     }
-    document.querySelectorAll('.ad-modal').forEach(function (dialog) {
+    document.querySelectorAll('.ap-modal').forEach(function (dialog) {
         dialog.addEventListener('click', function (e) { if (e.target === dialog || e.target.closest('[data-close]')) closeDialog(dialog); });
     });
     document.addEventListener('keydown', function (e) {
-        var shown = document.querySelector('.ad-modal:not([hidden])');
+        var shown = document.querySelector('.ap-modal:not([hidden])');
         if (shown && e.key === 'Escape') closeDialog(shown);
     });
     document.addEventListener('focusin', function (e) {
-        var shown = document.querySelector('.ad-modal:not([hidden])');
-        if (shown && !shown.contains(e.target)) shown.querySelector('.ad-modal-card').focus();
+        var shown = document.querySelector('.ap-modal:not([hidden])');
+        if (shown && !shown.contains(e.target)) shown.querySelector('.ap-modal-card').focus();
     });
 
     // ---------- a level with more items than the card shows: every one in a dialog, with search and sort ----------
@@ -433,7 +433,7 @@
             btn.addEventListener('click', function () {
                 ladderModal.querySelectorAll('.ladder-all').forEach(function (ul) { ul.hidden = ul.dataset.level !== btn.dataset.level; });
                 list = ladderModal.querySelector('.ladder-all[data-level="' + btn.dataset.level + '"]');
-                ladderModal.querySelector('.ad-modal-card').className = 'ad-modal-card level-' + btn.dataset.level;
+                ladderModal.querySelector('.ap-modal-card').className = 'ap-modal-card level-' + btn.dataset.level;
                 document.getElementById('ladderModalName').textContent = list.dataset.title;
                 document.getElementById('ladderModalCount').textContent = list.children.length;
                 lSearch.value = '';

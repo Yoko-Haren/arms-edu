@@ -151,12 +151,12 @@
         btn.addEventListener('click', function () {
             var dialog = document.getElementById(btn.dataset.open);
             opener = btn; dialog.hidden = false; document.body.style.overflow = 'hidden';
-            dialog.querySelector('.ad-modal-card').focus();
+            dialog.querySelector('.ap-modal-card').focus();
         });
     });
-    document.querySelectorAll('.ad-modal').forEach(function (dialog) {
+    document.querySelectorAll('.ap-modal').forEach(function (dialog) {
         var items = Array.prototype.slice.call(dialog.querySelectorAll('.ho-items li'));
-        var input = dialog.querySelector('[data-filter]'), count = dialog.querySelector('.tools-count'), none = dialog.querySelector('.ad-none');
+        var input = dialog.querySelector('[data-filter]'), count = dialog.querySelector('.tools-count'), none = dialog.querySelector('.ap-none');
         var show = function () {
             var q = input.value.trim().toLowerCase(), shown = 0;
             items.forEach(function (li) { li.hidden = q && li.dataset.text.indexOf(q) === -1; if (!li.hidden) shown++; });
@@ -168,7 +168,7 @@
         dialog.addEventListener('click', function (e) { if (e.target === dialog || e.target.closest('[data-close]')) close(dialog); });
     });
     document.addEventListener('keydown', function (e) {
-        var shown = document.querySelector('.ad-modal:not([hidden])');
+        var shown = document.querySelector('.ap-modal:not([hidden])');
         if (shown && e.key === 'Escape') close(shown);
     });
 })();

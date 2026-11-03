@@ -13,23 +13,23 @@
         <a class="btn btn-line btn-sm" href="{% if edit_mode %}{% url 'admin_panel:school_detail' school.id %}{% else %}{% url 'admin_panel:school_list' %}{% endif %}"><i class="fi fi-rr-arrow-small-left"></i> {% if edit_mode %}School{% else %}Schools{% endif %}</a>
     </section>
 
-    <form method="POST" id="schoolForm" class="ad-page">
+    <form method="POST" id="schoolForm" class="ap-page">
         {% csrf_token %}
-        <div class="ad-stack">
+        <div class="ap-stack">
             <section class="card panel" aria-labelledby="basicTitle">
                 <div class="panel-head"><h3 id="basicTitle"><i class="fi fi-rr-info" style="color:#123499;"></i> Basic information</h3><span class="muted" style="font-size:0.78rem;"><span class="req">*</span> required</span></div>
-                <div class="ad-form">
-                    <div class="ad-three">
+                <div class="ap-form">
+                    <div class="ap-three">
                         <label class="field {% if form.school_id.errors %}bad{% endif %}"><span>School ID <span class="req">*</span></span>
                             <input type="text" name="school_id" id="school_id" value="{{ form.school_id.value|default:'' }}" required autocomplete="off">
-                            <span class="ad-suggest" id="schoolIdPreview"></span>
+                            <span class="ap-suggest" id="schoolIdPreview"></span>
                             <span class="err" id="schoolIdError" hidden></span>
                             {% for e in form.school_id.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                         <label class="field {% if form.school_name.errors %}bad{% endif %}" style="grid-column: span 2;"><span>School name <span class="req">*</span></span>
                             <input type="text" name="school_name" value="{{ form.school_name.value|default:'' }}" required autocomplete="off">
                             {% for e in form.school_name.errors %}<span class="err">{{ e }}</span>{% endfor %}</label>
                     </div>
-                    <div class="ad-three">
+                    <div class="ap-three">
                         <label class="field"><span>Short name <span class="opt">optional</span></span>
                             <input type="text" name="short_name" value="{{ form.short_name.value|default:'' }}" placeholder="e.g. MNHS" autocomplete="off"></label>
                         <label class="field {% if form.grading_scale.errors %}bad{% endif %}"><span>Grading scale <span class="req">*</span></span>
@@ -49,7 +49,7 @@
                                 {% endfor %}
                             </select></label>
                     </div>
-                    <div class="ad-three">
+                    <div class="ap-three">
                         <label class="field"><span>Passing grade</span>
                             <input type="number" name="passing_grade" value="{{ form.passing_grade.value|default:75 }}" step="0.01" min="0" max="100"></label>
                         <label class="field"><span id="periodCountLabel">Quarters count</span>
@@ -87,16 +87,16 @@
                         </optgroup>
                     </select></label>
                 <div class="note" id="schemaPreview" hidden style="margin-top:0.75rem;"><i class="fi fi-rr-info"></i>
-                    <div><b id="schemaName"></b> · <span id="schemaPeriod"></span><div class="ad-ranges" id="schemaRanges"></div></div></div>
+                    <div><b id="schemaName"></b> · <span id="schemaPeriod"></span><div class="ap-ranges" id="schemaRanges"></div></div></div>
             </section>
             {% endif %}
 
             <section class="card panel" aria-labelledby="contactTitle">
                 <div class="panel-head"><h3 id="contactTitle"><i class="fi fi-rr-marker" style="color:#123499;"></i> Contact information</h3></div>
-                <div class="ad-form">
+                <div class="ap-form">
                     <label class="field"><span>Street address</span>
                         <textarea name="address" rows="2">{{ form.address.value|default:'' }}</textarea></label>
-                    <div class="ad-two">
+                    <div class="ap-two">
                         <label class="field"><span>Contact number</span>
                             <input type="text" name="contact_number" value="{{ form.contact_number.value|default:'' }}" placeholder="(082) 300-1234" autocomplete="off"></label>
                         <label class="field"><span>Theme color</span>
@@ -106,12 +106,12 @@
             </section>
         </div>
 
-        <aside class="ad-side">
+        <aside class="ap-side">
             <section class="card panel" aria-labelledby="saveTitle">
                 <div class="panel-head"><h3 id="saveTitle"><i class="fi fi-rr-settings" style="color:#123499;"></i> Status</h3></div>
                 <label class="check"><input type="checkbox" name="is_active" {% if form.is_active.value or not edit_mode and not form.is_bound %}checked{% endif %}>
                     <span>School is active<small>Its people can sign in.</small></span></label>
-                <div class="ad-acts">
+                <div class="ap-acts">
                     <button type="submit" class="btn btn-main"><i class="fi fi-rr-check"></i> {{ submit_text }}</button>
                     <a class="btn btn-line" href="{% if edit_mode %}{% url 'admin_panel:school_detail' school.id %}{% else %}{% url 'admin_panel:school_list' %}{% endif %}">Cancel</a>
                 </div>

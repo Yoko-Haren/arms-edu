@@ -27,21 +27,21 @@
     </section>
 
     {% for item in page %}
-    <article class="card panel ad-req {% if item.status == 'new' %}new{% endif %}">
-        <div class="ad-req-top">
+    <article class="card panel ap-req {% if item.status == 'new' %}new{% endif %}">
+        <div class="ap-req-top">
             <span><i class="fi {% if item.topic == 'school' %}fi-rr-school{% else %}fi-rr-headset{% endif %}" aria-hidden="true"></i>{{ item.get_topic_display }}</span>
             <span class="pill {% if item.status == 'new' %}info{% elif item.status == 'contacted' %}warn{% endif %}">{{ item.get_status_display }}</span>
         </div>
         <h3>{% if item.topic == 'school' %}{{ item.school_name }}{% else %}{{ item.name }}{% endif %}</h3>
-        <div class="ad-meta">
+        <div class="ap-meta">
             {% if item.topic == 'school' %}<span><i class="fi fi-rr-user" aria-hidden="true"></i>{{ item.name }}{% if item.position %}, {{ item.position }}{% endif %}</span>
             {% elif item.school_name %}<span><i class="fi fi-rr-school" aria-hidden="true"></i>{{ item.school_name }}</span>{% endif %}
             <span><i class="fi fi-rr-envelope" aria-hidden="true"></i><a href="mailto:{{ item.email }}">{{ item.email }}</a></span>
             {% if item.phone %}<span><i class="fi fi-rr-phone-call" aria-hidden="true"></i><a href="tel:{{ item.phone }}">{{ item.phone }}</a></span>{% endif %}
             <span><i class="fi fi-rr-clock" aria-hidden="true"></i><time datetime="{{ item.created_at|date:'c' }}" title="{{ item.created_at|date:'F j, Y, g:i A' }}">{{ item.created_at|timesince }} ago</time></span>
         </div>
-        {% if item.message %}<p class="ad-msg">{{ item.message }}</p>{% endif %}
-        <div class="ad-req-acts">
+        {% if item.message %}<p class="ap-msg">{{ item.message }}</p>{% endif %}
+        <div class="ap-req-acts">
             <a class="btn btn-main btn-sm" href="mailto:{{ item.email }}?subject=Re%3A%20your%20ARMS%20{% if item.topic == 'school' %}request{% else %}sign-in%20question{% endif %}"><i class="fi fi-rr-reply-all" aria-hidden="true"></i> Reply by email</a>
             <form method="post" action="{% url 'admin_panel:request_update' item.id %}">
                 {% csrf_token %}

@@ -16,24 +16,24 @@
     <div class="note"><i class="fi fi-rr-calendar-check"></i><span><b>Current:</b> {% for sy in current_school_years %}{{ sy.school.school_name }}, {{ sy.year_label }}{% if not forloop.last %}; {% endif %}{% endfor %}</span></div>
     {% endif %}
 
-    <div class="ad-page wide-side">
-        <aside class="ad-side">
+    <div class="ap-page wide-side">
+        <aside class="ap-side">
             <form method="POST" class="card panel" aria-labelledby="newTitle">
                 {% csrf_token %}
                 <div class="panel-head"><h3 id="newTitle"><i class="fi fi-rr-plus" style="color:#123499;"></i> New school year</h3></div>
-                <div class="ad-form">
+                <div class="ap-form">
                     <label class="field {% if form.school.errors %}bad{% endif %}"><span>School <span class="req">*</span></span>
                         <select name="school" id="sySchool" required>
                             <option value="">Choose a school</option>
                             {% for s in schools %}<option value="{{ s.id }}" data-period="{{ s.period_type }}" {% if form.school.value|stringformat:"s" == s.id|stringformat:"s" %}selected{% endif %}>{{ s.school_name }}</option>{% endfor %}
                         </select></label>
-                    <div class="ad-two">
+                    <div class="ap-two">
                         <label class="field {% if form.year_start.errors %}bad{% endif %}"><span>Starting year <span class="req">*</span></span>
                             <input type="number" name="year_start" id="syYearStart" placeholder="2026" min="2000" max="2099" value="{{ form.year_start.value|default:'' }}" required></label>
                         <label class="field"><span>School year</span>
                             <input type="text" id="syLabel" placeholder="2026-2027" readonly tabindex="-1"></label>
                     </div>
-                    <div class="ad-two">
+                    <div class="ap-two">
                         <label class="field"><span>First day of classes <span class="req">*</span></span>
                             <input type="date" name="date_start" value="{{ form.date_start.value|default:'' }}" required></label>
                         <label class="field"><span>Last day of classes <span class="req">*</span></span>
@@ -54,7 +54,7 @@
 
         <section class="card panel" aria-labelledby="listTitle">
             <div class="panel-head"><h3 id="listTitle"><i class="fi fi-rr-list" style="color:#123499;"></i> All school years</h3></div>
-            <form method="get" class="ad-filters" data-autosubmit style="margin-bottom:0.9rem;">
+            <form method="get" class="ap-filters" data-autosubmit style="margin-bottom:0.9rem;">
                 <label class="field" style="flex-basis:320px;"><span>School</span>
                     <select name="school">
                         <option value="">All schools</option>
@@ -63,14 +63,14 @@
             </form>
 
             {% for sy in school_years %}
-            <article class="ad-period {% if sy.is_current %}current{% endif %}">
-                <div class="ad-period-top">
+            <article class="ap-period {% if sy.is_current %}current{% endif %}">
+                <div class="ap-period-top">
                     <div>
                         <h4>{{ sy.year_label }} {% if sy.is_current %}<span class="pill info">Current</span>{% endif %}
                             {% if sy.status == 'Active' %}<span class="pill good">Active</span>{% else %}<span class="pill">{{ sy.status }}</span>{% endif %}</h4>
                         <p class="hint">{{ sy.school.school_name }}</p>
                     </div>
-                    <div class="ad-end">
+                    <div class="ap-end">
                         <a class="btn btn-line btn-sm" href="{% url 'admin_panel:quarter_manage' %}?school_year={{ sy.id }}"><i class="fi fi-rr-clock"></i> {{ sy.period_cfg.plural }}</a>
                         <details class="more">
                             <summary class="btn btn-ghost btn-sm" aria-label="Actions for {{ sy.year_label }}"><i class="fi fi-rr-menu-dots"></i></summary>
@@ -97,7 +97,7 @@
                     <div><small>{{ sy.period_cfg.plural }}</small><b>{{ sy.periods|length }} of {{ sy.period_cfg.count }}</b></div>
                 </div>
                 {% if sy.periods %}
-                <div class="ad-periods">
+                <div class="ap-periods">
                     {% for q in sy.periods %}<span class="pill {% if q.is_current_quarter %}info{% endif %}">{{ q.quarter_label }}: {{ q.date_start|date:"M j" }} to {{ q.date_end|date:"M j" }}</span>{% endfor %}
                     {% if sy.missing_periods %}<span class="pill warn">{{ sy.missing_periods }} missing</span>{% endif %}
                 </div>
