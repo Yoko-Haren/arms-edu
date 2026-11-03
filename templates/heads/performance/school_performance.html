@@ -303,7 +303,7 @@
         return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     };
     var data = function (id) { var el = document.getElementById(id); return el ? JSON.parse(el.textContent) : []; };
-    // navigation shows the skeleton of the next page while it loads (static/heads/js/head-skeleton.js)
+    // navigation shows the skeleton of the next page while it loads (static/shared/js/portal-skeleton.js)
     var go = function (f) { if (window.ArmsSkeleton) ArmsSkeleton.submit(f); else f.submit(); };
     var open = function (href) { if (window.ArmsSkeleton) ArmsSkeleton.go(href); else window.location.href = href; };
 

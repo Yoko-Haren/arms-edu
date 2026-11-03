@@ -1,4 +1,5 @@
-{# Skeleton screens for the School Head portal, shown by static/heads/js/head-skeleton.js while the next page loads. #}
+{# Skeleton screens for the School Head portal's own pages, shown by static/shared/js/portal-skeleton.js while the next page loads. #}
+{# The outlines every portal shares (settings, lists, forms, records) are in shared/_skeletons.html. #}
 {# Each outline follows its page's layout; [data-skel-filter] is dropped when a filter change keeps the real filter bar. #}
 
 <template id="skel-dashboard">
@@ -65,29 +66,5 @@
         <div class="skel-row"><span class="skel skel-input"></span><span class="skel skel-input"></span><span class="skel skel-input"></span><span class="skel skel-input grow"></span></div>
         <div class="skel-table">{% for _ in "12345678" %}<div class="skel-tr"><span class="skel-row" style="flex-wrap:nowrap"><span class="skel skel-circle"></span><span class="skel skel-line w-60"></span></span><span class="skel skel-line w-80"></span><span class="skel skel-line w-50"></span><span class="skel skel-pill"></span><span class="skel skel-pill" style="width:4rem"></span></div>{% endfor %}</div>
     </div>
-</div>
-</template>
-
-<template id="skel-settings">
-<div class="skel-page" role="status" aria-label="Loading Account Settings">
-    <span class="sr-only">Loading Account Settings</span>
-    <div class="skel-grid g-1-1">
-        {% for _ in "1234" %}
-        <div class="skel-card">
-            <span class="skel skel-title w-30"></span>
-            <div class="skel-grid g-1-1"><span class="skel skel-input" style="flex:none;width:100%"></span><span class="skel skel-input" style="flex:none;width:100%"></span></div>
-            <span class="skel skel-input" style="flex:none;width:100%"></span>
-            <span class="skel skel-pill" style="width:8rem;height:2.2rem;border-radius:10px"></span>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-</template>
-
-<template id="skel-generic">
-<div class="skel-page" role="status" aria-label="Loading">
-    <span class="sr-only">Loading</span>
-    <div class="skel-card"><span class="skel skel-title w-30"></span><span class="skel skel-line w-70"></span></div>
-    <div class="skel-card">{% for _ in "123456" %}<span class="skel skel-line"></span>{% endfor %}</div>
 </div>
 </template>

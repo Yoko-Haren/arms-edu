@@ -227,6 +227,7 @@
         }
     </style>
     
+    <link rel="stylesheet" href="{% static 'shared/css/skeleton.css' %}">
     {% block portal_css %}{% endblock %}
     <link rel="stylesheet" href="{% static 'shared/css/arms-sidebar.css' %}">
     <link rel="stylesheet" href="{% static 'shared/css/arms-theme.css' %}">
@@ -300,8 +301,10 @@
     </div>
 
     {% block portal_body %}{% endblock %}
+    {% include 'shared/_skeletons.html' %}
 
     <script src="{% static 'shared/js/arms-ui.js' %}"></script>
+    <script src="{% static 'shared/js/portal-skeleton.js' %}"></script>
 
     <script>
     (function() {

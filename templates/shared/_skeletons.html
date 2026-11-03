@@ -1,0 +1,100 @@
+{# Skeleton screens for every portal, shown by static/shared/js/portal-skeleton.js while the next page loads. #}
+{# They follow the .tp page layouts: a heading card, figure tiles, then the page's body. [data-skel-filter] is dropped #}
+{# when a filter change keeps the real filter bar (School Head pages). Page-specific outlines are in heads/_skeletons.html. #}
+
+<template id="skel-p-dash">
+<div class="skel-page" role="status" aria-label="Loading the dashboard">
+    <span class="sr-only">Loading the dashboard</span>
+    <div class="skel-card" data-skel-filter><div class="skel-row" style="justify-content:space-between">
+        <div class="skel-stack"><span class="skel skel-title w-30"></span><span class="skel skel-line sm w-60"></span></div>
+        <span class="skel skel-btn"></span><span class="skel skel-btn"></span></div></div>
+    <div class="skel-grid g-4">{% for _ in "1234" %}<div class="skel-card"><div class="skel-row" style="flex-wrap:nowrap"><span class="skel skel-ico"></span>
+        <div class="skel-stack"><span class="skel skel-line sm w-50"></span><span class="skel skel-title w-30"></span><span class="skel skel-line sm w-70"></span></div></div></div>{% endfor %}</div>
+    <div class="skel-grid g-3-2">
+        <div class="skel-card"><span class="skel skel-title w-20"></span>
+            {% for _ in "1234" %}<div class="skel-row" style="flex-wrap:nowrap"><span class="skel skel-circle" style="border-radius:10px"></span><div class="skel-stack"><span class="skel skel-line w-50"></span><span class="skel skel-line sm w-80"></span></div></div>{% endfor %}</div>
+        <div class="skel-card"><span class="skel skel-title w-30"></span><div class="skel-list">{% for _ in "1234" %}<span class="skel skel-item"></span>{% endfor %}</div></div>
+    </div>
+    <div class="skel-grid g-1-1">
+        {% for _ in "12" %}<div class="skel-card"><span class="skel skel-title w-40"></span>
+            {% for _ in "1234" %}<div class="skel-row" style="flex-wrap:nowrap"><div class="skel-stack"><span class="skel skel-line w-60"></span><span class="skel skel-line sm w-40"></span></div><span class="skel skel-pill" style="width:4.5rem"></span></div>{% endfor %}</div>{% endfor %}
+    </div>
+</div>
+</template>
+
+<template id="skel-p-list">
+<div class="skel-page" role="status" aria-label="Loading the list">
+    <span class="sr-only">Loading the list</span>
+    <div class="skel-card" data-skel-filter><div class="skel-row" style="justify-content:space-between">
+        <div class="skel-stack"><span class="skel skel-title w-25"></span><span class="skel skel-line sm w-50"></span></div>
+        <span class="skel skel-btn"></span></div></div>
+    <div class="skel-grid g-4">{% for _ in "1234" %}<div class="skel-card"><div class="skel-row" style="flex-wrap:nowrap"><span class="skel skel-ico"></span>
+        <div class="skel-stack"><span class="skel skel-line sm w-50"></span><span class="skel skel-title w-30"></span></div></div></div>{% endfor %}</div>
+    <div class="skel-card">
+        <div class="skel-row"><span class="skel skel-input" style="flex-basis:260px;border-radius:20px"></span><span class="skel skel-input"></span><span class="skel skel-input"></span><span class="skel skel-input"></span></div>
+        {% for _ in "1234567" %}<div class="skel-rowcard">
+            <div class="skel-row" style="flex-wrap:nowrap"><span class="skel skel-circle" style="border-radius:10px"></span><div class="skel-stack"><span class="skel skel-line w-70"></span><span class="skel skel-line sm w-50"></span></div></div>
+            <div class="skel-stack opt"><span class="skel skel-line sm w-40"></span><span class="skel skel-line w-80"></span></div>
+            <div class="skel-stack opt"><span class="skel skel-line sm w-40"></span><span class="skel skel-line w-60"></span></div>
+            <span class="skel skel-pill" style="width:5rem"></span></div>{% endfor %}
+    </div>
+</div>
+</template>
+
+<template id="skel-p-form">
+<div class="skel-page" role="status" aria-label="Loading the form">
+    <span class="sr-only">Loading the form</span>
+    <div class="skel-card" data-skel-filter><div class="skel-row" style="justify-content:space-between">
+        <div class="skel-stack"><span class="skel skel-title w-30"></span><span class="skel skel-line sm w-70"></span></div>
+        <span class="skel skel-pill" style="width:6rem;height:2rem;border-radius:9px"></span></div></div>
+    <div class="skel-grid g-3-2" style="grid-template-columns:minmax(0,1fr) 320px;align-items:start">
+        <div class="skel-card"><span class="skel skel-title w-25"></span>
+            <div class="skel-grid g-1-1">{% for _ in "123456" %}<div class="skel-stack"><span class="skel skel-line sm w-30"></span><span class="skel skel-input full"></span></div>{% endfor %}</div>
+            <div class="skel-stack"><span class="skel skel-line sm w-20"></span><span class="skel skel-input full" style="height:4.5rem"></span></div></div>
+        <div class="skel-card"><span class="skel skel-title w-40"></span><span class="skel skel-item"></span><span class="skel skel-line sm w-90"></span>
+            <span class="skel skel-btn" style="width:100%"></span><span class="skel skel-btn" style="width:100%;opacity:.6"></span></div>
+    </div>
+</div>
+</template>
+
+<template id="skel-p-detail">
+<div class="skel-page" role="status" aria-label="Loading the record">
+    <span class="sr-only">Loading the record</span>
+    <div class="skel-card" data-skel-filter><div class="skel-row" style="justify-content:space-between;flex-wrap:nowrap">
+        <div class="skel-row" style="flex:1;flex-wrap:nowrap"><span class="skel skel-circle" style="border-radius:10px"></span><div class="skel-stack"><span class="skel skel-title w-40"></span><span class="skel skel-line sm w-60"></span></div></div>
+        <span class="skel skel-btn" style="width:6.5rem"></span><span class="skel skel-btn"></span></div></div>
+    <div class="skel-grid g-4">{% for _ in "1234" %}<div class="skel-card"><div class="skel-row" style="flex-wrap:nowrap"><span class="skel skel-ico"></span>
+        <div class="skel-stack"><span class="skel skel-line sm w-50"></span><span class="skel skel-title w-30"></span></div></div></div>{% endfor %}</div>
+    <div class="skel-grid g-1-2" style="align-items:start">
+        <div class="skel-card"><span class="skel skel-title w-40"></span>
+            {% for _ in "123456" %}<div class="skel-row" style="justify-content:space-between;flex-wrap:nowrap"><span class="skel skel-line sm w-30"></span><span class="skel skel-line w-40"></span></div>{% endfor %}</div>
+        <div class="skel-card"><div class="skel-row"><span class="skel skel-pill" style="width:7rem;height:2rem;border-radius:9px"></span><span class="skel skel-pill" style="width:7rem;height:2rem;border-radius:9px"></span><span class="skel skel-pill" style="width:7rem;height:2rem;border-radius:9px"></span></div>
+            <div class="skel-table"><div class="skel-tr head"><span class="skel skel-line sm w-40"></span><span class="skel skel-line sm w-60"></span><span class="skel skel-line sm w-60"></span><span class="skel skel-line sm w-60"></span><span class="skel skel-line sm w-50"></span></div>
+                {% for _ in "123456" %}<div class="skel-tr"><span class="skel skel-line w-80"></span><span class="skel skel-line w-50"></span><span class="skel skel-line w-50"></span><span class="skel skel-line w-50"></span><span class="skel skel-pill" style="width:4rem"></span></div>{% endfor %}</div></div>
+    </div>
+</div>
+</template>
+
+<template id="skel-p-settings">
+<div class="skel-page" role="status" aria-label="Loading Account Settings">
+    <span class="sr-only">Loading Account Settings</span>
+    <div class="skel-grid g-1-1">
+        {% for _ in "1234" %}
+        <div class="skel-card">
+            <span class="skel skel-title w-30"></span>
+            <div class="skel-grid g-1-1"><span class="skel skel-input full"></span><span class="skel skel-input full"></span></div>
+            <span class="skel skel-input full"></span>
+            <span class="skel skel-pill" style="width:8rem;height:2.2rem;border-radius:10px"></span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+</template>
+
+<template id="skel-p-generic">
+<div class="skel-page" role="status" aria-label="Loading">
+    <span class="sr-only">Loading</span>
+    <div class="skel-card" data-skel-filter><span class="skel skel-title w-30"></span><span class="skel skel-line sm w-70"></span></div>
+    <div class="skel-card">{% for _ in "123456" %}<span class="skel skel-line"></span>{% endfor %}</div>
+</div>
+</template>
