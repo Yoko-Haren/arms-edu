@@ -7,6 +7,8 @@ SF1 the registrar imports and the registrar may correct here. A year's grading s
 terms in a three-term year, quarters and semesters otherwise. The advisers' uploads show here too, because SF4 and SF9
 are only as complete as they are.
 """
+import base64
+
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -46,6 +48,12 @@ CARDS = (
     ('SUMMARY', 'Summary of Final Grades', 'Each learner\'s {word} grades in the eight learning areas; the sheet computes the '
      'final grades and the general average.', 'section_jhs', ()),
 )
+
+
+def logo_uri(school):
+    """The school's saved logo as a data address for the header's preview, or ''."""
+    picture = school_header.logo(school)
+    return 'data:image/png;base64,' + base64.b64encode(picture).decode('ascii') if picture else ''
 
 
 def _registrar_school(request):
@@ -118,7 +126,7 @@ def school_forms(request):
         'unvalidated': unvalidated, 'has_elem': bool(elem), 'has_jhs': bool(jhs), 'has_shs': bool(shs), 'levels_count': bool(elem) + bool(jhs) + bool(shs), 'stages': SF.STAGES.items(),
         'system': {'t': 'Trimestral', 's': 'Semestral'}.get(word[:1], 'Quarterly'), 'period_word': P.word(school, periods),
         'semester_word': 'Term' if word == 'term' else 'Semester', 'uploads': FU.school_status(sections, sy),
-        'has_logo': bool(school_header.logo(school)),
+        'logo_uri': logo_uri(school),
         'level': 'shs' if (picked and any(str(s.id) == picked for s in shs)) or not jhs and not elem else 'jhs' if jhs else 'elem',
     })
 

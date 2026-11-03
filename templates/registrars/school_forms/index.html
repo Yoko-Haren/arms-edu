@@ -22,6 +22,8 @@
     .hdr { padding: 1rem 1.15rem 1.1rem; }
     .hdr-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; align-items: end; }
     .hdr-grid .head-name { padding: 0.55rem 0.7rem; border-radius: 10px; background: var(--soft); font-weight: 650; font-size: 0.86rem; min-height: 2.35rem; }
+    .hdr-grid .logo-field { grid-column: span 2; }
+    @media (max-width: 560px) { .hdr-grid .logo-field { grid-column: auto; } }
     .hdr-actions { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-top: 0.8rem; }
     @media (max-width: 900px) { .hdr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .sf-sum { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; list-style: none; }
@@ -75,7 +77,14 @@
                 <label class="field"><span>District</span><input type="text" name="district" value="{{ header.district }}" placeholder="Panabo City District I" maxlength="100"></label>
                 <label class="field"><span>Municipality or city, province</span><input type="text" name="place" value="{{ info.place }}" placeholder="Panabo City, Davao del Norte" maxlength="100"></label>
                 <div class="field"><span>School head (signs the forms)</span><div class="head-name">{{ info.head|default:"No school head account" }}</div></div>
-                <label class="field"><span>School logo (report cards){% if has_logo %}: saved{% endif %}</span><input type="file" name="logo" accept="image/png,image/jpeg"></label>
+                <div class="field logo-field"><span id="logoLabel">School logo on the report cards</span>
+                    <div class="picker">
+                        <span class="picker-thumb{% if logo_uri %} has{% endif %}" id="logoThumb" aria-hidden="true">{% if logo_uri %}<img src="{{ logo_uri }}" alt="">{% else %}<i class="fi fi-rr-picture"></i>{% endif %}</span>
+                        <input type="file" name="logo" id="logoFile" accept="image/png,image/jpeg" aria-labelledby="logoLabel" aria-describedby="logoName">
+                        <label class="btn btn-line btn-sm" for="logoFile"><i class="fi fi-rr-upload"></i> {% if logo_uri %}Replace{% else %}Choose picture{% endif %}</label>
+                        <span class="picker-name" id="logoName" aria-live="polite">{% if logo_uri %}<b>Logo saved</b>PNG or JPG{% else %}<b>No logo yet</b>PNG or JPG, square works best{% endif %}</span>
+                    </div>
+                </div>
             </div>
             <div class="hdr-actions">
                 <span class="hint" style="margin:0;">School {{ school.school_name }} &middot; ID {{ school.school_id }}. ARMS fills the region, division and district from the SF1 you import.</span>
@@ -174,6 +183,26 @@
 {% block extra_js %}
 <script src="{% static 'shared/js/sf9-zip.js' %}"></script>
 <script>
+// the logo picker: show the chosen picture and its name until the header is saved
+(function () {
+    var input = document.getElementById('logoFile');
+    if (!input) return;
+    input.addEventListener('change', function () {
+        var file = input.files[0];
+        if (!file) return;
+        var thumb = document.getElementById('logoThumb'), name = document.getElementById('logoName');
+        var img = document.createElement('img');
+        img.alt = '';
+        img.src = URL.createObjectURL(file);
+        thumb.textContent = '';
+        thumb.appendChild(img);
+        thumb.classList.add('has');
+        name.textContent = '';
+        var b = document.createElement('b');
+        b.textContent = file.name;
+        name.append(b, 'Save header to keep it');
+    });
+})();
 (function () {
     // the semester only matters for Senior High: show it when a Senior High section or level is chosen
     document.querySelectorAll('form.sf').forEach(function (form) {

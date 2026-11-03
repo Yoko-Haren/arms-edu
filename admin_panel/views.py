@@ -846,9 +846,11 @@ REQUEST_VIEWS = {
 @login_required
 @user_passes_test(is_admin, login_url='admin_panel:login')
 def request_list(request):
-    show = request.GET.get('show', 'new')
+    # opens on the new requests, or on all of them when nothing is new, so the page is never empty while requests exist
+    default = 'new' if ContactRequest.objects.filter(status=ContactRequest.STATUS_NEW).exists() else 'all'
+    show = request.GET.get('show', default)
     if show not in REQUEST_VIEWS:
-        show = 'new'
+        show = default
     search = request.GET.get('q', '').strip()
     requests_qs = ContactRequest.objects.filter(REQUEST_VIEWS[show][1]).select_related('handled_by')
     if search:

@@ -80,10 +80,6 @@
 .tp .err { font-size: 0.76rem; color: var(--risk); }
 .tp .req { color: var(--risk); }
 .tp .opt { font-size: 0.7rem; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 0.3rem; }
-.tp input[type="date"], .tp input[type="password"] {
-    width: 100%; padding: 0.55rem 0.8rem; border: 1.5px solid #dfe4ec; border-radius: 10px; font: inherit; font-size: 0.86rem; color: var(--ink); background: var(--soft); }
-.tp input[type="color"] { width: 100%; height: 2.45rem; padding: 0.2rem; border: 1.5px solid #dfe4ec; border-radius: 10px; background: var(--soft); cursor: pointer; }
-.tp input[readonly] { color: var(--muted); }
 .tp .ad-suggest { font-size: 0.74rem; color: var(--muted); }
 .tp .ad-suggest code { color: var(--brand); font-weight: 650; cursor: pointer; }
 .tp .ad-ranges { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
