@@ -4,7 +4,8 @@
   "buildCommand": "python manage.py collectstatic --noinput && (python manage.py train_ml_models --model forecast || echo 'Forecaster not trained; pages use the trend rule')",
   "functions": {
     "config/wsgi.py": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "excludeFiles": "{static/**,staticfiles/**,design/**}"
     }
   }
 }

@@ -178,6 +178,8 @@ All settings come from `.env`. The full list with examples is in `.env.example`.
 | `REDIS_URL` | Optional shared cache when the app runs on several servers. |
 | `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` | Extra host names and origins when deployed, comma separated. |
 
+On Vercel the whole app is one function with a 500 MB limit, mostly taken by numpy, pandas, scipy, scikit-learn and XGBoost. Vercel serves the collected static files from its CDN, so `vercel.json` leaves `static/`, `staticfiles/` and `design/` out of the function (`excludeFiles`). Templates the code opens at run time live inside the apps (`documentation/sf_templates`, `grades/ecr_templates`), not in `static/`.
+
 ## Project layout
 
 | Path | What it holds |
