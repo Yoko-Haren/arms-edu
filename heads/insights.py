@@ -7,12 +7,13 @@ Everything a page states is computed here from the grades, with rules a person c
   Order No. 015, s. 2026 (Advancing to Emerging). Below 75 a learner needs remediation under either.
 - Decisions: one for each level that has disciplines (or subjects, or sections) on it. Keep the top level
   there with contests and a LAC session, move each passing level up one, bring a failing level up with
-  remediation, and act first on the lowest. Each decision aims at the grade component the item is weakest in.
+  remediation, and act first on the lowest. Each decision aims at the grade component the item is weakest in,
+  in two sentences at most and with no numbers, since the page shows them.
 - Projections: damped trend (Gardner & McKenzie) over this school year's quarters. The likely range
   comes from how much section averages in this school usually move from one quarter to the next.
 
-Poro AI (heads/poro.py) rewords the decisions; its text is shown only when every number, name and level in it
-checks out against the computed wording.
+Poro AI (heads/poro.py) writes its own advice for each decision from the same facts; its text is shown only when it
+passes the checks there (no numbers, lists, other levels or other disciplines, nothing about results or causes).
 """
 import math
 import re
@@ -166,169 +167,154 @@ def _and(words):
     return words[0] if len(words) == 1 else ', '.join(words[:-1]) + ' and ' + words[-1]
 
 
-def _each(values, fmt):
-    """Up to three numbers one by one ("12.6 and 4.7"), more as their range ("1.6 to 6.5")."""
-    values = list(values)
-    if len(values) <= 3:
-        return _and(fmt.format(v) for v in values)
-    return f'{fmt.format(min(values))} to {fmt.format(max(values))}'
+# --------------------------------------------------------------------------------------------
+# The recommendations are short and direct, with no numbers: the page beside them already shows every average, so a
+# recommendation says only what to do (the adviser's review, 2026-11-04). Each is at most two sentences, the step that
+# fits the level and the grade component to aim at; Poro AI (heads/poro.py) writes its own advice from the same facts.
+# --------------------------------------------------------------------------------------------
+
+# what each step asks for, in a few words (Poro is told the same)
+STEP_WORDS = {
+    'keep': 'contests for the strongest learners, and a LAC session where the teachers share what works',
+    'remediate-now': 'remediation classes this week and a class observation',
+    'remediate': 'remediation classes twice a week',
+    'small-groups': 'targeted practice in small groups',
+    'practice': 'targeted practice with a short check every other week',
+    'enrich': 'enrichment: harder problems, projects and independent work',
+}
 
 
-def _focus(group, who, item_word):
-    """The sentence that aims a decision at the grade component its items are weakest in: the one they share, with
-    what lifts it, or each one's own. It names the items, because Poro rewords each sentence on its own. Empty when no
-    class record has component scores."""
-    names = dict(components())
-    weak = [(i['name'], i['weak']) for i in group if i.get('weak')]
-    keys = [key for key in ('ww', 'pt', 'qa') if any(k == key for _, k in weak)]
-    if not keys:
+def _when(next_period_name):
+    """'by the end of the next term' (no period number: the page names the periods)."""
+    noun = (next_period_name or '').split(' ')[0].lower()
+    return f'by the end of the next {noun}' if noun else 'by the next grading period'
+
+
+def _step(lv, *, who, teachers, contests, first, when):
+    """(kind, title, sentence) of the step that fits a level. who: "these disciplines", "this section", "the school"."""
+    order = policy.levels()                                         # highest first
+    top, lowest_passing = order[0], [x for x in order if x['passing']][-1]
+    target = _next_level(lv)
+    act = 'Act first on' if first else 'Act on'
+    if lv['key'] == top['key']:
+        return ('keep', f'Stay at {lv["name"]}: contests and a LAC session',
+                f'Keep {who} at {lv["name"]}: put the strongest learners forward for {contests}, and let {teachers} share what '
+                'works at the next LAC session.')
+    if not lv['passing'] and lv['key'] == order[-1]['key']:
+        return ('remediate-now', f'Up to {target["name"]}: remediation this week',
+                f'{act} {who}: start remediation classes this week and observe a class, to lift learners to {target["name"]} {when}.')
+    if not lv['passing']:
+        return ('remediate', 'Up to passing: remediation twice a week',
+                f'{act} {who}: hold remediation classes twice a week to bring learners up to the passing mark {when}.')
+    if lv['key'] == lowest_passing['key']:
+        return ('small-groups', f'Up to {target["name"]}: practice in small groups',
+                f'Lift {who} to {target["name"]} with targeted practice in small groups, before learners slip below the passing mark.')
+    if target['key'] == top['key']:
+        return ('enrich', f'Up to {target["name"]}: enrichment',
+                f'Push {who} up to {target["name"]} with enrichment: harder problems, projects and independent work.')
+    return ('practice', f'Up to {target["name"]}: targeted practice',
+            f'Move {who} up to {target["name"]} with targeted practice and a short check every other week.')
+
+
+def _focus(key):
+    """The sentence that aims a recommendation at one grade component, with what lifts it; '' without one."""
+    if not key:
         return ''
-    if len(keys) == 1:
-        return f'Aim at {names[keys[0]]}, where {who} {"is" if len(group) == 1 else "are"} weakest: {component_tip(keys[0])}.'
-    return (f"Aim at each {item_word}'s weakest part: "
-            + '; '.join(f'{names[key]} for {_and(n for n, k in weak if k == key)}' for key in keys) + '.')
+    return f'Aim first at {dict(components())[key]}, with {component_tip(key)}.'
+
+
+def _shared_weak(group):
+    """The grade component most of a group's items are weakest in (the lowest one when they tie), or None."""
+    keys = [i['weak'] for i in group if i.get('weak')]
+    return max(('ww', 'pt', 'qa'), key=lambda k: (keys.count(k), -('ww', 'pt', 'qa').index(k))) if keys else None
 
 
 def school_decisions(items, *, next_period_name, item_word='discipline', topic=''):
     """What the School Head should decide for each level that has items on it, the lowest level first (act there first).
 
-    items: [{'name', 'average', 'level', 'weak' (the grade component key it is weakest in, or None), 'below' (the share
-    of its grades below 75, 0 to 100)}]: the disciplines, the subjects of one discipline, or the sections of one subject
-    (item_word says which; topic is then the subject, for its contests). Each decision names the goal (stay at the top,
-    one level up, or the passing mark of 75) and how far it is, the step that fits the level, and the grade component
-    to aim at. Returns [{'level', 'items', 'title' (the goal and the step in a few words), 'text', 'urgent' (below 75)}].
+    items: [{'name', 'average', 'level', 'weak' (the grade component key it is weakest in, or None)}]: the disciplines,
+    the subjects of one discipline, or the sections of one subject (item_word says which; topic is then the subject, for
+    its contests). Each decision is the step that fits the level and the grade component to aim at, in two sentences
+    at most and without numbers. Returns [{'level', 'target', 'kind', 'items', 'title', 'text', 'step', 'focus',
+    'focus_key', 'urgent', 'item_word', 'topic'}].
     """
     by = defaultdict(list)
     for item in items:
         by[item['level']['key']].append(item)
-    when = f'by the end of {next_period_name}' if next_period_name else 'by the next grading period'
-    order = policy.levels()                                         # highest first
-    top, lowest_passing = order[0], [lv for lv in order if lv['passing']][-1]
     out = []
-    for lv in reversed(order):                                      # lowest first
+    for lv in reversed(policy.levels()):                            # lowest first
         group = sorted(by.get(lv['key'], []), key=lambda i: i['average'])
         if not group:
             continue
         one = len(group) == 1
-        # five or more are named in the card above the text, so the text counts them
-        who = _and(i['name'] for i in group) if len(group) <= 4 else f'these {len(group)} {item_word}s'
-        its, them = 'its' if one else 'their', 'it' if one else 'them'
-        teachers = 'teacher' if item_word == 'section' and one else 'teachers'
-        target = _next_level(lv)
-        away = lambda goal: '(' + _each((max(goal - i['average'], 0.1) for i in group), '{:.1f}') + ' points away)'
-        if lv['key'] == top['key']:                                 # the top level: keep it there
-            if topic or one:
-                contests = _contests(topic or group[0]['name'])
-            elif len(group) <= 4:
-                contests = 'contests: ' + '; '.join(f'{_contests(i["name"])} for {i["name"]}' for i in group)
-            else:
-                contests = 'the contests of each: ' + '; '.join(sorted({_contests(i['name']) for i in group}))
-            margins = _each((i['average'] - lv['min'] for i in group), '{:.1f}')
-            title = f'Stay at {lv["name"]}: contests and a LAC session'
-            text = [f'Keep {who} at {lv["name"]} ({margins} points above {lv["min"]}): put the strongest learners forward '
-                    f'for {contests}.', f'Let the {teachers} of {who} share what works at the next LAC session.']
-        elif not lv['passing']:                                     # below 75: remediation, the lowest level first
-            shares = _each((round(i['below']) for i in group), '{}%')
-            text = [f'{"Act first" if not out else "Act"} on {who}: {shares} of {its} grades are below 75.']
-            if lv['key'] == order[-1]['key']:
-                title = f'Up to {target["name"]}: remediation this week'
-                text.append(f'Start remediation classes in {who} this week and observe one of {its} classes, to lift {them} '
-                            f'to {target["name"]} {away(target["min"])} {when}.')
-            else:
-                title = 'Up to 75: remediation twice a week'
-                text.append(f'Hold remediation classes in {who} twice a week to bring {them} up to the passing mark of 75 '
-                            f'{away(PASSING)} {when}.')
-        elif lv['key'] == lowest_passing['key']:                    # just passing: one level up before anyone slips
-            title = f'Up to {target["name"]}: practice in small groups'
-            text = [f'Lift {who} to {target["name"]} {away(target["min"])} with targeted practice in small groups, '
-                    'before learners slip below 75.']
-        elif target['key'] == top['key']:                           # one below the top: enrichment
-            title = f'Up to {target["name"]}: enrichment'
-            text = [f'Push {who} up to {target["name"]} {away(target["min"])} with enrichment: harder problems, projects '
-                    'and independent work.']
-        else:                                                       # in between: one level up
-            title = f'Up to {target["name"]}: targeted practice'
-            text = [f'Move {who} up to {target["name"]} {away(target["min"])} with targeted practice and a short check '
-                    'every two weeks.']
-        focus = _focus(group, who, item_word) if lv['key'] != top['key'] else ''
-        keys = {i['weak'] for i in group if i.get('weak')}
-        out.append({'level': lv, 'items': group, 'title': title, 'urgent': not lv['passing'],
-                    'text': ' '.join(text + ([focus] if focus else [])), 'step': ' '.join(text), 'focus': focus,
-                    'focus_key': next(iter(keys)) if len(keys) == 1 else None})
+        who = f'this {item_word}' if one else f'these {item_word}s'
+        teachers = 'its teacher' if item_word == 'section' and one else 'their teachers'
+        contests = _contests(topic or group[0]['name']) if topic or one else 'contests in their fields'
+        kind, title, step = _step(lv, who=who, teachers=teachers, contests=contests, first=not out, when=_when(next_period_name))
+        weak = _shared_weak(group) if kind != 'keep' else None
+        focus = _focus(weak)
+        out.append({'level': lv, 'target': _next_level(lv) if kind != 'keep' else None, 'kind': kind, 'items': group,
+                    'title': title, 'urgent': not lv['passing'], 'step': step, 'focus': focus, 'focus_key': weak,
+                    'text': ' '.join(s for s in (step, focus) if s), 'item_word': item_word, 'topic': topic})
     return out
 
 
 def part_scores(parts, weak=None):
-    """The three grade component averages of an item or a whole selection, for the page: [{'key', 'abbr', 'name',
+    """The three grade component averages of an item or a whole selection, for the report: [{'key', 'abbr', 'name',
     'value', 'weak'}] in the DepEd order's own words (WW, PT, and QA or EX)."""
     return [{'key': key, 'abbr': abbr, 'name': name, 'value': parts.get(key), 'weak': key == weak}
             for key, name, abbr in policy.components()]
 
 
 def main_decision(decisions, *, scope, average, overall, next_period_name):
-    """The first recommendation on the card: the one for the selection's own level (its status).
-
-    It says where the whole selection stands and how far the next level is, carries the decision for the items on
-    that level, and aims at the grade component the whole selection scores lowest in, with the three averages, so the
-    School Head sees which part of the class records holds the selection back. Returns (main, the other decisions);
-    main is None without an average.
-    """
+    """The first recommendation on the card: the one for the selection's own level (its status), aimed at the grade
+    component the whole selection scores lowest in. Returns (main, the other decisions); main is None without an average.
+    scope: how a sentence names the selection ("The school", "Mathematics in Grade 7")."""
     if average is None:
         return None, decisions
     level = policy.level_of(round(average, 1))
     own = next((d for d in decisions if d['level']['key'] == level['key']), None)
     others = [d for d in decisions if d is not own]
-    target = _next_level(level)
-    text = [f'{scope} is at {level["name"]}, with an average of {average:.1f}%'
-            + (f'; {target["name"]} is {max(target["min"] - average, 0.1):.1f} points away.' if target else
-               f', {average - level["min"]:.1f} points above {level["min"]}.')]
-    names = {key: name for key, name in components()}
     known = [(k, overall[k]) for k in ('ww', 'pt', 'qa') if overall.get(k) is not None]
     weak = min(known, key=lambda kv: kv[1])[0] if len(known) == 3 else None
     if own:
-        text.append(own['step'])
-        if own['focus'] and own['focus_key'] != weak:          # the same component as the whole school's is said once, below
-            text.append(own['focus'])
-    if weak:
-        weak, low = min(known, key=lambda kv: kv[1])
-        rest = [(k, v) for k, v in known if k != weak]
-        verb = 'are' if names[weak].endswith('s') else 'is'
-        across = 'the school' if scope == 'The school' else scope
-        text.append(f'Across {across}, {names[weak]} {verb} the lowest at {low:.1f}%, against '
-                    f'{_and(f"{names[k]} at {v:.1f}%" for k, v in rest)}; aim there first with {component_tip(weak)}.')
-    if target:
-        title = own['title'] if own else f'Up to {target["name"]}'
-    else:
-        title = own['title'] if own else f'Stay at {level["name"]}'
-    main = {'level': level, 'title': title, 'text': ' '.join(text), 'items': own['items'] if own else [],
-            'urgent': not level['passing'], 'parts': part_scores(overall, weak)}
+        kind, title, step = own['kind'], own['title'], own['step']
+    else:                                                           # no item sits on the selection's own level
+        who = 'the school' if scope == 'The school' else scope
+        kind, title, step = _step(level, who=who, teachers='its teachers', contests='contests and quiz bees', first=True,
+                                  when=_when(next_period_name))
+    focus = _focus(weak)
+    main = {'level': level, 'target': _next_level(level) if kind != 'keep' else None, 'kind': kind, 'title': title,
+            'step': step, 'focus': focus, 'focus_key': weak, 'text': ' '.join(s for s in (step, focus) if s),
+            'items': own['items'] if own else [], 'urgent': not level['passing'], 'parts': part_scores(overall, weak),
+            'scope': scope, 'item_word': own['item_word'] if own else '', 'topic': own['topic'] if own else ''}
     return main, others
 
 
-# --------------------------------------------------------------------------------------------
-# Poro AI wording (heads/poro.py): the numbers a reworded sentence must keep, with period names and number words read
-# --------------------------------------------------------------------------------------------
-
-_PERIODS = re.compile(r'\b(?:quarter|term|trimester|semester|grade)\s*\d{1,2}\b|\b[qts][1-4]\b|\b(?:first|second|third|fourth)\s+(?:quarter|term|trimester|semester)\b', re.I)
-_NUMBER = re.compile(r'\d+(?:\.\d+)?')
+def _wordy(text):
+    """A name without its grade numbers ("Mathematics 9" is "Mathematics"), for Poro's facts: advice has no numbers."""
+    return ' '.join(re.sub(r'\b(?:Grades?\s+)?\d+\b', ' ', text).split())
 
 
-_WORDS = {w: i for i, w in enumerate('zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen '
-                                     'fifteen sixteen seventeen eighteen nineteen'.split())}
-_TENS = {w: 10 * i for i, w in enumerate('twenty thirty forty fifty sixty seventy eighty ninety'.split(), start=2)}
-_NUMBER_WORD = re.compile(r'\b(?:(' + '|'.join(_TENS) + r')(?:[- ](one|two|three|four|five|six|seven|eight|nine))?|('
-                          + '|'.join(_WORDS) + r'))\b', re.I)
-
-
-def _number_word(match):
-    tens, unit, word = match.groups()
-    if tens:
-        return str(_TENS[tens.lower()] + (_WORDS[unit.lower()] if unit else 0))
-    return str(_WORDS[word.lower()])
-
-
-def _figures(text):
-    """Numbers that carry meaning, with number words read as digits ("two" is 2, "twenty-nine" 29). Period names,
-    grade levels and the passing mark (75) are left out because rewording may name them differently."""
-    text = _NUMBER_WORD.sub(_number_word, _PERIODS.sub(' ', text))
-    return [n for n in _NUMBER.findall(text) if n != '75']
+def poro_facts(decision, *, scope='', discipline=''):
+    """What Poro AI is told about one recommendation (heads/poro.py): who it is for, where they stand, the goal, the
+    decided step and the weakest grade component, all in words. discipline: the learning area the page is about, if one."""
+    names = [i['name'] for i in decision['items']]
+    word = decision.get('item_word') or 'discipline'
+    numbered = any(re.search(r'\d', n) for n in names)
+    if scope:
+        about = 'the whole school, every discipline' if scope == 'The school' else _wordy(scope)
+    elif decision.get('topic'):
+        about = f'{_wordy(decision["topic"])} classes' + ('' if numbered else f' in sections {_and(names)}')
+    elif numbered:                      # "Mathematics 9, Mathematics 6": the discipline says it without numbers
+        about = f'some {_wordy(discipline) + " " if discipline else ""}{word}s'
+    else:
+        about = f'the {word}{"s" if len(names) != 1 else ""} {_and(names)}'
+    lv, target, kind = decision['level'], decision.get('target'), decision['kind']
+    goal = (f'stay at {lv["name"]}' if kind == 'keep' else 'reach the passing mark' if kind == 'remediate'
+            else f'reach {target["name"]}' if target else f'stay at {lv["name"]}')
+    key = decision.get('focus_key')
+    return {'about': about, 'names': names + ([decision['topic']] if decision.get('topic') else []), 'level': lv['name'],
+            'target': target['name'] if target else '', 'goal': goal, 'kind': kind, 'step': STEP_WORDS[kind],
+            'weak_key': key or '', 'weak': dict(components()).get(key, ''), 'tip': component_tip(key) if key else '',
+            'order': policy.current()['name']}

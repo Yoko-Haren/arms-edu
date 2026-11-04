@@ -245,6 +245,10 @@ def _dashboard_data(params, school):
             scope_words = scope_name + (f' in {grade_label}' if mode == 'family' and grade_set else '')
         main, decisions = insights.main_decision(decisions, scope=scope_words, average=status['average'] if status else None,
                                                  overall=overall, next_period_name=period_name(after))
+        if main and main['focus_key']:
+            for d in decisions:         # the main recommendation, always open above, already names that grade component
+                if d['focus_key'] == main['focus_key']:
+                    d['text'] = d['step']
 
     # the forecast chart: disciplines, grade levels or sections over the school year, with what comes next
     forecast_spec = None
@@ -256,7 +260,7 @@ def _dashboard_data(params, school):
             items_fc = [{'key': f'family-{f.id}', 'name': f.family_name, 'keys': [k for k in in_scope if fam.get(table_[k]['subject']) == f.id],
                          'url': '?' + urlencode({'view_mode': 'family', 'subject_family': f.id, 'grade_level': grade_key, **query})}
                         for f in families]
-            level, fc_word = 'group', 'learning area'
+            level, fc_word = 'group', 'discipline'
         elif mode == 'family':
             levels_in = grade_set or grade_levels
             items_fc = [{'key': f'grade-{g.id}', 'name': g.grade_name,
@@ -298,12 +302,25 @@ def _dashboard_data(params, school):
     }
 
 
-def _poro_token(main, decisions):
-    """The token Poro AI rewords the recommendations under (heads/poro.py), or '' when there are none."""
-    fields = ({'main': main['text']} if main else {}) | {f'decision-{i}': d['text'] for i, d in enumerate(decisions)}
-    if not fields:
-        return ''
-    return poro.register(fields, keep=[i['name'] for d in ([main] if main else []) + decisions for i in d['items']])
+def _discipline(data):
+    """The learning area a dashboard selection is about, for Poro's facts ('' for all of them)."""
+    if data['view_mode'] == 'family' and data['family']:
+        return data['family'].family_name
+    return data['subject'].subject_name if data['view_mode'] == 'subject' and data['subject'] else ''
+
+
+def _poro_token(main, decisions, items, discipline=''):
+    """The token Poro AI writes the recommendations under (heads/poro.py), or '' when there are none. The main
+    recommendation covers the whole selection, so its advice may name any of the page's items."""
+    names = [i['name'] for i in items] + [d['topic'] for d in decisions if d.get('topic')]
+    recs = {}
+    if main:
+        facts = insights.poro_facts(main, scope=main['scope'])
+        facts['names'] = sorted(set(facts['names']) | set(names))
+        recs['main'] = (main['text'], facts)
+    for i, d in enumerate(decisions):
+        recs[f'decision-{i}'] = (d['text'], insights.poro_facts(d, discipline=discipline))
+    return poro.register(recs, names=names) if recs else ''
 
 
 @login_required
@@ -316,7 +333,7 @@ def academic_dashboard(request):
     data = _dashboard_data(request.GET, school)
     data['export_url'] = reverse('heads-ai-dashboard-export') + ('?' + request.GET.urlencode() if request.GET else '')
     data['live_fingerprint'] = school_fingerprint(school)
-    data['poro_token'] = _poro_token(data['main'], data['decisions'])
+    data['poro_token'] = _poro_token(data['main'], data['decisions'], data['items'], _discipline(data))
     return render(request, 'heads/ai_dashboard/index.html', data)
 
 
@@ -341,7 +358,7 @@ def dashboard_export(request):
         sh.paragraph(st['level']['meaning'], color='4A5568', size=10)
         if d['main'] or d['decisions']:
             sh.heading('Poro AI recommends')
-            written = poro.written(_poro_token(d['main'], d['decisions']))
+            written = poro.written(_poro_token(d['main'], d['decisions'], d['items'], _discipline(d)))
             parts_line = lambda parts: ' · '.join(f'{p["abbr"]} {p["value"]:.1f}' + (' (weakest)' if p['weak'] else '')
                                                   for p in parts if p['value'] is not None)
             if d['main']:
@@ -357,8 +374,8 @@ def dashboard_export(request):
                              color='4A5568', size=9.5, indent=1)
                 sh.paragraph(written.get(f'decision-{i}') or dec['text'], indent=1)
             sh.paragraph('Decided from the grades by rules a person can check' + (
-                '; worded by Poro AI, every number, name and level checked against the computed wording.' if written else '.'),
-                color='4A5568', size=9)
+                '; the advice is written by Poro AI from those decisions and checked before it is shown. The School Head decides.'
+                if written else '.'), color='4A5568', size=9)
         if d['ladder']:
             sh.heading(f'Where each {d["ladder_word"]} stands')
             for step in d['ladder']:

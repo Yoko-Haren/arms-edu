@@ -31,7 +31,7 @@ from . import forecasts
 from .views_academic import ACTIVE, GRADE_SCOPES, _denied, _grade_scope, _head_school, _person, in_grade_scope, period_name
 
 CLOSE = 2                 # points from the next award that count as close
-PREVIEW = 10              # rows per list on the page; "Show all" opens the rest
+PREVIEW = 5               # rows per list on the page (the lists sit side by side); "Show all" opens the rest
 
 
 def _award_name(award):

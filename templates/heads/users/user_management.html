@@ -241,15 +241,15 @@
 <!-- WHEN YOU ARE BUSY: who else can help with accounts. Folded: it is reading, not daily work. -->
 <details class="card um-busy">
     <summary>
-        <span class="um-busy-title"><i class="fi fi-rr-users-gear"></i> When you are busy: let someone help with accounts</span>
-        <span class="um-busy-state">{% if delegates %}{{ delegates|length }} helper{{ delegates|length|pluralize }}{% else %}Nobody else yet{% endif %}</span>
+        <span class="um-busy-title"><i class="fi fi-rr-users-gear"></i> Account managers: staff who handle accounts for you</span>
+        <span class="um-busy-state">{% if delegates %}{{ delegates|length }} account manager{{ delegates|length|pluralize }}{% else %}None yet{% endif %}</span>
         <i class="fi fi-rr-angle-small-down um-chev" aria-hidden="true"></i>
     </summary>
     <div class="um-busy-body">
         <div>
-            <p>A registrar or a teacher you trust (an ICT coordinator, say) can manage the school's accounts in their own portal: edit details, reset passwords, activate and deactivate. They never change your account, cannot add registrars and cannot pass this on. Open a person's actions and choose <strong>Let them manage accounts</strong>.</p>
-            <div class="um-delegates" aria-label="Staff who manage accounts">
-                {% for d in delegates %}<span class="um-delegate"><i class="fi fi-rr-user-gear"></i> {{ d.user.get_full_name }} <small>({{ d.get_role_display }})</small></span>{% empty %}<span class="um-hint">Nobody else manages accounts yet.</span>{% endfor %}
+            <p>A registrar or a teacher you trust (an ICT coordinator, say) can manage the school's accounts in their own portal: edit details, reset passwords, activate and deactivate. They never change your account, cannot add registrars and cannot pass this on. Open a person's actions and choose <strong>Make account manager</strong>.</p>
+            <div class="um-delegates" aria-label="Account managers">
+                {% for d in delegates %}<span class="um-delegate"><i class="fi fi-rr-user-gear"></i> {{ d.user.get_full_name }} <small>({{ d.get_role_display }})</small></span>{% empty %}<span class="um-hint">No account manager yet.</span>{% endfor %}
             </div>
         </div>
         <div>
@@ -477,7 +477,7 @@
             return '<tr class="' + (active ? '' : 'um-off') + '">' +
                 '<td class="um-c-user"><div class="um-user"><div class="um-avatar ' + (active ? '' : 'off') + '">' + esc(initials) + '</div><div class="um-who">' +
                     '<div class="um-name">' + esc(u.name) + (u.is_self ? ' <span class="badge badge-info">You</span>' : '') +
-                    (u.manages_accounts ? ' <span class="badge badge-info" title="Helps manage the school accounts">Manages accounts</span>' : '') + '</div>' +
+                    (u.manages_accounts ? ' <span class="badge badge-info" title="Can edit, reset and deactivate the school accounts">Account manager</span>' : '') + '</div>' +
                     '<div class="um-sub">' + email + '</div></div></div></td>' +
                 '<td class="um-c-signin" data-label="Sign-in">' + signinMarkup(u) + '</td>' +
                 '<td class="um-c-role" data-label="Role"><span class="badge badge-info">' + esc(u.role_display) + '</span>' +
@@ -526,8 +526,8 @@
                    '<button type="button" class="um-menu-item" role="menuitem" data-act="reset"><i class="fi fi-rr-key"></i> Reset password</button>';
         if (owner.dataset.delegable === '1') {
             html += owner.dataset.delegate === '1'
-                ? '<button type="button" class="um-menu-item" role="menuitem" data-act="delegate"><i class="fi fi-rr-user-lock"></i> Stop letting them manage accounts</button>'
-                : '<button type="button" class="um-menu-item" role="menuitem" data-act="delegate"><i class="fi fi-rr-user-gear"></i> Let them manage accounts</button>';
+                ? '<button type="button" class="um-menu-item" role="menuitem" data-act="delegate"><i class="fi fi-rr-user-lock"></i> Remove as account manager</button>'
+                : '<button type="button" class="um-menu-item" role="menuitem" data-act="delegate"><i class="fi fi-rr-user-gear"></i> Make account manager</button>';
         }
         if (owner.dataset.self !== '1') {   // nobody deactivates their own account
             html += '<div class="um-menu-sep" role="separator"></div>' + (owner.dataset.active === '1'
@@ -732,14 +732,14 @@
 
     function toggleDelegate(id, name, isDelegate) {
         var question = isDelegate
-            ? 'Stop letting ' + name + ' manage the school accounts? They keep their own account.'
-            : 'Let ' + name + ' manage the school accounts? They can edit details, reset passwords, and activate or deactivate accounts, but never yours.';
-        ARMS.confirm(question, {title: isDelegate ? 'Stop account management' : 'Let them manage accounts', danger: isDelegate,
-                                confirmText: isDelegate ? 'Stop' : 'Let them'}).then(function(yes) {
+            ? 'Remove ' + name + ' as an account manager? They keep their own account.'
+            : 'Make ' + name + ' an account manager? They can edit details, reset passwords, and activate or deactivate the school accounts, but never yours.';
+        ARMS.confirm(question, {title: isDelegate ? 'Remove account manager' : 'Make account manager', danger: isDelegate,
+                                confirmText: isDelegate ? 'Remove' : 'Make account manager'}).then(function(yes) {
             if (!yes) return;
             post("{% url 'heads-user-toggle-delegate' 0 %}".replace('/0/', '/' + id + '/')).then(function(res) {
                 showToast(res.success ? res.message : (res.error || 'Could not update the account.'), res.success ? 'success' : 'error');
-                if (res.success) window.location.reload();      // the helpers card lists the delegates
+                if (res.success) window.location.reload();      // the account managers card lists them
             });
         });
     }

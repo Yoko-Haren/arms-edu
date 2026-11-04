@@ -93,6 +93,21 @@
     .policy-levels { display: flex; flex-wrap: wrap; gap: 0.3rem; }
     .policy-levels .lvl { font-size: 0.7rem; }
     .policy-award { font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+
+    /* the second step of a new school year: what was chosen, before it is made */
+    .sy-step[hidden] { display: none; }
+    .sy-review { display: flex; flex-direction: column; gap: 0.85rem; }
+    .sy-review-list { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.55rem 1.1rem; font-size: 0.86rem; }
+    .sy-review-list dt { color: var(--muted); font-weight: 650; font-size: 0.78rem; padding-top: 0.08rem; }
+    .sy-review-list dd { margin: 0; color: var(--ink); font-weight: 600; }
+    .sy-review-list dd small { display: block; font-weight: 500; color: var(--muted); font-size: 0.76rem; margin-top: 0.1rem; }
+    .sy-review-periods { list-style: none; margin: 0.2rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+    .sy-review-periods li { display: flex; justify-content: space-between; gap: 0.8rem; font-weight: 500; font-size: 0.82rem;
+                            padding: 0.3rem 0.55rem; background: var(--soft); border-radius: 8px; }
+    .sy-review-periods b { font-weight: 650; }
+    .sy-lock { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.65rem 0.8rem; border-radius: 12px; background: var(--warn-bg);
+               color: #6a3606; font-size: 0.82rem; line-height: 1.5; }
+    .sy-lock i { color: var(--warn); margin-top: 0.15rem; }
 </style>
 {% endblock %}
 
@@ -207,7 +222,7 @@
                 </div>
                 <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
             </div>
-            <div class="ap-modal-body">
+            <div class="ap-modal-body sy-step" data-step="fill">
                 {% if form_errors %}<div class="form-errors" role="alert">{{ form_errors }}</div>{% endif %}
                 <fieldset class="systems">
                     <legend>Grading system</legend>
@@ -233,9 +248,22 @@
                     </div>
                 </div>
             </div>
-            <div class="dialog-foot">
+            <div class="dialog-foot sy-step" data-step="fill">
                 <button type="button" class="btn-outline btn-sm" data-close>Cancel</button>
-                <button type="submit" class="btn-primary btn-sm"><i class="fi fi-rr-check"></i> Start the school year</button>
+                <button type="submit" class="btn-primary btn-sm"><i class="fi fi-rr-angle-small-right"></i> Review</button>
+            </div>
+            <!-- step 2: what was chosen, before anything is made -->
+            <div class="ap-modal-body sy-step" data-step="review" hidden>
+                <div class="sy-review">
+                    <h4 style="margin:0;font-size:0.95rem;color:var(--ink);">Check before you start <span id="reviewYear"></span></h4>
+                    <dl class="sy-review-list" id="reviewList"></dl>
+                    <div class="sy-lock" role="note"><i class="fi fi-rr-lock"></i>
+                        <span><b>This cannot be edited after you start it.</b> The school year, its class dates and its grading system stay as they are; only each period's dates can be adjusted later. Are you sure you want to proceed?</span></div>
+                </div>
+            </div>
+            <div class="dialog-foot sy-step" data-step="review" hidden>
+                <button type="button" class="btn-outline btn-sm" id="reviewBack"><i class="fi fi-rr-angle-small-left"></i> Back</button>
+                <button type="button" class="btn-primary btn-sm" id="reviewGo"><i class="fi fi-rr-check"></i> Yes, start the school year</button>
             </div>
         </form>
     </div>
@@ -263,6 +291,73 @@
             if (note) note.hidden = input.value !== 'TRIMESTRAL';
         });
     });
+
+    // ---------- starting a year has two steps: fill in, then review what was chosen and confirm ----------
+    var yearForm = modal.querySelector('form');
+    var steps = yearForm.querySelectorAll('.sy-step');
+    function showStep(name) {
+        steps.forEach(function (s) { s.hidden = s.dataset.step !== name; });
+        var focus = name === 'review' ? document.getElementById('reviewGo') : yearForm.querySelector('input');
+        if (focus) focus.focus();
+    }
+    function day(value) {
+        var p = (value || '').split('-');
+        return p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : null;
+    }
+    function show(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
+    function row(list, label, value, note) {
+        var dt = document.createElement('dt'), dd = document.createElement('dd');
+        dt.textContent = label;
+        dd.textContent = value;
+        if (note) { var s = document.createElement('small'); s.textContent = note; dd.appendChild(s); }
+        list.append(dt, dd);
+        return dd;
+    }
+    yearForm.addEventListener('submit', function (e) {
+        if (yearForm.dataset.confirmed) return;
+        var start = day(yearForm.elements.date_start.value), end = day(yearForm.elements.date_end.value);
+        var year = parseInt(yearForm.elements.year_start.value, 10);
+        var system = yearForm.querySelector('input[name="period_type"]:checked');
+        if (!start || !end || !year || !system || end <= start) return;     // the server says what is missing
+        e.preventDefault();
+        var label = 'SY ' + year + '-' + (year + 1), count = +system.dataset.count, noun = system.dataset.noun;
+        var list = document.getElementById('reviewList');
+        list.textContent = '';
+        document.getElementById('reviewYear').textContent = label;
+        row(list, 'School year', label);
+        row(list, 'Grading system', system.closest('label').querySelector('.system-name').firstChild.textContent.trim(),
+            count + ' ' + system.dataset.plural + ' a year');
+        var days = Math.round((end - start) / 86400000) + 1;
+        row(list, 'Classes', show(start) + ' to ' + show(end), days + ' calendar days');
+        if (yearForm.elements.create_periods && yearForm.elements.create_periods.checked) {
+            // the same even split as academics.school_years.generate_periods
+            var length = Math.floor(days / count), dd = row(list, 'Grading periods', 'Created now, split evenly');
+            var ul = document.createElement('ul');
+            ul.className = 'sy-review-periods';
+            for (var i = 0; i < count; i++) {
+                var a = new Date(start.getFullYear(), start.getMonth(), start.getDate() + length * i);
+                var b = i === count - 1 ? end : new Date(a.getFullYear(), a.getMonth(), a.getDate() + length - 1);
+                var li = document.createElement('li'), name = document.createElement('b'), when = document.createElement('span');
+                name.textContent = noun.charAt(0).toUpperCase() + noun.slice(1) + ' ' + (i + 1);
+                when.textContent = show(a) + ' to ' + show(b);
+                li.append(name, when);
+                ul.appendChild(li);
+            }
+            dd.appendChild(ul);
+        } else {
+            row(list, 'Grading periods', 'Not created yet', 'Create them later on this page.');
+        }
+        var current = yearForm.elements.is_current && yearForm.elements.is_current.checked;
+        row(list, 'Current school year', current ? 'Yes, from now' : 'Not yet', current ? 'The dashboards and the registrar open it by default.' : 'Make it current when classes start.');
+        showStep('review');
+    });
+    document.getElementById('reviewBack').addEventListener('click', function () { showStep('fill'); });
+    document.getElementById('reviewGo').addEventListener('click', function () {
+        yearForm.dataset.confirmed = '1';
+        this.disabled = true;
+        yearForm.submit();
+    });
+    opener.addEventListener('click', function () { showStep('fill'); });
 
     // ---------- the chosen DepEd order is highlighted until it is saved ----------
     document.querySelectorAll('.policy-option input').forEach(function (input) {

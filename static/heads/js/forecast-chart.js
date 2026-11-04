@@ -2,17 +2,18 @@
  * Forecast charts for the School Head pages (Academic Dashboard, Honors Outlook, School Performance).
  *
  * The server builds one spec per chart (heads/forecasts.py) into a JSON script tag; an element with
- * data-forecast="<id of that tag>" becomes the chart. Three views, as on Our World in Data: Line (one
- * chart, or one small panel per series when there are more than ten), Bar (every series at one
- * grading period) and Table (every value). Solid lines are averages so far, dashed lines the
- * forecast, the band its 90% likely range, and hollow diamonds what the model forecast one period
- * earlier. Colors follow the series, never their rank; labels and values stay in ink.
+ * data-forecast="<id of that tag>" becomes the chart. Three views, as on Our World in Data: Line, Bar (every
+ * series at one grading period) and Table (every value). The Line view shows one series at a time, chosen
+ * in the "Show" list (the overall average first, with it as a thin guide behind any other); "every one
+ * together" draws every line in the same chart, never a grid of small charts. Solid lines are averages
+ * so far, dashed lines the forecast, the band its 90% likely range, and hollow diamonds what the model
+ * forecast one period earlier. A legend above the chart names every mark, the shaded level bands and the
+ * axes. Colors follow the series, never their rank; labels and values stay in ink.
  */
 (function () {
     'use strict';
     var SVG = 'http://www.w3.org/2000/svg';
-    var MAX_LINES = 10;             // every discipline in one chart; more than ten become small panels
-    var LINE_H = 310, PANEL_H = 150;
+    var LINE_H = 310;
 
     function remember(key, value) {
         try {
@@ -119,7 +120,7 @@
         tip.style.top = top + 'px';
     }
 
-    // ---------- line chart (also each small panel) ----------
+    // ---------- line chart ----------
     function drawLines(box, spec, opts) {
         var list = opts.list;
         var W = Math.max(240, Math.floor(box.clientWidth));
@@ -130,7 +131,7 @@
             list.forEach(function (se) { longest = Math.max(longest, se.name.length + 7); });
             labelW = Math.min(200, Math.max(116, longest * 6.3 + 26));
         }
-        var m = { t: opts.compact ? 10 : 18, r: ends ? labelW : 10, b: 26, l: 36 };
+        var m = { t: opts.compact ? 10 : 18, r: ends ? labelW : 10, b: opts.compact ? 26 : 46, l: opts.compact ? 36 : 58 };
         var H = opts.height, iw = W - m.l - m.r, ih = H - m.t - m.b;
         var P = spec.periods, n = P.length, d = opts.dom;
         var X = function (i) { return m.l + iw * (i + 0.5) / n; };
@@ -161,21 +162,30 @@
             el('line', { x1: m.l, x2: m.l + iw, y1: Y(v), y2: Y(v), 'class': 'fc-grid' }, root);
             el('text', { x: m.l - 6, y: Y(v) + 3.5, 'class': 'fc-tick', 'text-anchor': 'end' }, root).textContent = v;
         }
+        var full = !opts.compact && iw / n >= 64;            // "Term 1" when it fits, "T1" when it does not
         P.forEach(function (p, i) {
-            el('text', { x: X(i), y: H - 8, 'class': 'fc-xlabel' + (p.p === spec.selected ? ' is-selected' : ''), 'text-anchor': 'middle' }, root).textContent = p.label;
+            el('text', { x: X(i), y: opts.compact ? H - 8 : m.t + ih + 18, 'class': 'fc-xlabel' + (p.p === spec.selected ? ' is-selected' : ''),
+                         'text-anchor': 'middle' }, root).textContent = full ? p.name : p.label;
         });
+        if (!opts.compact) {                                   // what the two axes measure
+            var yMid = m.t + ih / 2;
+            el('text', { x: 13, y: yMid, transform: 'rotate(-90 13 ' + yMid + ')', 'class': 'fc-axis-title', 'text-anchor': 'middle' }, root)
+                .textContent = 'Grades (%)';
+            el('text', { x: m.l + iw / 2, y: H - 6, 'class': 'fc-axis-title', 'text-anchor': 'middle' }, root).textContent = 'Grading period';
+        }
         if (spec.threshold >= d.lo && spec.threshold <= d.hi) {
             el('line', { x1: m.l, x2: m.l + iw, y1: Y(spec.threshold), y2: Y(spec.threshold), 'class': 'fc-threshold' }, root);
             if (!opts.compact) el('text', { x: m.l + iw - 4, y: Y(spec.threshold) - 4, 'class': 'fc-threshold-tag', 'text-anchor': 'end' }, root).textContent = 'Passing 75';
         }
 
         // series: likely range, line so far, dashed forecast, earlier forecasts, points. With many lines only the
-        // overall line keeps its range in view (a legend chip shows another's); a small panel shows its own series' range.
+        // overall line keeps its range in view (a legend chip shows another's).
         var layer = el('g', { 'class': 'fc-layer' }, root);
         var crowded = list.length > 3;
         list.forEach(function (se) {
-            var quiet = opts.compact ? se.reference && list.length > 1 : crowded && !se.reference;
-            var g = el('g', { 'class': 'fc-series' + (se.reference ? ' is-ref' : ''), 'data-key': se.key }, layer);
+            var guide = opts.guide && se.reference;        // the overall line behind one chosen series
+            var quiet = opts.compact ? se.reference && list.length > 1 : (crowded && !se.reference) || guide;
+            var g = el('g', { 'class': 'fc-series' + (se.reference ? ' is-ref' : '') + (guide ? ' is-guide' : ''), 'data-key': se.key }, layer);
             var li = se.lastIndex, fore = [];
             se.points.forEach(function (pt, i) { if (pt.actual === null && pt.forecast !== null && i > li) fore.push(i); });
             if (fore.length && li >= 0) {
@@ -381,8 +391,12 @@
         var id = host.dataset.forecast;
         var groups = spec.series.filter(function (se) { return !se.reference; });
         var ref = spec.series.filter(function (se) { return se.reference; })[0] || null;
-        var panels = groups.length > MAX_LINES;
-        var state = { view: remember('arms-fc-view:' + id) || 'line' };
+        var word = spec.word || 'series';
+        var plural = /y$/.test(word) ? word.slice(0, -1) + 'ies' : word + 's';
+        var EVERY = '*every*';                   // the pick that shows every line (a series may be keyed 'all')
+        var state = { view: remember('arms-fc-view:' + id) || 'line', pick: remember('arms-fc-pick:' + id) };
+        var keys = spec.series.map(function (se) { return se.key; });
+        if (state.pick !== EVERY && keys.indexOf(state.pick) < 0) state.pick = ref ? ref.key : (groups[0] || spec.series[0]).key;
         if (['line', 'bar', 'table'].indexOf(state.view) < 0) state.view = 'line';
         var withValues = spec.periods.map(function (p, i) { return spec.series.some(function (se) { return valueAt(se, i) !== null; }); });
         state.period = spec.firstFuture >= 0 ? spec.firstFuture : withValues.lastIndexOf(true);
@@ -392,7 +406,7 @@
         tabs.setAttribute('role', 'tablist');
         tabs.setAttribute('aria-label', 'Show the forecast as');
         var stageId = id + '-view';
-        var buttons = [['line', panels ? 'Panels' : 'Line', 'fi-rr-chart-line-up'], ['bar', 'Bar', 'fi-rr-chart-simple-horizontal'],
+        var buttons = [['line', 'Line', 'fi-rr-chart-line-up'], ['bar', 'Bar', 'fi-rr-chart-simple-horizontal'],
                        ['table', 'Table', 'fi-rr-table-list']].map(function (v) {
             var b = tag('button', '', tabs);
             b.type = 'button';
@@ -404,6 +418,14 @@
             b.addEventListener('click', function () { state.view = v[0]; remember('arms-fc-view:' + id, v[0]); render(); });
             return b;
         });
+        // the line view shows one series at a time: the overall average, one of them, or every one together
+        var seriesPick = tag('label', 'fc-period fc-pick', bar);
+        tag('span', '', seriesPick, 'Show');
+        var seriesSelect = tag('select', '', seriesPick);
+        if (ref) tag('option', '', seriesSelect, ref.name + ' (overall)').value = ref.key;
+        groups.forEach(function (se) { tag('option', '', seriesSelect, se.name).value = se.key; });
+        if (groups.length > 1) tag('option', '', seriesSelect, 'Every ' + word + ' together').value = EVERY;
+        seriesSelect.addEventListener('change', function () { state.pick = seriesSelect.value; remember('arms-fc-pick:' + id, state.pick); render(); });
         var periodPick = tag('label', 'fc-period', bar);
         tag('span', '', periodPick, 'Period');
         var select = tag('select', '', periodPick);
@@ -423,11 +445,26 @@
         tip.setAttribute('aria-hidden', 'true');
         tag('p', 'fc-method explain', host, spec.method.text);
 
+        function shown() {
+            if (state.pick === EVERY) return spec.series.filter(function (se) { return se.visible; });
+            var one = spec.series.filter(function (se) { return se.key === state.pick; })[0];
+            return one === ref || !ref ? [one] : [ref, one];
+        }
+
+        function levelRange(k) {
+            var lv = spec.levels[k], top = k === 0 ? 100 : spec.levels[k - 1].min - 1;
+            return lv.min ? lv.min + '–' + top : 'below ' + (top + 1);
+        }
+
         function drawLegend() {
             legend.textContent = '';
-            if (state.view === 'line' && !panels) {
-                spec.series.forEach(function (se) {
-                    var chip = tag('button', 'fc-chip' + (se.reference ? ' is-ref' : ''), legend);
+            if (state.view === 'table') { legend.hidden = true; return; }
+            legend.hidden = false;
+            tag('span', 'fc-legend-title', legend, 'Legend');
+            var lines = tag('div', 'fc-legend-row', legend);
+            if (state.view === 'line' && state.pick === EVERY) {
+                spec.series.forEach(function (se) {        // every line together: a chip hides or shows one
+                    var chip = tag('button', 'fc-chip' + (se.reference ? ' is-ref' : ''), lines);
                     chip.type = 'button';
                     chip.setAttribute('aria-pressed', se.visible ? 'true' : 'false');
                     chip.title = se.visible ? 'Hide ' + se.name : 'Show ' + se.name;
@@ -451,62 +488,55 @@
                     chip.addEventListener('pointerleave', unspot);
                     chip.addEventListener('blur', unspot);
                 });
-            } else if (state.view === 'line' && ref) {
-                var refKey = tag('span', 'fc-style', legend);
-                lineKey(refKey, ref.color, false);
-                tag('span', '', refKey, ref.name);
+            } else if (state.view === 'line') {
+                (state.pick === EVERY ? (ref ? [ref] : []) : shown()).forEach(function (se) {
+                    var key = tag('span', 'fc-style' + (se.reference ? ' is-ref' : ''), lines);
+                    lineKey(key, se.color, false);
+                    tag('span', '', key, se.name + (se.reference && state.pick !== se.key ? ' (overall, for comparison)' : ''));
+                });
+            } else {
+                tag('span', 'fc-style', lines, 'One bar per ' + word + '; lighter bars are forecasts, the thin line their likely range');
             }
             if (state.view === 'line') {
-                var keys = tag('span', 'fc-styles', legend);
-                var k1 = tag('span', 'fc-style', keys); lineKey(k1, '#4a5568', false); tag('span', '', k1, 'Average so far');
+                var marks = tag('div', 'fc-legend-row fc-styles', legend);
+                var k1 = tag('span', 'fc-style', marks); lineKey(k1, '#4a5568', false); tag('span', '', k1, 'Average so far');
                 if (spec.hasForecast) {
-                    var k2 = tag('span', 'fc-style', keys); lineKey(k2, '#4a5568', true); tag('span', '', k2, 'Forecast');
-                    var k3 = tag('span', 'fc-style', keys); tag('i', 'fc-key-range', k3); tag('span', '', k3, 'Likely range (90%)');
+                    var k2 = tag('span', 'fc-style', marks); lineKey(k2, '#4a5568', true); tag('span', '', k2, 'Forecast');
+                    var k3 = tag('span', 'fc-style', marks); tag('i', 'fc-key-range', k3); tag('span', '', k3, 'Likely range (90%)');
                 }
-                if (spec.hasBack) { var k4 = tag('span', 'fc-style', keys); tag('i', 'fc-key-back', k4); tag('span', '', k4, 'Earlier forecast'); }
-                var k5 = tag('span', 'fc-style', keys); tag('i', 'fc-key-pass', k5); tag('span', '', k5, 'Passing 75');
+                if (spec.hasBack) { var k4 = tag('span', 'fc-style', marks); tag('i', 'fc-key-back', k4); tag('span', '', k4, 'Earlier forecast'); }
+                var k5 = tag('span', 'fc-style', marks); tag('i', 'fc-key-pass', k5); tag('span', '', k5, 'Passing mark (75)');
             }
+            // the shaded bands behind the lines (and the letters on the bars) are the levels of the school's DepEd order
+            var bands = tag('div', 'fc-legend-row fc-levels', legend);
+            tag('span', 'fc-legend-sub', bands, state.view === 'line' ? 'Shaded bands' : 'Letters');
+            spec.levels.forEach(function (lv, k) {
+                var item = tag('span', 'fc-level level-' + lv.key, bands);
+                tag('b', '', item, lv.letter);
+                tag('span', '', item, lv.name + ' ' + levelRange(k));
+            });
         }
 
         function render() {
             buttons.forEach(function (b) { b.setAttribute('aria-selected', b.dataset.view === state.view ? 'true' : 'false'); });
             periodPick.hidden = state.view !== 'bar';
+            seriesPick.hidden = state.view !== 'line' || spec.series.length < 2;
+            seriesSelect.value = state.pick;
             select.value = state.period;
             tip.hidden = true;
             drawLegend();
             stage.textContent = '';
-            var visible = spec.series.filter(function (se) { return se.visible; });
+            var visible = state.view === 'line' ? shown() : spec.series.filter(function (se) { return se.visible; });
             var label = 'Average grade by grading period: ' + visible.map(function (se) {
                 var i = se.endIndex;
                 return se.name + ' ' + fmt(valueAt(se, i)) + (se.points[i] && se.points[i].actual === null ? ' forecast for ' : ' in ') + (spec.periods[i] || {}).name;
             }).join('; ');
             if (state.view === 'table') { drawTable(stage, spec, spec.series); return; }
-            if (state.view === 'bar') { drawBars(stage, spec, visible, state.period, host, tip); return; }
-            if (!panels) {
-                // a taller chart for many lines, so the labels at their ends keep apart
-                drawLines(stage, spec, { list: visible, dom: domain(spec, visible), height: LINE_H + Math.max(0, visible.length - 6) * 16,
-                                         labels: true, showBack: true,
-                                         host: host, tip: tip, label: label });
-                return;
-            }
-            var grid = tag('div', 'fc-panels', stage);
-            var dom = domain(spec, spec.series);
-            groups.forEach(function (se) {
-                var card = tag('div', 'fc-panel', grid);
-                var head = tag('div', 'fc-panel-head', card);
-                lineKey(head, se.color, false);
-                var name = tag(se.url ? 'a' : 'span', 'fc-panel-name', head, se.name);
-                name.title = se.name;
-                if (se.url) name.href = se.url;
-                var last = se.lastIndex >= 0 ? se.points[se.lastIndex].actual : null;
-                var end = valueAt(se, se.endIndex);
-                var val = tag('span', 'fc-panel-value', head);
-                tag('b', '', val, fmt(last));
-                if (se.endIndex > se.lastIndex) tag('small', '', val, ' → ' + fmt(end));
-                var plot = tag('div', 'fc-panel-plot', card);
-                drawLines(plot, spec, { list: ref ? [ref, se] : [se], dom: dom, height: PANEL_H, compact: true, labels: false,
-                                        showBack: true, host: host, tip: tip, label: se.name + ': ' + fmt(last) + (se.endIndex > se.lastIndex ? ', forecast ' + fmt(end) : '') });
-            });
+            if (state.view === 'bar') { drawBars(stage, spec, spec.series.filter(function (se) { return se.visible; }), state.period, host, tip); return; }
+            // one chart, however many lines: it grows taller with them, so the labels at their ends keep apart
+            drawLines(stage, spec, { list: visible, dom: domain(spec, visible), height: LINE_H + Math.max(0, visible.length - 6) * 16,
+                                     labels: true, showBack: true, guide: state.pick !== EVERY && visible.length === 2,
+                                     host: host, tip: tip, label: label });
         }
 
         render();

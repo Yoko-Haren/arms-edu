@@ -393,25 +393,25 @@ def user_reset_password(request, user_id):
 @accounts_api(head_only=True)
 @require_POST
 def user_toggle_delegate(request, user_id):
-    """The School Head lets a registrar or teacher manage the school's accounts, or takes that back."""
+    """The School Head makes a registrar or teacher an account manager (they manage the school's accounts), or removes them."""
     profile = _get(request, user_id)
     if not profile:
         return JsonResponse({'success': False, 'error': 'User not found'}, status=404)
     if profile.role not in DELEGABLE_ROLES or profile.user_id == request.user.id or not _is_active(profile):
-        return JsonResponse({'success': False, 'error': 'Only an active registrar or teacher can manage accounts for you.'}, status=400)
+        return JsonResponse({'success': False, 'error': 'Only an active registrar or teacher can be an account manager.'}, status=400)
     grant = not profile.can_manage_accounts
     UserProfile.objects.filter(pk=profile.pk).update(can_manage_accounts=grant)
     name, head = profile.user.get_full_name() or profile.user.username, request.user.get_full_name() or request.user.username
     if grant:
-        notify([profile.user], 'SYSTEM_UPDATE', 'You can now manage school accounts',
-               f'{head} asked you to help manage the accounts of {request.user.profile.school.school_name}: edit details, reset '
-               'passwords, activate and deactivate. Open Accounts in your menu.', action_url=reverse('heads-user-management'))
+        notify([profile.user], 'SYSTEM_UPDATE', 'You are now an account manager',
+               f'{head} made you an account manager of {request.user.profile.school.school_name}: you can edit details, reset '
+               'passwords, and activate or deactivate accounts. Open Accounts in your menu.', action_url=reverse('heads-user-management'))
     else:
-        notify([profile.user], 'SYSTEM_UPDATE', 'Account management handed back',
-               f'{head} took back the management of the school accounts. Thank you for your help.')
+        notify([profile.user], 'SYSTEM_UPDATE', 'You are no longer an account manager',
+               f'{head} removed you as an account manager. Thank you for your help.')
     _log(request, 'UPDATE_USER', 'UserProfile', profile.id,
-         f'{"Let" if grant else "Stopped letting"} {profile.user.username} manage the school accounts')
-    return JsonResponse({'success': True, 'message': f'{name} {"can now manage" if grant else "no longer manages"} the school accounts.'})
+         f'{"Made" if grant else "Removed"} {profile.user.username} {"an" if grant else "as"} account manager')
+    return JsonResponse({'success': True, 'message': f'{name} is {"now" if grant else "no longer"} an account manager.'})
 
 
 @login_required
