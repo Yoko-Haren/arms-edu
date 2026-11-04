@@ -1,0 +1,176 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Page not found - ARMS</title>
+    {% include 'shared/_favicon.html' %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+    <style>
+        /* Page not found: Poro, the ARMS star, looks around for the page. Shown by Django whenever DEBUG is off. */
+        :root {
+            --ink: #0b1230; --text: #3d4766; --muted: #5b6582; --line: #e6e9f3; --soft: #f6f7fc;
+            --brand: #123499; --brand-hover: #051650; --brand-soft: #eef1fd;
+            --grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body { font-family: var(--font); color: var(--text); background: var(--soft); display: flex; flex-direction: column; overflow-x: hidden; }
+        a { color: inherit; }
+
+        /* a faint map: dotted grid, two soft color glows and a dashed path that wanders off */
+        .map { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+               background-image: radial-gradient(rgba(18, 52, 153, 0.09) 1.2px, transparent 1.2px); background-size: 26px 26px; }
+        .map::before, .map::after { content: ''; position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; }
+        .map::before { width: 520px; height: 520px; left: -160px; top: -140px; background: #c7d0ff; }
+        .map::after { width: 460px; height: 460px; right: -140px; bottom: -160px; background: #e3d3f6; }
+        .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .trail { fill: none; stroke: rgba(18, 52, 153, 0.2); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 2 14;
+                 animation: walk 2.6s linear infinite; }
+        .pin { fill: rgba(118, 75, 162, 0.22); }
+
+        .top { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+               padding: 1.1rem clamp(16px, 4vw, 40px); }
+        .brand { display: inline-flex; align-items: center; gap: 0.55rem; text-decoration: none; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+        .brand img { width: 34px; height: 34px; }
+        .top .help { font-size: 0.86rem; font-weight: 600; color: var(--brand); text-decoration: none; }
+        .top .help:hover { text-decoration: underline; }
+
+        main { position: relative; z-index: 1; flex: 1; display: flex; align-items: center; justify-content: center; padding: 1rem clamp(16px, 4vw, 40px) 3rem; }
+        .lost { width: min(760px, 100%); text-align: center; display: flex; flex-direction: column; align-items: center; }
+
+        /* 4 [Poro] 4 */
+        .code { display: flex; align-items: center; justify-content: center; gap: clamp(0.2rem, 2vw, 1.2rem); user-select: none; }
+        .code > b { font-size: clamp(6rem, 22vw, 11.5rem); font-weight: 800; line-height: 0.9; letter-spacing: -0.04em;
+                    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+                    filter: drop-shadow(0 10px 24px rgba(102, 126, 234, 0.25)); }
+        .poro { position: relative; width: clamp(9.5rem, 26vw, 14rem); aspect-ratio: 560 / 456; margin: 0 -0.3rem; }
+        .poro .float { position: absolute; inset: 0; animation: float 3.4s ease-in-out infinite; }
+        .poro .look { width: 100%; height: 100%; transform-origin: 50% 85%; animation: look 6.5s ease-in-out infinite; }
+        .poro img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 6px 14px rgba(11, 18, 48, 0.12)); }
+        .poro .shadow { position: absolute; left: 18%; right: 18%; bottom: -14%; height: 12%; border-radius: 50%;
+                        background: radial-gradient(closest-side, rgba(11, 18, 48, 0.22), transparent); animation: shadow 3.4s ease-in-out infinite; }
+        /* question marks that rise from him while he looks around */
+        .poro .q { position: absolute; font-weight: 800; color: #764ba2; opacity: 0; animation: ask 4.2s ease-in-out infinite; }
+        .poro .q1 { top: -4%; left: 4%; font-size: 1.6rem; }
+        .poro .q2 { top: -12%; right: 12%; font-size: 2.1rem; color: #123499; animation-delay: 1.4s; }
+        .poro .q3 { top: 18%; right: -10%; font-size: 1.35rem; animation-delay: 2.8s; }
+        /* a magnifying glass that sweeps over the page, as if he were searching */
+        .poro .glass { position: absolute; right: -16%; bottom: 4%; width: 34%; animation: search 6.5s ease-in-out infinite; transform-origin: 30% 30%; }
+
+        h1 { margin-top: 2.4rem; font-size: clamp(1.7rem, 4.2vw, 2.4rem); font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+        .lead { margin-top: 0.75rem; max-width: 34rem; font-size: 1.02rem; line-height: 1.65; }
+        .asked { margin-top: 0.8rem; display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.4rem;
+                 max-width: 100%; font-size: 0.82rem; color: var(--muted); }
+        .asked code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86rem; color: var(--brand); background: var(--brand-soft);
+                      padding: 0.2rem 0.6rem; border-radius: 8px; max-width: 100%; overflow-wrap: anywhere; }
+        .acts { margin-top: 1.7rem; display: flex; flex-wrap: wrap; gap: 0.65rem; justify-content: center; }
+        .btn { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.78rem 1.3rem; border-radius: 12px; font: inherit; font-size: 0.92rem;
+               font-weight: 700; text-decoration: none; cursor: pointer; border: 1.5px solid transparent; transition: transform 0.15s, box-shadow 0.15s, background 0.15s; }
+        .btn svg { width: 17px; height: 17px; }
+        .btn-main { background: var(--brand); color: #fff; box-shadow: 0 10px 24px -10px rgba(18, 52, 153, 0.55); }
+        .btn-main:hover { background: var(--brand-hover); transform: translateY(-1px); }
+        .btn-line { background: #fff; color: var(--ink); border-color: var(--line); }
+        .btn-line:hover { border-color: #c9d1e6; transform: translateY(-1px); }
+        .btn:focus-visible { outline: 3px solid rgba(18, 52, 153, 0.35); outline-offset: 2px; }
+        .hint { margin-top: 1.4rem; font-size: 0.84rem; color: var(--muted); }
+        .hint a { color: var(--brand); font-weight: 600; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+        @keyframes shadow { 0%, 100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(0.78); opacity: 0.55; } }
+        /* left, a pause, right, a pause: looking around */
+        @keyframes look { 0%, 8% { transform: rotate(0); } 22%, 38% { transform: rotate(-9deg); } 55%, 72% { transform: rotate(8deg); } 88%, 100% { transform: rotate(0); } }
+        @keyframes search { 0%, 8% { transform: translate(0, 0) rotate(0); } 22%, 38% { transform: translate(-40%, -18%) rotate(-14deg); }
+                            55%, 72% { transform: translate(10%, -30%) rotate(10deg); } 88%, 100% { transform: translate(0, 0) rotate(0); } }
+        @keyframes ask { 0% { opacity: 0; transform: translateY(10px) scale(0.7); } 18% { opacity: 1; transform: translateY(0) scale(1); }
+                         60% { opacity: 1; } 85%, 100% { opacity: 0; transform: translateY(-26px) scale(1.05); } }
+        @keyframes walk { to { stroke-dashoffset: -32; } }
+        @media (prefers-reduced-motion: reduce) {
+            .poro .float, .poro .look, .poro .shadow, .poro .glass, .trail { animation: none; }
+            .poro .q { animation: none; opacity: 0.8; }
+        }
+        @media (max-width: 520px) {
+            .poro .glass { right: -8%; }
+            .acts .btn { flex: 1 1 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="map" aria-hidden="true">
+        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+            <!-- two wandering trails along the edges, clear of the text; one ends at a pin -->
+            <path class="trail" d="M-20 720 C 80 700, 150 620, 120 520 S 60 330, 150 235 S 330 130, 470 105"/>
+            <path class="trail" d="M1240 660 C 1130 640, 1080 540, 1105 440 S 1170 280, 1085 205"/>
+            <circle class="pin" cx="1085" cy="205" r="9"/>
+        </svg>
+    </div>
+
+    <header class="top">
+        <a class="brand" href="{% url 'home' %}"><img src="{% static 'shared/logo/arms-mark.svg' %}" alt=""> ARMS</a>
+        <a class="help" href="{% url 'home' %}#contact">Need help?</a>
+    </header>
+
+    <main>
+        <section class="lost" aria-labelledby="lostTitle">
+            <div class="code" aria-hidden="true">
+                <b>4</b>
+                <div class="poro">
+                    <span class="q q1">?</span><span class="q q2">?</span><span class="q q3">?</span>
+                    <div class="float">
+                        <div class="look">
+                            <picture>
+                                <source srcset="{% static 'shared/poro/poro-cutout.webp' %}" type="image/webp">
+                                <img src="{% static 'shared/poro/poro-cutout.png' %}" alt="" width="560" height="456">
+                            </picture>
+                        </div>
+                        <svg class="glass" viewBox="0 0 64 64" fill="none">
+                            <circle cx="24" cy="24" r="15" fill="rgba(238,241,253,0.55)" stroke="#123499" stroke-width="5"/>
+                            <path d="M35 35 L54 54" stroke="#123499" stroke-width="7" stroke-linecap="round"/>
+                            <path d="M16 18 a9 9 0 0 1 8 -5" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <span class="shadow"></span>
+                </div>
+                <b>4</b>
+            </div>
+
+            <h1 id="lostTitle">Looks like you're lost.</h1>
+            <p class="lead">Poro searched every record, but this page isn't in ARMS. The link may be old, or the address may have a typo.</p>
+            <p class="asked"><span>You looked for</span> <code>{{ request_path|default:request.path }}</code></p>
+
+            <div class="acts">
+                <a class="btn btn-main" href="{% url 'home' %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/></svg>
+                    Take me home</a>
+                {% if request.user.is_authenticated %}
+                <a class="btn btn-line" href="{% url 'signin' %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+                    My dashboard</a>
+                {% else %}
+                <a class="btn btn-line" href="{% url 'signin' %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M10 16l4-4-4-4"/><path d="M14 12H4"/></svg>
+                    Sign in</a>
+                {% endif %}
+                <button type="button" class="btn btn-line" id="goBack" hidden>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                    Go back</button>
+            </div>
+            <p class="hint">Still can't find it? <a href="{% url 'home' %}#contact">Tell us what you were looking for</a>.</p>
+        </section>
+    </main>
+    <script>
+        // "Go back" only when there is a page to go back to
+        (function () {
+            var back = document.getElementById('goBack');
+            if (window.history.length > 1 && document.referrer) {
+                back.hidden = false;
+                back.addEventListener('click', function () { window.history.back(); });
+            }
+        })();
+    </script>
+</body>
+</html>
