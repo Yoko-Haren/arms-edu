@@ -69,6 +69,12 @@ def _serial(value):
     return (value - datetime.date(1899, 12, 30)).days
 
 
+class Formula(str):
+    """A cell formula the code writes on purpose, such as Formula('=SUM(I31:I33)'). Any other text is written as text,
+    even when it starts with "=": a learner named "=HYPERLINK(...)" in an uploaded SF1 stays a name in every form
+    instead of becoming a live formula (formula injection)."""
+
+
 def _cell_xml(ref, value, style):
     s = f' s="{style}"' if style else ''
     if value is None:
@@ -81,7 +87,7 @@ def _cell_xml(ref, value, style):
         number = format(value, 'f') if isinstance(value, Decimal) else repr(value)
         return f'<c r="{ref}"{s}><v>{number}</v></c>'
     text = str(value)
-    if text.startswith('=') and len(text) > 1:
+    if isinstance(value, Formula) and text.startswith('=') and len(text) > 1:
         return f'<c r="{ref}"{s}><f>{escape(text[1:])}</f></c>'
     space = ' xml:space="preserve"' if text != text.strip() or '\n' in text else ''
     return f'<c r="{ref}"{s} t="inlineStr"><is><t{space}>{escape(text)}</t></is></c>'

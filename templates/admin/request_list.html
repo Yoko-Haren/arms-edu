@@ -44,7 +44,7 @@
         </div>
         {% if item.message %}<p class="ap-msg">{{ item.message }}</p>{% endif %}
         <div class="ap-req-acts">
-            <button type="button" class="btn btn-main btn-sm" data-open="send{{ item.id }}"><i class="fi fi-rr-paper-plane" aria-hidden="true"></i> Send sign-in details</button>
+            <button type="button" class="btn btn-main btn-sm" data-open="send{{ item.id }}"><i class="fi fi-rr-paper-plane" aria-hidden="true"></i> Send setup links</button>
             <a class="btn btn-line btn-sm" href="mailto:{{ item.email }}?subject=Re%3A%20your%20ARMS%20{% if item.topic == 'school' %}request{% else %}sign-in%20question{% endif %}"><i class="fi fi-rr-reply-all" aria-hidden="true"></i> Write your own</a>
             <form method="post" action="{% url 'admin_panel:request_update' item.id %}">
                 {% csrf_token %}
@@ -65,8 +65,8 @@
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
             <div class="tp-modal-head">
-                <div><h2 id="sendTitle{{ item.id }}"><i class="fi fi-rr-paper-plane" style="color:#123499;"></i> Send sign-in details</h2>
-                    <p class="hint">To {{ item.name }} ({{ item.email }}), from {{ sender }}.</p></div>
+                <div><h2 id="sendTitle{{ item.id }}"><i class="fi fi-rr-paper-plane" style="color:#123499;"></i> Send setup links</h2>
+                    <p class="hint">From {{ sender }}. Each account gets its link at its own email; {{ item.name }} ({{ item.email }}) gets a note that it is done.</p></div>
                 <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
             </div>
             <div class="tp-modal-body ap-form">
@@ -86,13 +86,13 @@
                     {% else %}<p class="hint" style="margin:0;">No ARMS account signs in with {{ item.email }}. Write your own reply instead.</p>{% endif %}</div>
                 {% endif %}
                 <label class="field"><span>Message <span class="opt">optional</span></span>
-                    <textarea name="note" rows="3">{% if item.topic == 'school' %}Thank you for choosing ARMS. Your school is set up, and these are the accounts of its School Head and registrar.{% else %}Here is a new temporary password for your ARMS account.{% endif %}</textarea>
+                    <textarea name="note" rows="3">{% if item.topic == 'school' %}Thank you for choosing ARMS. Your school is set up in ARMS.{% else %}Here is a new link to set up your ARMS account.{% endif %}</textarea>
                     <small>Shown above the accounts in the email.</small></label>
-                <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>Each ticked account gets a new temporary password, and its current one stops working. They choose their own at the next sign-in.</span></div>
+                <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>Each ticked account gets a one-time link at its own email to choose a password; its current password stops working. No password is sent by email, and the person who wrote never receives a link.</span></div>
                 {% if not email_ready %}<div class="note risk"><i class="fi fi-rr-exclamation"></i><span>Email is not set up on this server: add EMAIL_HOST_USER and EMAIL_HOST_PASSWORD (a Gmail app password) to its environment variables.</span></div>{% endif %}
                 <div style="display:flex;justify-content:flex-end;gap:0.5rem;">
                     <button type="button" class="btn btn-line" data-close>Cancel</button>
-                    <button type="submit" class="btn btn-main" data-send-btn {% if not email_ready %}disabled{% endif %}><i class="fi fi-rr-paper-plane"></i> Send email</button>
+                    <button type="submit" class="btn btn-main" data-send-btn {% if not email_ready %}disabled{% endif %}><i class="fi fi-rr-paper-plane"></i> Send links</button>
                 </div>
             </div>
         </form>

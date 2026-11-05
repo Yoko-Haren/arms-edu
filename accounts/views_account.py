@@ -7,13 +7,18 @@ from django.contrib import messages
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.http import require_http_methods
+
+from core.net import client_ip
 
 from .models import LoginAttempt, UserProfile
 from .services import google_oauth
@@ -32,7 +37,7 @@ REMEMBER_KEY = 'remember_me'       # "Remember me" ticked before going to Google
 
 
 def _client(request):
-    return request.META.get('REMOTE_ADDR', ''), request.META.get('HTTP_USER_AGENT', '')[:255]
+    return client_ip(request), request.META.get('HTTP_USER_AGENT', '')[:255]
 
 
 def _finish_login(request, user):
@@ -307,6 +312,68 @@ def password_reset_new(request):
             return redirect('signin')
 
     return render(request, 'accounts/password_reset_new.html', {'errors': errors, 'account': user})
+
+
+# =============================================================================================
+# A new account's one-time setup link (sent by email from the Requests page instead of a password)
+# =============================================================================================
+
+SETUP_KEY = 'account_setup'        # the checked link, kept in the session so the token leaves the address bar
+SETUP_DAYS = max(1, settings.PASSWORD_RESET_TIMEOUT // 86400)
+
+
+def setup_link(request, user):
+    """The absolute one-time link that lets `user` choose their first password. It is Django's password-reset token:
+    it stops working once a password is saved (or the account signs in) and after PASSWORD_RESET_TIMEOUT."""
+    from django.urls import reverse
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    return request.build_absolute_uri(reverse('account_setup', args=[uid, default_token_generator.make_token(user)]))
+
+
+def _setup_user(uidb64):
+    try:
+        return User.objects.filter(pk=force_str(urlsafe_base64_decode(uidb64)), is_active=True).first()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+@require_http_methods(['GET', 'POST'])
+def account_setup(request, uidb64, token):
+    """The setup link. Its token is checked once and kept in the session, and the address becomes .../set/, so the token
+    never reaches the page's analytics or another site (as in Django's own password reset)."""
+    user = _setup_user(uidb64)
+    if token != 'set':
+        if user and default_token_generator.check_token(user, token):
+            request.session[SETUP_KEY] = {'user': user.pk, 'token': token}
+            return redirect('account_setup', uidb64=uidb64, token='set')
+        return render(request, 'accounts/account_setup.html', {'expired': True, 'days': SETUP_DAYS})
+    saved = request.session.get(SETUP_KEY) or {}
+    if not user or saved.get('user') != user.pk or not default_token_generator.check_token(user, saved.get('token', '')):
+        request.session.pop(SETUP_KEY, None)
+        return render(request, 'accounts/account_setup.html', {'expired': True, 'days': SETUP_DAYS})
+
+    errors = []
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password', '')
+        if new_password != request.POST.get('confirm_password', ''):
+            errors.append('The two passwords do not match.')
+        else:
+            try:
+                validate_password(new_password, user=user)
+            except ValidationError as exc:
+                errors.extend(exc.messages)
+        if not errors:
+            user.set_password(new_password)            # the token stops working: it was made from the old password
+            user.save()
+            profile = user.profile
+            if profile.must_change_password:
+                profile.must_change_password = False
+                profile.save(update_fields=['must_change_password', 'updated_at'])
+            request.session.pop(SETUP_KEY, None)
+            logger.info('Account %s set its first password from a setup link', user.pk)
+            messages.success(request, 'Your password is set. Sign in with your email and the password you chose.')
+            return redirect('signin')
+    return render(request, 'accounts/account_setup.html', {'errors': errors, 'account': user, 'days': SETUP_DAYS})
 
 
 def password_reset_done(request):

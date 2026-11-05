@@ -28,7 +28,7 @@ from core.caching import remember_filters
 from core import grading_policy
 
 from . import accounts as A
-from .emails import email_ready, send_sign_in_email
+from .emails import email_ready, send_setup_emails
 from .forms import (
     SchoolForm, PrincipalCreationForm, PrincipalEditForm,
     RegistrarCreationForm, GradeLevelForm, SchoolYearForm, QuarterForm,
@@ -934,8 +934,13 @@ def request_update(request, request_id):
 @user_passes_test(is_admin, login_url='admin_panel:login')
 @require_POST
 def request_send_accounts(request, request_id):
-    """Answer a request by email with sign-in details: each chosen account gets a fresh temporary password, sent from
-    the ARMS mailbox to the person who wrote. Nothing changes when the email cannot be sent."""
+    """Answer a request with setup links: each chosen account gets a one-time link at its OWN email to choose a password,
+    and the person who wrote gets a note that the school is ready, with no link and the addresses masked. Nobody's
+    password travels by email, and a request written under a false name cannot redirect an account to its writer.
+    The chosen accounts' current passwords stop working; nothing changes when the email cannot be sent."""
+    from accounts.services.email_codes import mask_email
+    from accounts.views_account import SETUP_DAYS, setup_link
+
     contact = get_object_or_404(ContactRequest, pk=request_id)
     back = request.POST.get('next', '')
     if not back.startswith('/admin-panel/requests/'):
@@ -955,29 +960,39 @@ def request_send_accounts(request, request_id):
     if not chosen:
         messages.error(request, 'Tick at least one account to send.')
         return redirect(back)
+    no_email = [p.full_name for p in chosen if not (p.user.email or '').strip()]
+    if no_email:
+        messages.error(request, f'{", ".join(no_email)} {"has" if len(no_email) == 1 else "have"} no email in ARMS, so no '
+                                'setup link can be sent. Add the email on the account first.')
+        return redirect(back)
 
     school = school or chosen[0].school
     note = request.POST.get('note', '').strip()[:2000]
+    setups = []
     try:
         with transaction.atomic():
-            cards = [A.account_card(p.user, A.reset_temporary_password(p.user), ROLE_LABELS.get(p.role, p.get_role_display()))
-                     for p in chosen]
-            send_sign_in_email(to_email=contact.email, to_name=contact.name, school_name=school.school_name if school else '',
-                               cards=cards, note=note, signin_url=request.build_absolute_uri(reverse('signin')),
-                               first_time=contact.topic == ContactRequest.TOPIC_SCHOOL)
+            for p in chosen:
+                p.user.set_unusable_password()          # only the link holder can sign in from now on
+                p.user.save(update_fields=['password'])
+                setups.append({'email': p.user.email.strip(), 'name': p.full_name, 'username': p.user.username,
+                               'role': ROLE_LABELS.get(p.role, p.get_role_display()), 'link': setup_link(request, p.user),
+                               'days': SETUP_DAYS, 'masked': mask_email(p.user.email.strip())})
+            sent = send_setup_emails(setups=setups, requester=(contact.email, contact.name),
+                                     school_name=school.school_name if school else '', note=note,
+                                     first_time=contact.topic == ContactRequest.TOPIC_SCHOOL)
     except Exception as exc:                     # the passwords stay as they were (the transaction rolled back)
         messages.error(request, f'The email could not be sent, so no password was changed. The mail server said: {exc}')
         return redirect(back)
 
     contact.status, contact.handled_by, contact.handled_at = 'done', request.user, timezone.now()
     contact.save(update_fields=['status', 'handled_by', 'handled_at'])
-    A.remember_new_accounts(request, cards)
-    count = len(cards)
-    messages.success(request, f'Sent {count} account{"s" if count != 1 else ""} to {contact.email} from {settings.EMAIL_HOST_USER}. '
+    count = len(setups)
+    messages.success(request, f'Sent {count} setup link{"s" if count != 1 else ""}, each to the account\'s own email, '
+                              f'and told {contact.email} the school is ready ({sent} emails from {settings.EMAIL_HOST_USER}). '
                               'The request is marked done.')
-    _log_admin_action(request, 'SEND_SIGN_IN', f'Emailed sign-in details of {", ".join(c["username"] for c in cards)} to {contact.email}')
+    _log_admin_action(request, 'SEND_SETUP_LINKS',
+                      f'Emailed setup links to {", ".join(s["username"] for s in setups)} (request from {contact.email})')
     return redirect(back)
-
 
 
 # =============================================================================

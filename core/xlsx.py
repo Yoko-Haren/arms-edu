@@ -39,6 +39,22 @@ _BOX = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
 _UNDER = Border(bottom=_thin)
 
 
+def _put(ws, row, column, value):
+    """Write a value as data. Text that starts with "=" (a learner or section name typed that way) stays text: openpyxl
+    would otherwise save it as a formula that runs when the file is opened (formula injection)."""
+    cell = ws.cell(row=row, column=column, value=value)
+    if isinstance(value, str) and value.startswith('='):
+        cell.data_type = 's'
+    return cell
+
+
+def csv_safe(value):
+    """A CSV value that a spreadsheet opens as text: a value starting with = + - @ or a tab is a formula to Excel and
+    Google Sheets, so it gets a leading apostrophe, which they show as plain text."""
+    text = '' if value is None else str(value)
+    return "'" + text if text[:1] in ('=', '+', '-', '@', '\t', '\r') else text
+
+
 def _fill(color):
     return PatternFill('solid', start_color=color, end_color=color)
 
@@ -65,7 +81,7 @@ class Sheet:
     def _line(self, text, font, height=None):
         ws = self.ws
         ws.merge_cells(start_row=self.row, start_column=1, end_row=self.row, end_column=self.width)
-        cell = ws.cell(row=self.row, column=1, value=text)
+        cell = _put(ws, self.row, 1, text)
         cell.font, cell.alignment = font, Alignment(vertical='center')
         if height:
             ws.row_dimensions[self.row].height = height
@@ -91,7 +107,7 @@ class Sheet:
         self.row += 1
         ws = self.ws
         ws.merge_cells(start_row=self.row, start_column=1, end_row=self.row, end_column=self.width)
-        cell = ws.cell(row=self.row, column=1, value=text)
+        cell = _put(ws, self.row, 1, text)
         cell.font = Font(name=FONT, size=12, bold=True, color=INK)
         for c in range(1, self.width + 1):
             ws.cell(row=self.row, column=c).border = _UNDER
@@ -110,7 +126,7 @@ class Sheet:
                         (label.upper(), Font(name=FONT, size=8.5, bold=True, color=MUTED)),
                         (value, Font(name=FONT, size=14, bold=True, color=TONE_COLORS.get(tone, INK))))):
                     ws.merge_cells(start_row=self.row + r, start_column=c1, end_row=self.row + r, end_column=c2)
-                    cell = ws.cell(row=self.row + r, column=c1, value=text)
+                    cell = _put(ws, self.row + r, c1, text)
                     cell.font, cell.alignment = font, Alignment(horizontal='center', vertical='center')
                     for c in range(c1, c2 + 1):
                         ws.cell(row=self.row + r, column=c).fill = _fill(SOFT)
@@ -124,7 +140,7 @@ class Sheet:
         """Wrapped text across the sheet width; row height follows the length."""
         ws = self.ws
         ws.merge_cells(start_row=self.row, start_column=1, end_row=self.row, end_column=self.width)
-        cell = ws.cell(row=self.row, column=1, value=text)
+        cell = _put(ws, self.row, 1, text)
         cell.font = Font(name=FONT, size=size, bold=bold, color=color)
         cell.alignment = Alignment(wrap_text=True, vertical='top', indent=indent)
         chars_per_line = max(40, int(sum(ws.column_dimensions[get_column_letter(c)].width or 10
@@ -142,7 +158,7 @@ class Sheet:
         self.row += 1
         header = self.row
         for i, col in enumerate(columns, start=1):
-            cell = ws.cell(row=header, column=i, value=col['title'])
+            cell = _put(ws, header, i, col['title'])
             cell.font = Font(name=FONT, size=10, bold=True, color='FFFFFF')
             cell.fill = _fill(BRAND)
             cell.alignment = Alignment(horizontal='left' if col.get('format', 'text') == 'text' else 'center',
@@ -155,7 +171,7 @@ class Sheet:
                 level = None
                 if isinstance(value, tuple):
                     value, level = value
-                cell = ws.cell(row=r, column=c_i, value=value)
+                cell = _put(ws, r, c_i, value)
                 fmt = col.get('format', 'text')
                 cell.font = Font(name=FONT, size=10, color=TEXT)
                 cell.border = Border(bottom=_thin, left=_thin if c_i == 1 else None, right=_thin if c_i == len(columns) else None)

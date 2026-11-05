@@ -27,6 +27,7 @@ from openpyxl import load_workbook
 
 from core import periods as P
 from core import school_header, xlsx_patch
+from core.xlsx_patch import Formula
 
 from . import ecr
 
@@ -131,6 +132,14 @@ def _period_sheets(wb):
     return sorted(found, key=lambda x: (x[0], x[1].title))
 
 
+def _text(cell, value):
+    """Put a typed name in an openpyxl cell as text, even one starting with "=" (it would otherwise be saved as a
+    formula that runs when the record is opened)."""
+    cell.value = value
+    if isinstance(value, str) and value.startswith('='):
+        cell.data_type = 's'
+
+
 def build(assignment, roster, teacher, period=None):
     """(bytes, file name) of the class's e-class record."""
     from academics.models import Quarter
@@ -155,17 +164,17 @@ def build(assignment, roster, teacher, period=None):
     wb = load_workbook(path)
     inp = next(ws for ws in wb.worksheets if 'INPUT' in ws.title.upper())
     teacher_name = (teacher.get_full_name() or teacher.username).upper()
-    inp['G5'] = school.school_name.upper()
+    _text(inp['G5'], school.school_name.upper())
     inp['X5'] = school.school_id
     inp['AG5'] = sy.year_label
     inp['K7'] = f'{assignment.section.grade_level.grade_name} - {assignment.section.section_name}'.upper()
-    inp['S7'] = teacher_name
+    _text(inp['S7'], teacher_name)
     for r in list(MALE_ROWS) + list(FEMALE_ROWS):
         inp.cell(row=r, column=2).value = None
         inp[f'{ecr.LRN_COLUMN}{r}'] = None
     for rows, people in ((MALE_ROWS, males), (FEMALE_ROWS, females)):
         for r, p in zip(rows, people):
-            inp.cell(row=r, column=2).value = learner_name(p)
+            _text(inp.cell(row=r, column=2), learner_name(p))
             cell = inp[f'{ecr.LRN_COLUMN}{r}']
             cell.value = str(p['lrn'] or '')
             cell.number_format = '@'
@@ -292,9 +301,9 @@ def _relabel(wb, sheets, mapeh, prefix, word, count, number):
     for r in list(range(13, 63)) + list(range(64, 114)):
         source = r - 1
         for n, col in enumerate(SUMMARY_PERIOD_COLS, start=1):
-            summary[f'{col}{r}'] = f"='{names[n]}'!AJ{source}" if n <= count and n in names else None
+            summary[f'{col}{r}'] = Formula(f"='{names[n]}'!AJ{source}") if n <= count and n in names else None
         cells = ','.join(f'{c}{r}' for c in used)
         blanks = ','.join(f'{c}{r}=""' for c in used)
         fixed_blanks = ','.join(f'${c}{r}=""' for c in used)
-        summary[f'V{r}'] = f'=IF(OR({blanks}),"",IF(ISERROR(ROUND(AVERAGE({cells}),0)),"",ROUND(AVERAGE({cells}),0)))'
-        summary[f'Z{r}'] = f'=IF(OR({fixed_blanks},$V{r}=""),"",IF($V{r}>=75,"PASSED","FAILED"))'
+        summary[f'V{r}'] = Formula(f'=IF(OR({blanks}),"",IF(ISERROR(ROUND(AVERAGE({cells}),0)),"",ROUND(AVERAGE({cells}),0)))')
+        summary[f'Z{r}'] = Formula(f'=IF(OR({fixed_blanks},$V{r}=""),"",IF($V{r}>=75,"PASSED","FAILED"))')

@@ -87,6 +87,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.csp.ContentSecurityPolicyMiddleware',   # SECURE_CSP below
+    'core.headers.PermissionsPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.http.ConditionalGetMiddleware',   # unchanged pages -> 304 Not Modified
     'django.middleware.common.CommonMiddleware',
@@ -341,8 +343,42 @@ CSRF_COOKIE_SECURE = ON_VERCEL
 if ON_VERCEL:
     # Vercel ends HTTPS at its edge and says so in this header
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = False
-SECURE_HSTS_SECONDS = 0
+# On Vercel every visit is HTTPS: plain HTTP is sent to HTTPS, and browsers are told to use only HTTPS for a year.
+SECURE_SSL_REDIRECT = ON_VERCEL
+SECURE_HSTS_SECONDS = 31536000 if ON_VERCEL else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False      # the vercel.app subdomain is ours, its parent is not
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+
+# Content Security Policy: pages load scripts, styles and fonts only from ARMS itself and the few CDNs below, and can
+# send data only back to ARMS. An injected <script src="https://evil..."> or a fetch() to another site is blocked by
+# the browser. Inline <script>, style="" and onclick="" are used across the templates, so they stay allowed.
+from django.utils.csp import CSP  # noqa: E402
+
+_CDN_SCRIPTS = ['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com', 'https://cdn.sheetjs.com']
+_CDN_STYLES = ['https://fonts.googleapis.com', 'https://cdn-uicons.flaticon.com', 'https://cdnjs.cloudflare.com',
+               'https://cdn.jsdelivr.net']
+_CDN_FONTS = ['https://fonts.gstatic.com', 'https://cdn-uicons.flaticon.com', 'https://cdnjs.cloudflare.com',
+              'https://cdn.jsdelivr.net']
+SECURE_CSP = {
+    'default-src': [CSP.SELF],
+    'script-src': [CSP.SELF, CSP.UNSAFE_INLINE, *_CDN_SCRIPTS],
+    'style-src': [CSP.SELF, CSP.UNSAFE_INLINE, *_CDN_STYLES],
+    'font-src': [CSP.SELF, 'data:', *_CDN_FONTS],
+    'img-src': [CSP.SELF, 'data:', 'blob:'],
+    'connect-src': [CSP.SELF],
+    'worker-src': [CSP.SELF, 'blob:'],
+    'frame-src': [CSP.SELF, 'blob:'],
+    'object-src': [CSP.NONE],
+    'base-uri': [CSP.SELF],
+    'form-action': [CSP.SELF, 'https://accounts.google.com'],
+    'frame-ancestors': [CSP.NONE],
+}
+if ON_VERCEL:
+    SECURE_CSP['upgrade-insecure-requests'] = True
+
+# Browser features no ARMS page uses are switched off (core.headers)
+PERMISSIONS_POLICY = 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
 
 
 # =============================================================================

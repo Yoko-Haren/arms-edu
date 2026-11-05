@@ -13,6 +13,8 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.conf import settings
 from django.views.decorators.http import require_http_methods
+from core.net import client_ip
+
 from .models import UserProfile, LoginAttempt
 from .services.sessions import end_other_sessions, remember_session
 
@@ -21,7 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 # ── SECURITY CONSTANTS ──
-MAX_LOGIN_ATTEMPTS = 5          # Lock account after this many failures
+# Failed sign-ins are counted three ways over the last LOCKOUT_DURATION_MINUTES:
+MAX_LOGIN_ATTEMPTS = 5          # one account from one network: that network is locked out of the account
+MAX_ACCOUNT_FAILURES = 20       # one account from anywhere: the account is locked (guessing spread over many machines)
+MAX_NETWORK_FAILURES = 30       # one network across any accounts: the network waits (one password tried on many accounts)
 LOCKOUT_DURATION_MINUTES = 15   # How long the lockout lasts
 SALT = "D0pp3lG4ng3r_F0rm1fy_S3cur3_S4lt_2026"  # Never expose this
 
@@ -32,15 +37,23 @@ def _hash_password_with_salt(password):
     return hashlib.sha256(salted.encode('utf-8')).hexdigest()
 
 
-def _is_account_locked(username):
-    """Check if account has too many recent failed attempts."""
+def _recent_failures(**where):
     cutoff = timezone.now() - timedelta(minutes=LOCKOUT_DURATION_MINUTES)
-    recent_failures = LoginAttempt.objects.filter(
-        username_attempted=username,
-        attempt_result__startswith='FAILED',
-        attempted_at__gte=cutoff
-    ).count()
-    return recent_failures >= MAX_LOGIN_ATTEMPTS
+    return LoginAttempt.objects.filter(attempt_result__startswith='FAILED', attempted_at__gte=cutoff, **where).count()
+
+
+def _sign_in_blocked(username, ip):
+    """Why a sign-in may not be tried now, or None. A stranger who fails five times locks only their own network out
+    of the account, not the account's owner; many networks, or many accounts from one network, lock more."""
+    wait = f'Please wait {LOCKOUT_DURATION_MINUTES} minutes'
+    if _recent_failures(ip_address=ip) >= MAX_NETWORK_FAILURES:
+        return f'Too many failed sign-ins from this network. {wait} and try again.'
+    if _recent_failures(username_attempted__iexact=username) >= MAX_ACCOUNT_FAILURES:
+        return f'This account is locked for now after too many failed sign-ins. {wait}, or reset your password.'
+    if _recent_failures(username_attempted__iexact=username, ip_address=ip) >= MAX_LOGIN_ATTEMPTS:
+        return (f'Account temporarily locked due to {MAX_LOGIN_ATTEMPTS} failed attempts. '
+                f'{wait} or reset your password.')
+    return None
 
 
 def _get_dashboard_url(role):
@@ -88,7 +101,7 @@ def signin(request):
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
-        ip = request.META.get('REMOTE_ADDR', '')
+        ip = client_ip(request)
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:255]
 
         # ── 1. Basic input validation ──
@@ -96,19 +109,16 @@ def signin(request):
             error_message = 'Please enter both username and password.'
             return _signin_page(request, error_message)
 
-        # ── 2. Check if account is locked ──
-        if _is_account_locked(username):
+        # ── 2. Check if this account, or this network, is locked out for now ──
+        blocked = _sign_in_blocked(username, ip)
+        if blocked:
             LoginAttempt.objects.create(
                 username_attempted=username,
                 ip_address=ip,
                 user_agent=user_agent,
                 attempt_result='FAILED_LOCKED',
             )
-            error_message = (
-                f'Account temporarily locked due to {MAX_LOGIN_ATTEMPTS} failed attempts. '
-                f'Please wait {LOCKOUT_DURATION_MINUTES} minutes or contact your administrator.'
-            )
-            return _signin_page(request, error_message)
+            return _signin_page(request, blocked)
 
         # ── 3. Pre-hash with salt (adds latency for brute-force) ──
         _hash_password_with_salt(password)
@@ -165,11 +175,7 @@ def signin(request):
             # ── 10. Add artificial delay to slow down brute-force ──
             time.sleep(1.5)
 
-            remaining = MAX_LOGIN_ATTEMPTS - LoginAttempt.objects.filter(
-                username_attempted=username,
-                attempt_result__startswith='FAILED',
-                attempted_at__gte=timezone.now() - timedelta(minutes=LOCKOUT_DURATION_MINUTES)
-            ).count()
+            remaining = MAX_LOGIN_ATTEMPTS - _recent_failures(username_attempted__iexact=username, ip_address=ip)
 
             if remaining <= 2 and remaining > 0:
                 error_message = (

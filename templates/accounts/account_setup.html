@@ -1,0 +1,47 @@
+{% extends 'accounts/auth_base.html' %}
+{% block title %}{% if expired %}Link expired{% else %}Set your password{% endif %} - ARMS{% endblock %}
+{% block icon %}{% if expired %}fi-rr-time-past{% else %}fi-rr-key{% endif %}{% endblock %}
+{% block aside_title %}Welcome to ARMS.{% endblock %}
+{% block aside_text %}Your school's account is ready. Choose your own password once, then sign in with your email and that password from now on.{% endblock %}
+{% block aside_points %}
+<ul class="auth-points">
+    <li><i class="fi fi-rr-envelope" aria-hidden="true"></i>The link was sent only to your account's email</li>
+    <li><i class="fi fi-rr-time-check" aria-hidden="true"></i>It works once, for {{ days }} days</li>
+    <li><i class="fi fi-rr-lock" aria-hidden="true"></i>Nobody else sees the password you choose</li>
+</ul>
+{% endblock %}
+{% block content %}
+{% if expired %}
+<h1>This link no longer works</h1>
+<p class="lead">A setup link works once and for {{ days }} days. If you already chose a password, sign in with it. Otherwise use <strong>Forgot password</strong> on the sign-in page: a code goes to your account's email.</p>
+<a class="btn" href="{% url 'signin' %}"><i class="fi fi-rr-sign-in-alt" aria-hidden="true"></i>Go to sign in</a>
+<div class="link-row"><a href="{% url 'password_reset' %}"><i class="fi fi-rr-key" aria-hidden="true"></i>Forgot password</a></div>
+{% else %}
+<h1>Set your password</h1>
+<p class="lead">This is the first sign-in for <strong>{{ account.username }}</strong>. Choose your own password; this link stops working once it is saved.</p>
+
+{% if errors %}<div class="notice error" role="alert"><i class="fi fi-rr-exclamation" aria-hidden="true"></i><span>{% for error in errors %}{{ error }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</span></div>{% endif %}
+
+<form method="post" autocomplete="off" data-busy="Saving...">
+    {% csrf_token %}
+    <label for="new_password">New password</label>
+    <div class="field">
+        <input type="password" id="new_password" name="new_password" autocomplete="new-password" minlength="8" autofocus required>
+        <button type="button" class="toggle" data-target="new_password" aria-label="Show password"><i class="fi fi-rr-eye" aria-hidden="true"></i></button>
+    </div>
+    <label for="confirm_password">Confirm new password</label>
+    <div class="field">
+        <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" minlength="8" required>
+        <button type="button" class="toggle" data-target="confirm_password" aria-label="Show password"><i class="fi fi-rr-eye" aria-hidden="true"></i></button>
+    </div>
+    <ul class="rules" data-password-rules="new_password">
+        <li data-rule="length">At least 8 characters</li>
+        <li data-rule="mix">Not only numbers</li>
+        <li data-rule="match">Both passwords match</li>
+    </ul>
+    <p class="hint">Avoid common passwords like your name or "password123".</p>
+    <button type="submit" class="btn"><i class="fi fi-rr-check-circle" aria-hidden="true"></i>Save my password</button>
+</form>
+<div class="link-row"><a href="{% url 'signin' %}"><i class="fi fi-rr-arrow-small-left" aria-hidden="true"></i>Back to sign in</a></div>
+{% endif %}
+{% endblock %}

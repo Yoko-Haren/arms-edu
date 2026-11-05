@@ -28,6 +28,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from core import xlsx_patch
+from core.xlsx_patch import Formula
 
 TERMS = ('TERM 1 SUMMARY', 'TERM 2 SUMMARY', 'TERM 3 SUMMARY')
 ATTENDANCE = 'ATTENDANCE RECORD SUMMARY'
@@ -48,18 +49,18 @@ LEFT_OF_GRADES = {'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'}
 
 
 def _all_terms(row):
-    return f'=IF(COUNT(F{row}:H{row})<3,"",ROUND(AVERAGE(F{row}:H{row}),0))'
+    return Formula(f'=IF(COUNT(F{row}:H{row})<3,"",ROUND(AVERAGE(F{row}:H{row}),0))')
 
 
 def _points(row):
-    return f'=IF(J{row}="","",J{row}*I{row})'
+    return Formula(f'=IF(J{row}="","",J{row}*I{row})')
 
 
 def _average(rows, count, final='I', points=None):
     """The general average once every final grade is in."""
     if points:
-        return f'=IF(COUNT({rows})<{count},"",ROUND({points},0))'
-    return f'=IF(COUNT({rows})<{count},"",ROUND(AVERAGE({rows}),0))'
+        return Formula(f'=IF(COUNT({rows})<{count},"",ROUND({points},0))')
+    return Formula(f'=IF(COUNT({rows})<{count},"",ROUND(AVERAGE({rows}),0))')
 
 
 def _senior_cells(name):
@@ -70,7 +71,7 @@ def _senior_cells(name):
             cells.update({f'J{row}': _all_terms(row), f'L{row}': _points(row)})
         for col, sheet in zip('FGH', TERMS):       # Effective Communication, Mabisang Komunikasyon: their own columns
             for row, column in ((33, 9), (34, 10), (35, 11)):
-                cells[f'{col}{row}'] = f"=IF(C17=\"\",\"\",VLOOKUP(C17,'{sheet}'!C16:R116,{column},0))"
+                cells[f'{col}{row}'] = Formula(f"=IF(C17=\"\",\"\",VLOOKUP(C17,'{sheet}'!C16:R116,{column},0))")
     if name == 'SF9_G11_ACADEMIC':
         cells.update({f'L{row}': _points(row) for row in (41, 42, 43)})
         cells['J44'] = _average('J33:J39,J41:J43', 8, points='L44/I44')
@@ -84,10 +85,10 @@ def _senior_cells(name):
         cells['J41'] = _average('J31:J39', 9, points='L41/I41')
     elif name == 'SF9_G12_TECHPRO':
         cells.update({f'L{row}': _points(row) for row in range(31, 34)})
-        cells.update({'I36': '=SUM(I31:I33)', 'L36': '=SUM(L31:L33)', 'J36': _average('J31:J33', 3, points='L36/I36')})
+        cells.update({'I36': Formula('=SUM(I31:I33)'), 'L36': Formula('=SUM(L31:L33)'), 'J36': _average('J31:J33', 3, points='L36/I36')})
     elif name == 'SF9_G12_TECHPRO_CROSS':
         cells.update({f'L{row}': _points(row) for row in range(31, 37)})
-        cells.update({'I38': '=SUM(I31:I36)', 'J38': _average('J31:J36', 6, points='L38/I38')})
+        cells.update({'I38': Formula('=SUM(I31:I36)'), 'J38': _average('J31:J36', 6, points='L38/I38')})
     return cells
 
 
@@ -101,20 +102,20 @@ def _card_cells(name):
     elif name == 'SF9_G4_10':
         cells = {'I42': _average('I32:I39', 8)}
     elif name == 'SF9_G1':
-        cells = {'Q26': "=VLOOKUP(D15,'G1 - ATTENDANCE SUMMARY'!C13:Q113,5,0)"}
+        cells = {'Q26': Formula("=VLOOKUP(D15,'G1 - ATTENDANCE SUMMARY'!C13:Q113,5,0)")}
     elif name == 'SF9_KINDER':
-        cells = {'O64': "=IFERROR(VLOOKUP($E$18,'TERM 1 SUMMARY'!$C$16:$BU$114,71,FALSE()),\"\")"}
+        cells = {'O64': Formula("=IFERROR(VLOOKUP($E$18,'TERM 1 SUMMARY'!$C$16:$BU$114,71,FALSE()),\"\")")}
         for row, column in zip(range(82, 94), range(4, 16)):
-            cells[f'P{row}'] = f"=IFERROR(VLOOKUP($E$18,'KINDER - ATTENDANCE RECORD SUMM'!$C$13:$Q$113,{column},FALSE()),\"\")"
+            cells[f'P{row}'] = Formula(f"=IFERROR(VLOOKUP($E$18,'KINDER - ATTENDANCE RECORD SUMM'!$C$13:$Q$113,{column},FALSE()),\"\")")
     else:
         cells = _senior_cells(name)
     if name == 'SF9_G11_TECHPRO' or name.startswith('SF9_G12'):
         pick, row = ('C17', 7) if name == 'SF9_G11_TECHPRO' else ('C15', 5)
         for card, column in zip(('R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB'), range(4, 15)):
-            cells[f'{card}{row}'] = f"=IF({pick}=\"\",\"\",IFERROR(VLOOKUP({pick},'{ATTENDANCE}'!$C$14:$P$114,{column},0),\"\"))"
+            cells[f'{card}{row}'] = Formula(f"=IF({pick}=\"\",\"\",IFERROR(VLOOKUP({pick},'{ATTENDANCE}'!$C$14:$P$114,{column},0),\"\"))")
     if name in ('SF9_G2', 'SF9_G3', 'SF9_G4_10'):     # class days, linked as in the Senior High files
         for card, sheet in zip(('R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'AA', 'AB'), 'FGHIJKLMNOP'):
-            cells[f'{card}5'] = f"='{ATTENDANCE}'!{sheet}117"
+            cells[f'{card}5'] = Formula(f"='{ATTENDANCE}'!{sheet}117")
     return cells
 
 
@@ -160,7 +161,7 @@ class Command(BaseCommand):
             edits[attendance].update({f'C{r}': None for r in list(range(13, 63)) + list(range(64, 114)) if book[attendance][f'C{r}'].value})
         elif name.startswith(('SF9_G11_TECHPRO', 'SF9_G12')):
             for n in range(1, 51):                     # the female names, from INPUT DATA's female list
-                edits[attendance][f'C{64 + n}'] = f"=IF('INPUT DATA'!Q{10 + n}=\"\",\"\",'INPUT DATA'!Q{10 + n})"
+                edits[attendance][f'C{64 + n}'] = Formula(f"=IF('INPUT DATA'!Q{10 + n}=\"\",\"\",'INPUT DATA'!Q{10 + n})")
         for col in 'LMNQRST':
             edits['INPUT DATA'].update({f'{col}{r}': None for r in range(11, 61) if book['INPUT DATA'][f'{col}{r}'].value is not None})
         data = xlsx_patch.patch(data, edits, unshare=[card, attendance] + summaries)

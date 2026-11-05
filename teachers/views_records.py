@@ -17,6 +17,7 @@ from communication.notify import notify, school_registrars
 from core import grading_policy as policy
 from core import periods as P
 from core.caching import bump_data_version
+from core.xlsx import csv_safe
 from grades import ecr
 from scheduling.models import ClassAssignment
 
@@ -298,7 +299,7 @@ def class_csv(request, assignment_id):
     writer = csv.writer(response)
     writer.writerow(['LRN', 'Learner', 'Sex', f'{P.word(assignment.section.school, [period] if period else ()).replace("Quarter", "Quarterly")} grade'])
     for p in R.roster(assignment, include_inactive=False):
-        writer.writerow([p['lrn'], R.display_name(p), p['sex'], ''])
+        writer.writerow([csv_safe(p['lrn']), csv_safe(R.display_name(p)), csv_safe(p['sex']), ''])
     return response
 
 
