@@ -7,7 +7,8 @@
     var advice = document.getElementById('adviceList'), poroSrc = document.getElementById('poroSrc'), poroSwitch = document.getElementById('poroSwitch');
     if (advice && advice.dataset.url) {
         var poroUrl = advice.dataset.url, tries = 0, showing = 'ai', fields = {};
-        advice.querySelectorAll('[data-poro]').forEach(function (p) { fields[p.dataset.poro] = { el: p, rules: p.textContent, ai: null }; });
+        // every recommendation on the page, in the card and elsewhere (the teacher home's learners below 75)
+        document.querySelectorAll('[data-poro]').forEach(function (p) { fields[p.dataset.poro] = { el: p, rules: p.textContent, ai: null }; });
         var put = function (f, text) {
             if (f.el.textContent === text) return;
             f.el.classList.add('fading');

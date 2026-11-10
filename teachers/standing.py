@@ -24,6 +24,9 @@ from grades.models import GradeComponent
 from heads import forecasts, insights, poro
 
 from . import records as R
+from . import remedial
+
+URGENT = 70         # a learner this far below the passing mark gets remediation starting this week, not just twice a week
 
 # what each step asks for, in a few words, for Poro's facts (the School Head's are in heads/insights.STEP_WORDS)
 STEP_WORDS = {
@@ -127,6 +130,30 @@ def main_decision(found, *, reader, scope, who, average, overall, next_period_na
     return main, others
 
 
+def learner_subject(r, subject):
+    """One subject a learner is below 75 in: the grade, the three component scores with the weakest marked, and what
+    to do for them in that subject (teachers/remedial.py). r: a grade row with grade, ww, pt and qa."""
+    abbr = {k: a for k, _, a in policy.components()}
+    mine = {k: float(r[k]) for k in ('ww', 'pt', 'qa') if r[k] is not None}
+    weak = min(mine, key=mine.get) if mine else None
+    grade = round(float(r['grade']), 1)
+    urgent = grade < URGENT
+    return {'key': f's{subject.id}', 'subject': subject.id, 'name': subject.subject_name, 'code': subject.subject_code, 'grade': grade,
+            'parts': [{'abbr': abbr[k], 'value': round(mine[k]) if k in mine else None, 'weak': k == weak} for k in ('ww', 'pt', 'qa')],
+            'weak': weak or '', 'weak_name': remedial.component_name(weak) if weak else '', 'urgent': urgent,
+            'text': remedial.learner_advice(subject, weak, urgent=urgent)}
+
+
+def learner_facts(entry, subject):
+    """What Poro is told about one learner in one subject: no name, no grade, only where they stand and what helps."""
+    key = entry['weak'] or None
+    return {'about': f'one learner below the passing mark in {insights._wordy(subject.subject_name)}', 'names': [subject.subject_name],
+            'level': level_of(entry['grade'])['name'], 'target': '', 'goal': 'reach the passing mark', 'kind': 'remediate',
+            'step': 'remediation in a small group or one on one' + (' starting this week' if entry['urgent'] else ' twice a week')
+            + ', with a short check each week', 'weak_key': key or '', 'weak': remedial.component_name(key) if key else '',
+            'tip': remedial.activity(subject, key) if key else '', 'order': policy.current()['name'], 'reader': 'teacher'}
+
+
 def poro_token(main, found, items, reader):
     """The token Poro AI writes the recommendations under, or '' when there are none (heads/poro.py)."""
     names = [i['name'] for i in items]
@@ -171,7 +198,7 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
     pairs = {(a.section_id, a.subject_id) for a in assignments}
     subjects = {a.subject_id: a.subject for a in assignments}
     sections = {a.section_id: a.section for a in assignments}
-    if reader == 'adviser':
+    if len(sections) == 1:              # one section (the advisory class, or one the teacher teaches): its subjects
         item_word = 'subject'
         key_of = lambda r: r['subject_id']
         name_of = lambda k: subjects[k].subject_name
@@ -187,7 +214,9 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
     base = GradeComponent.objects.filter(P.HAS_GRADE, enrollment__school_year=sy, enrollment__status__in=R.ACTIVE,
                                          enrollment__section_id__in=sections, subject_id__in=subjects)
     rows = [r for r in base.filter(quarter=period).values(
-        'enrollment__student_id', 'enrollment__section_id', 'subject_id', grade=P.GRADE,
+        'enrollment_id', 'enrollment__student_id', 'enrollment__section_id', 'subject_id', 'enrollment__student__last_name',
+        'enrollment__student__first_name', 'enrollment__student__middle_name', 'enrollment__student__lrn',
+        'enrollment__section__section_name', grade=P.GRADE,
         ww=F('written_work_percent'), pt=F('performance_task_percent'), qa=F('quarterly_assessment_percent'))
         if (r['enrollment__section_id'], r['subject_id']) in pairs]
     if not rows:
@@ -211,6 +240,7 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
         items.append({'name': name_of(k), 'short': short_of(k), 'topic': topic_of(k), 'average': avg, 'level': level_of(avg), **parts,
                       'weak': insights.weakest(parts), 'below': sum(1 for x in g['grades'] if x < PASSING)})
 
+
     grades = whole['grades']
     average = mean(grades)
     delta = round(average - mean(prev_grades), 1) + 0.0 if prev_grades else None
@@ -225,12 +255,19 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
     main, found = main_decision(found, reader=reader, scope=scope, who=who, average=status['average'],
                                 overall=_parts(whole), next_period_name=P.name(after))
 
+    # "See learners below 75" sits on the recommendations for the failing levels; with none, on the main one
+    below = below_learners(rows, subjects, many_sections=len(sections) > 1)
+    for d in ([main] if main else []) + found:
+        d['below_link'] = bool(below) and d['urgent']
+    if below and main and not any(d['below_link'] for d in [main] + found):
+        main['below_link'] = True
+
     # the averages over the school year and what comes next, one line per item and the whole scope in ink
     spec = None
     table, meta = forecasts.year_table(school, sy)
     keys = [k for k, v in table.items() if (v['section'], v['subject']) in pairs]
     if keys:
-        if reader == 'adviser':
+        if len(sections) == 1:
             order = sorted(subjects, key=lambda s: subjects[s].subject_code)
             series = [{'key': f'subject-{s}', 'name': subjects[s].subject_name,
                        'keys': [k for k in keys if table[k]['subject'] == s]} for s in order]
@@ -244,4 +281,26 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
         spec['word'] = item_word
     return {'status': status, 'items': items, 'ladder': ladder(items), 'main': main, 'decisions': found,
             'forecast': spec if spec and spec['series'] else None, 'poro_token': poro_token(main, found, items, reader),
-            'item_word': item_word}
+            'item_word': item_word, 'below_learners': below,
+            'below_subjects': sorted({(s['code'], s['name']) for l in below for s in l['subjects']}, key=lambda c: c[1])}
+
+
+def below_learners(rows, subjects, *, many_sections=False):
+    """Every learner below 75 in at least one subject of the scope, the most subjects first, then the lowest grade: who
+    they are and each subject they are below in (learner_subject). Poro writes its advice when a learner is opened
+    (teachers/views.learner_advice)."""
+    by = defaultdict(list)
+    for r in rows:
+        if float(r['grade']) < PASSING:
+            by[r['enrollment_id']].append(r)
+    out = []
+    for enrollment, found in by.items():
+        r = found[0]
+        middle = (r['enrollment__student__middle_name'] or '').strip()
+        entries = sorted((learner_subject(x, subjects[x['subject_id']]) for x in found), key=lambda s: s['grade'])
+        out.append({'id': enrollment, 'lrn': r['enrollment__student__lrn'] or '',
+                    'name': f"{r['enrollment__student__last_name']}, {r['enrollment__student__first_name']}" + (f' {middle[0]}.' if middle else ''),
+                    'section': r['enrollment__section__section_name'] if many_sections else '', 'subjects': entries,
+                    'lowest': entries[0]['grade']})
+    out.sort(key=lambda l: (-len(l['subjects']), l['lowest'], l['name']))
+    return out

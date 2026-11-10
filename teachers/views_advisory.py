@@ -77,7 +77,6 @@ def section_grades(school, sy, periods, period, section, assignments):
 
     return {
         'columns': columns, 'learners': learners, 'components': policy.components(),
-        'below_learners': sum(1 for l in learners if l['below']),
         'record': {'word': P.word(school, periods), 'periods': [{'label': p.quarter_label, 'name': P.name(p)} for p in periods],
                    'period': period.quarter_label if period else '', 'learners': record,
                    'people': [{'name': l['name'], 'lrn': l['lrn'], 'sex': l['sex']} for l in learners]},

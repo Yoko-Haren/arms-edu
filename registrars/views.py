@@ -168,7 +168,7 @@ def _assign_class(section, subject, teacher, current_sy, created_by=None):
 @registrar_required
 @cache_page_for_user()
 def dashboard(request):
-    """What needs the registrar now, where the grading period stands, and the school's numbers."""
+    """Where the grading period's grades stand (overall and by grade level) and what needs the registrar now."""
     school = request.user.profile.school
     current_sy = _current_school_year(school)
 
@@ -191,7 +191,7 @@ def dashboard(request):
     periods = list(Quarter.objects.filter(school_year=current_sy).order_by('quarter_number')) if current_sy else []
     current_period = P.current(periods)
     rows = _grade_overview(school, current_sy, current_period, periods) if current_period else []
-    recent = Enrollment.objects.filter(section__school=school, school_year=current_sy)         .select_related('student', 'section', 'section__grade_level').order_by('-created_at')[:8] if current_sy else []
+    summary = registrar_dashboard.period_summary(current_period, rows)
 
     return render(request, 'registrars/dashboard.html', {
         'school': school,
@@ -199,10 +199,16 @@ def dashboard(request):
         'current_period': current_period,
         'current_period_name': P.name(current_period),
         'numbers': numbers,
-        'period': registrar_dashboard.period_summary(current_period, rows),
+        'period': summary,
+        'ring': registrar_dashboard.ring(summary),
+        'enrolled': registrar_dashboard.enrollment_by_grade(school, current_sy) if current_sy else [],
+        'waiting': sum(1 for r in rows if r['state'] in ('not_started', 'encoding', 'ready')),
+        'returned': sum(1 for r in rows if r['state'] == 'returned'),
         'ready_to_validate': sum(1 for r in rows if r['state'] == 'submitted') if current_period and not current_period.is_grades_locked else 0,
         'todo': registrar_dashboard.todo(current_period, rows, numbers),
-        'recent_enrollments': recent,
+        'grade_levels': registrar_dashboard.by_grade_level(rows),
+        'encode_days': P.deadline_info(current_period) if current_period else (None, False),
+        'validate_days': P.deadline_info(current_period, field='grade_validation_deadline') if current_period else (None, False),
     })
 
 

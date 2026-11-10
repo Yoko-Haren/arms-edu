@@ -6,32 +6,77 @@
 
 {% block extra_css %}
 <style>
-    .db-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
-    @media (max-width: 1100px) { .db-grid { grid-template-columns: 1fr; } }
-    .todo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-    .todo li { display: flex; gap: 0.7rem; align-items: flex-start; padding: 0.65rem 0; border-top: 1px solid #f0f3f7; }
-    .todo li:first-child { border-top: 0; padding-top: 0.1rem; }
+    /* The registrar's home: where this period's grades stand, what needs doing, and the school by grade level.
+       Shared portal look: static/shared/css/portal-pages.css. */
+    .rd-top { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr); gap: 1rem; align-items: stretch; }
+    .rd-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+    @media (max-width: 1100px) { .rd-top, .rd-two { grid-template-columns: 1fr; } }
+    .rd-card { padding: 1.15rem 1.3rem; }
+    .rd-card h3 { margin: 0; }
+    .rd-head { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; margin-bottom: 0.9rem; }
+    .rd-head .btn { flex-shrink: 0; }
+    .eyebrow { font-size: 0.7rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* the period's grades: one ring, the deadlines, three numbers and the next step */
+    .rd-status-main { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 1.3rem; align-items: center; margin-top: 0.7rem; }
+    @media (max-width: 560px) { .rd-status-main { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
+    .ring { width: 150px; height: 150px; display: block; }
+    .ring .track { fill: none; stroke: #edf1f7; stroke-width: 15; }
+    .ring .arc { fill: none; stroke-width: 15; }
+    .ring .pct { font-size: 24px; font-weight: 750; fill: var(--ink); font-variant-numeric: tabular-nums; }
+    .ring .lbl { font-size: 11px; font-weight: 600; fill: var(--muted); }
+    .rd-big { font-size: 1.35rem; font-weight: 750; color: var(--ink); line-height: 1.25; letter-spacing: -0.01em; }
+    .rd-big small { font-size: 0.95rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+    .rd-due { font-size: 0.82rem; color: var(--muted); margin-top: 0.3rem; }
+    .rd-due b { color: var(--ink); }
+    .rd-due .late { color: var(--risk); font-weight: 650; }
+    .rd-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin: 0.9rem 0; }
+    .rd-fact { background: var(--soft); border-radius: 12px; padding: 0.6rem 0.75rem; text-decoration: none; color: var(--ink); display: block;
+               transition: box-shadow 0.15s; }
+    a.rd-fact:hover { box-shadow: inset 0 0 0 1.5px #c7d2e6; }
+    .rd-fact b { display: block; font-size: 1.2rem; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .rd-fact span { font-size: 0.74rem; color: var(--muted); }
+    .rd-fact.good b { color: var(--brand); } .rd-fact.risk b { color: var(--risk); } .rd-fact.warn b { color: var(--warn); }
+    .legend { list-style: none; margin: 0.9rem 0 0; padding: 0.75rem 0 0; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap;
+              gap: 0.35rem 1.1rem; font-size: 0.78rem; color: var(--muted); }
+    .legend li { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+    /* what needs the registrar */
+    .todo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+    .todo a { display: flex; gap: 0.7rem; align-items: center; padding: 0.6rem 0.7rem; border: 1px solid var(--line); border-radius: 12px;
+              text-decoration: none; color: var(--ink); transition: border-color 0.15s, background 0.15s; }
+    .todo a:hover { border-color: #b9c4d6; background: #fafbff; }
+    .todo a::after { content: '\203A'; margin-left: auto; color: var(--muted); font-size: 1.1rem; padding-left: 0.3rem; }
     .todo .ico { width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
                  background: var(--info-bg); color: var(--info); font-size: 0.9rem; }
-    .todo li.risk .ico { background: var(--risk-bg); color: var(--risk); }
-    .todo li.warn .ico { background: var(--warn-bg); color: var(--warn); }
-    .todo li.good .ico { background: var(--good-bg); color: var(--good); }
-    .todo li.muted .ico { background: var(--soft); color: var(--muted); }
-    .todo a { font-weight: 650; font-size: 0.88rem; color: var(--ink); text-decoration: none; }
-    .todo a:hover { color: var(--brand); text-decoration: underline; }
-    .todo small { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
-    .stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #edf1f7; margin: 0.4rem 0 0.8rem; }
-    .stack i { display: block; height: 100%; }
-    .legend { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 1rem; font-size: 0.82rem; }
-    .legend li { display: flex; align-items: center; gap: 0.45rem; }
-    .legend i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-    .legend b { margin-left: auto; font-variant-numeric: tabular-nums; }
-    .due { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.9rem; }
-    .due div { background: var(--soft); border-radius: 12px; padding: 0.6rem 0.75rem; }
-    .due small { display: block; font-size: 0.68rem; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .due b { font-size: 0.86rem; }
-    .recent .table td { white-space: nowrap; }
-    .recent .table td.name { white-space: normal; }
+    .todo .risk .ico { background: var(--risk-bg); color: var(--risk); }
+    .todo .warn .ico { background: var(--warn-bg); color: var(--warn); }
+    .todo .good .ico { background: var(--good-bg); color: var(--good); }
+    .todo .muted .ico { background: var(--soft); color: var(--muted); }
+    .todo b { display: block; font-size: 0.86rem; font-weight: 650; }
+    .todo small { display: block; font-size: 0.74rem; color: var(--muted); margin-top: 0.05rem; }
+    .done-all { text-align: center; color: var(--muted); font-size: 0.86rem; padding: 2rem 0.5rem; }
+    .done-all i { display: block; font-size: 1.8rem; color: var(--good); margin-bottom: 0.4rem; }
+
+    /* by grade level: grades (stacked by state) and learners (one bar each) */
+    .lv-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .lv-rows li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 6.5rem; gap: 0.8rem; align-items: center; font-size: 0.82rem; }
+    .lv-rows .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lv-rows .bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: #edf1f7; gap: 2px; }
+    .lv-rows .bar i { display: block; height: 100%; }
+    .lv-rows .bar i:last-child { border-radius: 0 6px 6px 0; }
+    .lv-rows .ct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .lv-rows .ct b { color: var(--ink); }
+    .lv-rows .ct.done b { color: var(--good); }
+    .lv-rows .one { background: #2a78d6; border-radius: 6px; }
+    .lv-note { font-size: 0.74rem; color: var(--muted); margin: 0.8rem 0 0; }
+    .rd-due .nw { white-space: nowrap; }
+    @media (max-width: 560px) {
+        .lv-rows li { grid-template-columns: 5.6rem minmax(0, 1fr) auto; gap: 0.6rem; }
+        .lv-rows .ct .w { display: none; }
+    }
 </style>
 {% endblock %}
 
@@ -39,7 +84,7 @@
 <div class="tp">
     <section class="card tp-head">
         <div>
-            <h2><i class="fi fi-rr-dashboard" style="color:#123499;"></i> {% if current_sy %}SY {{ current_sy.year_label }} at a glance{% else %}Dashboard{% endif %}</h2>
+            <h2><i class="fi fi-rr-dashboard" style="color:#123499;"></i> {% if current_sy %}SY {{ current_sy.year_label }}{% if current_period_name %} &middot; {{ current_period_name }}{% endif %}{% else %}Dashboard{% endif %}</h2>
             <p class="hint">{% if current_sy %}{{ numbers.students }} learner{{ numbers.students|pluralize }} in {{ numbers.sections }} section{{ numbers.sections|pluralize }} &middot; {{ numbers.teachers }} teacher{{ numbers.teachers|pluralize }} &middot; {{ numbers.classes }} class{{ numbers.classes|pluralize:"es" }}{% else %}There is no current school year yet. Your system administrator sets it.{% endif %}</p>
         </div>
         <div class="actions">
@@ -48,68 +93,94 @@
         </div>
     </section>
 
-    <div class="db-grid">
-        <section class="card panel" aria-labelledby="todoTitle">
-            <div class="panel-head"><h3 id="todoTitle"><i class="fi fi-rr-checkbox" style="color:#123499;"></i> To do</h3></div>
-            {% if todo %}
-            <ul class="todo">
-                {% for t in todo %}
-                <li class="{{ t.tone }}"><span class="ico"><i class="fi {{ t.icon }}"></i></span>
-                    <div><a href="{{ t.url }}">{{ t.title }}</a><small>{{ t.detail }}</small></div></li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="empty"><i class="fi fi-rr-badge-check"></i>You are all caught up. No class is waiting for you, and every section and teacher is set.</p>
-            {% endif %}
-        </section>
-
-        <section class="card panel" aria-labelledby="gradesTitle">
-            <div class="panel-head"><h3 id="gradesTitle"><i class="fi fi-rr-shield-check" style="color:#123499;"></i> {% if period.name %}{{ period.name }} grades{% else %}Grades{% endif %}</h3>
-                <a class="btn btn-ghost btn-sm" href="{% url 'registrars:grade_validation' %}">Grade validation <i class="fi fi-rr-angle-small-right"></i></a></div>
+    <div class="rd-top">
+        <section class="card rd-card" aria-labelledby="grTitle">
+            <span class="eyebrow" id="grTitle">{% if period.name %}{{ period.name }} grades{% else %}Grades{% endif %}</span>
             {% if period.total %}
-            <p class="hint" style="margin:0;"><b>{{ period.done }} of {{ period.total }}</b> class{{ period.total|pluralize:"es" }} validated{% if period.locked %}; the period is locked{% endif %}.</p>
-            <div class="stack" role="img" aria-label="{% for s in period.states %}{{ s.label }}: {{ s.count }}{% if not forloop.last %}, {% endif %}{% endfor %}">
-                {% for s in period.states %}<i style="width:{{ s.percent }}%;background:{{ s.color }}" title="{{ s.label }}: {{ s.count }}"></i>{% endfor %}
+            <div class="rd-status-main">
+                <svg class="ring" viewBox="0 0 140 140" role="img" aria-label="{% for a in ring.arcs %}{{ a.label }}: {{ a.count }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                    <circle class="track" cx="70" cy="70" r="{{ ring.r }}"></circle>
+                    <g transform="rotate(-90 70 70)">
+                        {% for a in ring.arcs %}<circle class="arc" cx="70" cy="70" r="{{ ring.r }}" stroke="{{ a.color }}" stroke-dasharray="{{ a.dash }}" stroke-dashoffset="{{ a.offset }}"><title>{{ a.label }}: {{ a.count }}</title></circle>{% endfor %}
+                    </g>
+                    <text class="pct" x="70" y="72" text-anchor="middle">{{ ring.percent }}%</text>
+                    <text class="lbl" x="70" y="91" text-anchor="middle">{% if period.locked %}finalized{% else %}validated{% endif %}</text>
+                </svg>
+                <div>
+                    <div class="rd-big">{{ period.done }} <small>of {{ period.total }} class{{ period.total|pluralize:"es" }} {% if period.locked %}finalized{% else %}validated{% endif %}</small></div>
+                    {% if period.locked %}
+                    <div class="rd-due">{{ period.name }} is locked; its grades are final.</div>
+                    {% else %}
+                    <div class="rd-due"><span class="nw">Teachers submit by <b>{{ current_period.grade_encoding_deadline|date:"M j"|default:"no deadline" }}</b>{% if encode_days.0 is not None %} <span class="{% if encode_days.1 %}late{% endif %}">({% if encode_days.1 %}passed{% elif encode_days.0 == 0 %}today{% else %}in {{ encode_days.0 }} day{{ encode_days.0|pluralize }}{% endif %})</span>{% endif %}</span>
+                        &middot; <span class="nw">you validate by <b>{{ current_period.grade_validation_deadline|date:"M j"|default:"no deadline" }}</b>{% if validate_days.0 is not None %} <span class="{% if validate_days.1 %}late{% endif %}">({% if validate_days.1 %}passed{% elif validate_days.0 == 0 %}today{% else %}in {{ validate_days.0 }} day{{ validate_days.0|pluralize }}{% endif %})</span>{% endif %}</span></div>
+                    <div class="rd-facts">
+                        <a class="rd-fact {% if ready_to_validate %}good{% endif %}" href="{% url 'registrars:grade_validation' %}?period={{ current_period.id }}&amp;show=submitted"><b>{{ ready_to_validate }}</b><span>Ready for you</span></a>
+                        <a class="rd-fact {% if waiting %}warn{% endif %}" href="{% url 'registrars:grade_validation' %}?period={{ current_period.id }}"><b>{{ waiting }}</b><span>With the teachers</span></a>
+                        <a class="rd-fact {% if returned %}risk{% endif %}" href="{% url 'registrars:grade_validation' %}?period={{ current_period.id }}&amp;show=returned"><b>{{ returned }}</b><span>Returned</span></a>
+                    </div>
+                    {% endif %}
+                    {% if ready_to_validate %}
+                    <a class="btn btn-main" href="{% url 'registrars:grade_validation' %}?period={{ current_period.id }}&amp;show=submitted"><i class="fi fi-rr-shield-check"></i> Validate {{ ready_to_validate }} class{{ ready_to_validate|pluralize:"es" }}</a>
+                    {% else %}
+                    <a class="btn btn-line" href="{% url 'registrars:grade_validation' %}"><i class="fi fi-rr-shield-check"></i> Open grade validation</a>
+                    {% endif %}
+                </div>
             </div>
             <ul class="legend">
-                {% for s in period.states %}<li><i style="background:{{ s.color }}"></i>{{ s.label }}<b>{{ s.count }}</b></li>{% endfor %}
+                {% for a in ring.arcs %}<li><i style="background:{{ a.color }}"></i>{{ a.label }} <b>{{ a.count }}</b></li>{% endfor %}
             </ul>
-            {% if not period.locked %}
-            <div class="due">
-                <div><small>Teachers submit by</small><b>{{ current_period.grade_encoding_deadline|date:"M j, Y"|default:"No deadline" }}</b></div>
-                <div><small>Validate by</small><b>{{ current_period.grade_validation_deadline|date:"M j, Y"|default:"No deadline" }}</b></div>
-            </div>
-            {% endif %}
             {% else %}
             <p class="empty"><i class="fi fi-rr-chalkboard-user"></i>{% if current_period %}No classes yet. They appear once sections have teachers.{% else %}No grading period is open.{% endif %}</p>
             {% endif %}
         </section>
+
+        <section class="card rd-card" aria-labelledby="todoTitle">
+            <div class="rd-head"><h3 id="todoTitle"><i class="fi fi-rr-checkbox" style="color:#123499;"></i> To do</h3></div>
+            {% if todo %}
+            <ul class="todo">
+                {% for t in todo %}
+                <li class="{{ t.tone }}"><a href="{{ t.url }}"><span class="ico"><i class="fi {{ t.icon }}"></i></span><span><b>{{ t.title }}</b><small>{{ t.detail }}</small></span></a></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="done-all"><i class="fi fi-rr-badge-check"></i>You are all caught up.</p>
+            {% endif %}
+        </section>
     </div>
 
-    <section class="card panel recent" aria-labelledby="recentTitle">
-        <div class="panel-head"><h3 id="recentTitle"><i class="fi fi-rr-time-past" style="color:#123499;"></i> Recently enrolled</h3>
-            <a class="btn btn-ghost btn-sm" href="{% url 'registrars:section_list' %}">All sections <i class="fi fi-rr-angle-small-right"></i></a></div>
-        {% if recent_enrollments %}
-        <div style="overflow-x:auto;">
-            <table class="table">
-                <thead><tr><th>Learner</th><th>LRN</th><th>Section</th><th>Status</th><th>Enrolled</th></tr></thead>
-                <tbody>
-                    {% for e in recent_enrollments %}
-                    <tr>
-                        <td class="name"><b>{{ e.student.last_name }}</b>, {{ e.student.first_name }}</td>
-                        <td class="mono muted">{{ e.student.lrn|default:"—" }}</td>
-                        <td><a href="{% url 'registrars:section_detail' e.section_id %}" style="color:var(--ink);text-decoration:none;font-weight:600;">{{ e.section.grade_level.grade_name }} {{ e.section.section_name }}</a></td>
-                        <td>{% if e.status == 'Enrolled' or e.status == 'Transferred_In' %}<span class="pill good">{% if e.status == 'Enrolled' %}Enrolled{% else %}Transferred in{% endif %}</span>{% else %}<span class="pill risk">{{ e.status|cut:"_" }}</span>{% endif %}</td>
-                        <td class="muted">{{ e.created_at|date:"M j, Y" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="empty"><i class="fi fi-rr-folder-open"></i>No learners enrolled yet. Upload a section's SF1 (School Register) to enroll its learners.
-            {% if current_sy %}<span style="display:block;margin-top:0.8rem;"><a class="btn btn-main" href="{% url 'registrars:upload_class_list' %}"><i class="fi fi-rr-user-add"></i> Enroll from SF1</a></span>{% endif %}</p>
+    {% if current_sy %}
+    <div class="rd-two">
+        {% if grade_levels %}
+        <section class="card rd-card" aria-labelledby="lvTitle">
+            <div class="rd-head"><h3 id="lvTitle"><i class="fi fi-rr-stats" style="color:#123499;"></i> {{ period.name }} grades by grade level</h3>
+                <a class="btn btn-ghost btn-sm" href="{% url 'registrars:grade_validation' %}">Open <i class="fi fi-rr-angle-small-right"></i></a></div>
+            <ul class="lv-rows">
+                {% for g in grade_levels %}
+                <li><span class="nm">{{ g.name }}</span>
+                    <span class="bar" role="img" aria-label="{{ g.name }}: {% for s in g.states %}{{ s.label }} {{ s.count }}{% if not forloop.last %}, {% endif %}{% endfor %}">{% for s in g.states %}<i style="width:{{ s.percent }}%;background:{{ s.color }}" title="{{ s.label }}: {{ s.count }}"></i>{% endfor %}</span>
+                    <span class="ct{% if g.done == g.total %} done{% endif %}"><b>{{ g.done }}</b> of {{ g.total }}<span class="w"> validated</span></span></li>
+                {% endfor %}
+            </ul>
+            <p class="lv-note">Colors as in the ring above.</p>
+        </section>
         {% endif %}
-    </section>
+
+        <section class="card rd-card" aria-labelledby="enTitle">
+            <div class="rd-head"><h3 id="enTitle"><i class="fi fi-rr-graduation-cap" style="color:#123499;"></i> Learners by grade level</h3>
+                <a class="btn btn-ghost btn-sm" href="{% url 'registrars:learner_list' %}">Learners <i class="fi fi-rr-angle-small-right"></i></a></div>
+            {% if enrolled %}
+            <ul class="lv-rows">
+                {% for g in enrolled %}
+                <li><span class="nm">{{ g.name }}</span>
+                    <span class="bar" role="img" aria-label="{{ g.name }}: {{ g.total }} learners, {{ g.male }} male and {{ g.female }} female"><i class="one" style="width:{{ g.share }}%"></i></span>
+                    <span class="ct"><b>{{ g.total }}</b> &middot; {{ g.male }} M, {{ g.female }} F</span></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty"><i class="fi fi-rr-folder-open"></i>No learners enrolled yet. Upload a section's SF1 to enroll its learners.</p>
+            {% endif %}
+        </section>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

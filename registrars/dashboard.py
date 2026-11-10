@@ -30,6 +30,21 @@ def period_summary(period, rows):
     }
 
 
+def by_grade_level(rows):
+    """The period's classes by grade level, lowest grade first: [{name, total, done, states}] for one small bar each."""
+    levels = {}
+    for r in rows:
+        grade = r['assignment'].section.grade_level
+        levels.setdefault(grade.id, (grade.sort_order, grade.grade_name, []))[2].append(r)
+    out = []
+    for _, name, mine in sorted(levels.values(), key=lambda v: v[0]):
+        counts = {key: sum(1 for r in mine if r['state'] == key) for key, _, _ in STATES}
+        out.append({'name': name, 'total': len(mine), 'done': counts['validated'] + counts['locked'],
+                    'states': [{'label': label, 'color': color, 'count': counts[key], 'percent': round(counts[key] * 100 / len(mine), 1)}
+                               for key, label, color in STATES if counts[key]]})
+    return out
+
+
 def todo(period, rows, numbers):
     """What needs the registrar, most urgent first: [{tone, icon, title, detail, url}]."""
     items = []
@@ -70,3 +85,36 @@ def todo(period, rows, numbers):
                       'Upload their class lists to enroll the learners.', f'{reverse("registrars:section_list")}?show=empty'))
     items.sort(key=lambda i: i[0])
     return [{'tone': tone, 'icon': icon, 'title': title, 'detail': detail, 'url': url} for _, tone, icon, title, detail, url in items]
+
+
+RING_R = 52                         # the ring of the period's classes: radius in the 140-unit SVG, and the gap between parts
+RING_GAP = 2.5
+
+
+def ring(summary):
+    """The period's classes as arcs of one ring, in the order of STATES: [{color, label, count, dash, offset}]."""
+    import math
+    total, length = summary['total'], 2 * math.pi * RING_R
+    arcs, start = [], 0.0
+    for s in summary['states']:
+        size = length * s['count'] / total if total else 0
+        gap = RING_GAP if len(summary['states']) > 1 else 0
+        arcs.append({'color': s['color'], 'label': s['label'], 'count': s['count'],
+                     'dash': f'{max(size - gap, 0.1):.2f} {length:.2f}', 'offset': f'{-start:.2f}'})
+        start += size
+    return {'r': RING_R, 'arcs': arcs, 'percent': round(summary['done'] * 100 / total) if total else 0}
+
+
+def enrollment_by_grade(school, sy):
+    """Learners enrolled now, by grade level, lowest first: [{name, total, male, female, share}] (share of the largest)."""
+    from django.db.models import Count, Q
+    from enrollment.models import Enrollment
+
+    rows = (Enrollment.objects.filter(school_year=sy, section__school=school, status__in=('Enrolled', 'Transferred_In'))
+            .values('section__grade_level__grade_name', 'section__grade_level__sort_order')
+            .annotate(total=Count('id'), male=Count('id', filter=Q(student__sex='M')), female=Count('id', filter=Q(student__sex='F')))
+            .order_by('section__grade_level__sort_order'))
+    rows = list(rows)
+    top = max((r['total'] for r in rows), default=0)
+    return [{'name': r['section__grade_level__grade_name'], 'total': r['total'], 'male': r['male'], 'female': r['female'],
+             'share': round(r['total'] * 100 / top) if top else 0} for r in rows]

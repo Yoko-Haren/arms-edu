@@ -6,6 +6,7 @@ app_name = 'teachers'
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('api/poro/<str:token>/', views.poro_status, name='poro'),
+    path('api/learner-advice/', views.learner_advice, name='learner_advice'),
 
     # Class records: progress per grading period, uploads (check first, then save), submission
     path('class-records/', views_records.class_records, name='class_record_list'),

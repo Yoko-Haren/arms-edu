@@ -1,8 +1,8 @@
 {% extends 'teachers/base.html' %}
 {% load static %}
 
-{% block title %}{% if view == 'advisory' %}My Advisory{% else %}My Classes{% endif %}{% endblock %}
-{% block subtitle %}{% if view == 'advisory' %}My Advisory{% else %}My Classes{% endif %}{% if sy %} &bull; SY {{ sy.year_label }}{% endif %}{% if period_name %} &bull; {{ period_name }}{% endif %}{% endblock %}
+{% block title %}{% if advised %}My Advisory{% else %}My Classes{% endif %}{% endblock %}
+{% block subtitle %}{% if advised %}My Advisory{% else %}My Classes{% endif %}{% if sy %} &bull; SY {{ sy.year_label }}{% endif %}{% if period_name %} &bull; {{ period_name }}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'heads/css/head-portal.css' %}">
@@ -10,10 +10,7 @@
     /* The status, Poro AI's recommendations and the forecast share the School Head dashboard's look (head-portal.css). */
     .home-pick { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
     .home-pick select { width: auto; min-width: 9rem; }
-    .home-pick .seg a { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; font-size: 0.84rem; font-weight: 600;
-                        color: var(--muted); text-decoration: none; }
-    .home-pick .seg a[aria-current="page"] { background: var(--brand); color: #fff; }
-    .home-pick .seg a:not([aria-current="page"]):hover { background: #e8ecf1; color: var(--ink); }
+    .home-pick label { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; font-weight: 650; color: var(--muted); }
     .todo-line { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.7rem 1rem; text-decoration: none; color: var(--ink);
                  font-size: 0.86rem; border-left: 4px solid var(--brand); }
     .todo-line.risk { border-left-color: var(--risk); }
@@ -39,6 +36,51 @@
     .gtable tr[hidden] { display: none; }
     .gtable .lvl { font-size: 0.72rem; padding: 0.15rem 0.55rem; background: var(--lv-bg); color: var(--lv); }
 
+    /* "See learners below 75" on a failing level's recommendation, and the dialog it opens */
+    .below-link { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.15rem; font-size: 0.8rem;
+                  font-weight: 650; color: var(--risk); }
+    .below-link:hover { text-decoration: underline; }
+    .below-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+    .advice-list .below-link { margin: 0 0.85rem 0.7rem 2.75rem; }
+    .bm-card { width: min(1080px, 100%); }
+    .bm-split { display: grid; grid-template-columns: minmax(250px, 0.85fr) minmax(0, 1.6fr); gap: 1rem; align-items: start; }
+    .bm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; max-height: 62vh; overflow-y: auto; }
+    .bm-list li[hidden] { display: none; }
+    .bm-list button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; flex-direction: column; gap: 0.3rem;
+                      padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 12px; }
+    .bm-list button:hover { border-color: #b9c4d6; background: #fafbff; }
+    .bm-list button[aria-pressed="true"] { border-color: var(--brand); background: #f3f6ff; box-shadow: inset 3px 0 0 var(--brand); }
+    .bm-list button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+    .bm-who { font-size: 0.86rem; font-weight: 650; }
+    .bm-who small { font-weight: 500; color: var(--muted); margin-left: 0.3rem; }
+    .bm-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+    .bm-chip { font-size: 0.68rem; font-weight: 650; padding: 0.08rem 0.42rem; border-radius: 9px; background: var(--risk-bg); color: var(--risk); }
+    .bm-detail { border: 1px solid var(--line); border-radius: 14px; padding: 0.95rem 1.05rem; min-height: 12rem; }
+    .bm-empty { color: var(--muted); font-size: 0.86rem; text-align: center; padding: 2.5rem 1rem; }
+    .bm-empty i { display: block; font-size: 1.6rem; color: #a0aec0; margin-bottom: 0.4rem; }
+    .bm-detail h4 { margin: 0; font-size: 1rem; }
+    .bm-detail .bm-sub { font-size: 0.78rem; color: var(--muted); margin: 0.15rem 0 0.8rem; }
+    .bm-subj { border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.8rem; margin-top: 0.6rem; }
+    .bm-subj-head { display: flex; align-items: center; gap: 0.6rem; }
+    .bm-subj-head b { font-size: 0.88rem; flex: 1 1 auto; min-width: 0; }
+    .bm-parts { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.5rem 0 0.6rem; }
+    .bm-parts span { font-size: 0.74rem; padding: 0.15rem 0.5rem; border-radius: 9px; background: var(--soft); color: var(--muted); font-variant-numeric: tabular-nums; }
+    .bm-parts span.weak { background: var(--warn-bg); color: var(--warn); font-weight: 700; }
+    .bm-advice { display: flex; gap: 0.6rem; align-items: flex-start; background: #fcfdff; border-radius: 10px; box-shadow: inset 3px 0 0 var(--brand);
+                 padding: 0.55rem 0.7rem; }
+    .bm-advice img { width: 28px; height: 28px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+    .bm-advice p { margin: 0; font-size: 0.85rem; line-height: 1.6; transition: opacity 0.25s; }
+    .bm-advice p.fading { opacity: 0.35; }
+    .bm-src { font-size: 0.72rem; color: var(--muted); margin: 0.7rem 0 0; }
+    .bm-src.ai { color: var(--brand); font-weight: 600; }
+    .bm-detail .bm-back { display: none; }            /* phones only: back from a learner to the list */
+    @media (max-width: 760px) {
+        .bm-split { grid-template-columns: 1fr; }
+        .bm-split.showing .bm-list { display: none; }
+        .bm-split:not(.showing) .bm-detail { display: none; }
+        .bm-detail .bm-back { display: inline-flex; margin-bottom: 0.6rem; }
+    }
+
     /* a learner's record */
     .rec-table td.cur, .rec-table th.cur { background: #f3f6ff; }
     .rec-table tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
@@ -51,25 +93,24 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi {% if view == 'advisory' %}fi-rr-users-alt{% else %}fi-rr-chalkboard-user{% endif %}" style="color:#123499;"></i>
-                {% if view == 'advisory' %}My advisory: {{ scope }}{% else %}My classes{% endif %}</h2>
+                {% if view == 'advisory' %}My advisory: {{ scope }}{% elif view == 'section' %}{{ scope }}{% else %}My classes{% endif %}</h2>
         </div>
         <form method="get" class="home-pick" aria-label="Choose what to show">
-            {% if advised and has_classes %}
-            <div class="seg" role="group" aria-label="Show">
-                <a href="?view=advisory" {% if view == 'advisory' %}aria-current="page"{% endif %}>My advisory</a>
-                <a href="?view=classes" {% if view == 'classes' %}aria-current="page"{% endif %}>My classes</a>
-            </div>
-            {% endif %}
-            <input type="hidden" name="view" value="{{ view }}">
-            {% if view == 'advisory' and advised|length > 1 %}
-            <select name="section" aria-label="Section" data-go>
-                {% for s in advised %}<option value="{{ s.id }}" {% if s == section %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}
-            </select>
+            {% if advised or taught|length > 1 or taught and has_classes %}
+            <label>Section
+                <select name="section" data-go>
+                    {% if advised %}<optgroup label="My advisory">{% for s in advised %}<option value="{{ s.id }}" {% if s == section %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}</optgroup>{% endif %}
+                    {% if taught %}<optgroup label="Sections I teach">{% for s in taught %}<option value="{{ s.id }}" {% if s == section %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}</optgroup>{% endif %}
+                    {% if has_classes %}<option value="all" {% if view == 'classes' %}selected{% endif %}>All my classes</option>{% endif %}
+                </select>
+            </label>
             {% endif %}
             {% if periods %}
-            <select name="period" aria-label="Grading period" data-go>
-                {% for p in periods %}<option value="{{ p.id }}" {% if p == period %}selected{% endif %}>{{ p.quarter_label }}{% if p == current %} (current){% endif %}</option>{% endfor %}
-            </select>
+            <label>Period
+                <select name="period" data-go>
+                    {% for p in periods %}<option value="{{ p.id }}" {% if p == period %}selected{% endif %}>{{ p.quarter_label }}{% if p == current %} (current){% endif %}</option>{% endfor %}
+                </select>
+            </label>
             {% endif %}
             {% if view == 'advisory' %}<a class="btn btn-line" href="{% url 'teachers:school_forms' %}{% if section %}?section={{ section.id }}{% endif %}"><i class="fi fi-rr-document"></i> School forms</a>{% endif %}
         </form>
@@ -87,7 +128,7 @@
         <div class="dash-grid{% if not status %} solo{% endif %}">
             {% if status %}
             <section class="card status level-{{ status.level.key }}" aria-labelledby="statusTitle">
-                <span class="eyebrow">{% if view == 'advisory' %}Section status &middot; {{ scope }}{% else %}Your classes{% endif %} &middot; {{ period_name }}</span>
+                <span class="eyebrow">{% if view == 'advisory' %}Section status &middot; {{ scope }}{% elif view == 'section' %}Your classes in {{ scope }}{% else %}Your classes{% endif %} &middot; {{ period_name }}</span>
                 <div class="status-main">
                     <div class="status-badge" aria-hidden="true">{{ status.level.letter }}</div>
                     <div>
@@ -136,7 +177,7 @@
                     <img src="{% static 'shared/poro/Poro.png' %}" alt="" onerror="this.remove()">
                     <div>
                         <h3 id="adviceTitle">Poro AI recommends</h3>
-                        <p class="hint">What to do next, starting with {% if view == 'advisory' %}your section's{% else %}your classes'{% endif %} own level.</p>
+                        <p class="hint">What to do next, starting with {% if view == 'classes' %}your classes'{% else %}the section's{% endif %} own level.</p>
                     </div>
                 </div>
                 <div class="advice-body" id="adviceList"{% if poro_token %} data-url="{% url 'teachers:poro' poro_token %}"{% endif %}>
@@ -149,6 +190,7 @@
                         </div>
                         {% if main.items %}<small class="advice-for">{{ main.level.name }}: {% for i in main.items %}{{ i.name }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}</small>{% endif %}
                         <p data-poro="main">{{ main.text }}</p>
+                        {% if main.below_link %}<button type="button" class="below-link" data-below-open aria-haspopup="dialog" aria-controls="belowModal"><i class="fi fi-rr-users"></i> See learners below 75 ({{ below_learners|length }})</button>{% endif %}
                     </section>
                     {% endif %}
                     {% if decisions %}
@@ -165,6 +207,7 @@
                                     </span>
                                 </summary>
                                 <p data-poro="decision-{{ forloop.counter0 }}">{{ d.text }}</p>
+                                {% if d.below_link %}<button type="button" class="below-link" data-below-open aria-haspopup="dialog" aria-controls="belowModal"><i class="fi fi-rr-users"></i> See learners below 75 ({{ below_learners|length }})</button>{% endif %}
                             </details>
                         </li>
                         {% endfor %}
@@ -178,7 +221,7 @@
             </aside>
             {% else %}
             <section class="card empty-card" style="padding:1.1rem 1.25rem;">
-                <p class="hint">{% if view == 'advisory' %}No subject of {{ scope }} has {{ period_name|default:"grades" }} grades yet.{% else %}None of your classes has {{ period_name|default:"grades" }} grades yet.{% endif %} Choose another grading period above.</p>
+                <p class="hint">{% if view == 'advisory' %}No subject of {{ scope }} has {{ period_name|default:"grades" }} grades yet.{% elif view == 'section' %}Your classes in {{ scope }} have no {{ period_name|default:"grades" }} grades yet.{% else %}None of your classes has {{ period_name|default:"grades" }} grades yet.{% endif %} Choose another grading period above.</p>
             </section>
             {% endif %}
 
@@ -194,11 +237,51 @@
         {% if forecast %}{{ forecast|json_script:"homeForecast" }}{% endif %}
     </div>
 
+    {% if below_learners %}
+    <div class="tp-modal" id="belowModal" role="dialog" aria-modal="true" aria-labelledby="belowTitle" hidden>
+        <div class="tp-modal-card bm-card" tabindex="-1">
+            <div class="tp-modal-head">
+                <div><h3 id="belowTitle">Learners below 75 &middot; {{ period_name }}</h3>
+                    <p class="hint">{{ below_learners|length }} learner{{ below_learners|length|pluralize }}. Choose one to see what to do for them in each subject.</p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="tp-modal-tools toolbar">
+                <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="bmSearch" placeholder="Find a learner" aria-label="Find a learner"></label>
+                <label class="sort">Subject
+                    <select id="bmSubject">
+                        <option value="">All subjects</option>
+                        {% for code, name in below_subjects %}<option value="{{ code }}">{{ name }}</option>{% endfor %}
+                    </select>
+                </label>
+            </div>
+            <div class="tp-modal-body">
+                <div class="bm-split" id="bmSplit">
+                    <ul class="bm-list" id="bmList">
+                        {% for l in below_learners %}
+                        <li data-name="{{ l.name|lower }}" data-codes="{% for s in l.subjects %}{{ s.code }} {% endfor %}">
+                            <button type="button" data-learner-pick="{{ forloop.counter0 }}" aria-pressed="false">
+                                <span class="bm-who">{{ l.name }}{% if l.section %}<small>{{ l.section }}</small>{% endif %}</span>
+                                <span class="bm-chips">{% for s in l.subjects %}<span class="bm-chip">{{ s.code }} {{ s.grade|floatformat:"-1" }}</span>{% endfor %}</span>
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="bm-detail" id="bmDetail" aria-live="polite">
+                        <p class="bm-empty"><i class="fi fi-rr-hand-pointer"></i>Choose a learner on the left.</p>
+                    </div>
+                </div>
+                <p class="empty" id="bmNone" hidden>No learner matches.</p>
+            </div>
+        </div>
+    </div>
+    {{ below_learners|json_script:"belowData" }}
+    {% endif %}
+
     {% if section and status %}
     <section class="card panel" aria-labelledby="gradesTitle">
         <div class="panel-head">
             <div><h3 id="gradesTitle"><i class="fi fi-rr-table-list" style="color:#123499;"></i> Learners &middot; {{ period_name }}</h3>
-                <p class="hint">Open a learner for every subject and period.</p></div>
+                <p class="hint">{% if view == 'section' %}Your subjects in this section. {% endif %}Open a learner for every subject and period.</p></div>
             <div class="toolbar">
                 <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="gSearch" placeholder="Find a learner or LRN" aria-label="Find a learner or LRN"></label>
                 <label class="sort">Sort by
@@ -252,12 +335,105 @@
 <script src="{% static 'heads/js/forecast-chart.js' %}"></script>
 <script src="{% static 'heads/js/poro-advice.js' %}"></script>
 <script>
+// ---------- learners below 75: the dialog, a learner's subjects, and Poro AI's advice for that learner ----------
+function belowDialog() {
+    'use strict';
+    var modal = document.getElementById('belowModal'), dataEl = document.getElementById('belowData');
+    if (!modal || !dataEl) return;
+    var people = JSON.parse(dataEl.textContent), period = '{{ period.id|default:"" }}';
+    var adviceUrl = '{% url "teachers:learner_advice" %}', pollUrl = '{% url "teachers:poro" "TOKEN" %}';
+    var poroImg = '{% static "shared/poro/Poro.png" %}';
+    var list = document.getElementById('bmList'), detail = document.getElementById('bmDetail'), split = document.getElementById('bmSplit');
+    var search = document.getElementById('bmSearch'), subject = document.getElementById('bmSubject');
+    var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    var written = {}, opener = null, current = -1;
+
+    function filter() {
+        var q = search.value.trim().toLowerCase(), code = subject.value, shown = 0;
+        Array.prototype.forEach.call(list.children, function (li) {
+            var ok = (!q || li.dataset.name.indexOf(q) > -1) && (!code || (' ' + li.dataset.codes).indexOf(' ' + code + ' ') > -1);
+            li.hidden = !ok;
+            if (ok) shown++;
+        });
+        document.getElementById('bmNone').hidden = shown > 0;
+    }
+    function setText(el, text) {
+        if (!el || el.textContent === text) return;
+        el.classList.add('fading');
+        setTimeout(function () { el.textContent = text; el.classList.remove('fading'); }, 250);
+    }
+    function source(text, ai) { var s = detail.querySelector('.bm-src'); if (s) { s.textContent = text; s.className = 'bm-src' + (ai ? ' ai' : ''); } }
+    function show(i) {
+        var p = people[i];
+        if (!p) return;
+        current = i;
+        list.querySelectorAll('[data-learner-pick]').forEach(function (b) { b.setAttribute('aria-pressed', +b.dataset.learnerPick === i ? 'true' : 'false'); });
+        detail.innerHTML = '<button type="button" class="btn btn-ghost btn-sm bm-back"><i class="fi fi-rr-angle-small-left"></i> All learners</button>' +
+            '<h4>' + esc(p.name) + '</h4><p class="bm-sub">' + (p.lrn ? 'LRN ' + esc(p.lrn) + ' &middot; ' : '') + (p.section ? esc(p.section) + ' &middot; ' : '') +
+            'below 75 in ' + p.subjects.length + ' subject' + (p.subjects.length === 1 ? '' : 's') + '</p>' +
+            p.subjects.map(function (s) {
+                return '<section class="bm-subj"><div class="bm-subj-head"><b>' + esc(s.name) + '</b><span class="grade fail">' + esc(s.grade) + '</span></div>' +
+                    '<div class="bm-parts">' + s.parts.map(function (c) {
+                        return '<span' + (c.weak ? ' class="weak" title="Weakest part"' : '') + '>' + esc(c.abbr) + ' ' + (c.value == null ? '&mdash;' : esc(c.value) + '%') + '</span>';
+                    }).join('') + '</div>' +
+                    '<div class="bm-advice"><img src="' + poroImg + '" alt=""><p data-field="' + esc(s.key) + '">' + esc((written[p.id] || {})[s.key] || s.text) + '</p></div></section>';
+            }).join('') + '<p class="bm-src">Decided from the grades by rules a person can check</p>';
+        split.classList.add('showing');
+        detail.querySelector('.bm-back').addEventListener('click', function () { split.classList.remove('showing'); });
+        ask(p);
+    }
+    function apply(p, fields) {
+        written[p.id] = Object.assign(written[p.id] || {}, fields || {});
+        if (people[current] !== p) return;
+        Object.keys(fields || {}).forEach(function (k) { setText(detail.querySelector('[data-field="' + k + '"]'), fields[k]); });
+    }
+    function ask(p) {           // Poro writes this learner's advice when the learner is opened; the computed wording shows meanwhile
+        if (p.asked) { if (p.done) source(p.done, p.ai); return; }
+        p.asked = true;
+        fetch(adviceUrl + '?enrollment=' + p.id + '&period=' + period, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || !d.token) return;
+                var url = pollUrl.replace('TOKEN', d.token), tries = 0;
+                var poll = function () {
+                    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function (r) { return r.ok ? r.json() : null; }).then(function (s) {
+                        if (!s) return;
+                        apply(p, s.fields);
+                        if (s.state === 'writing') {
+                            if (people[current] === p) source('Poro AI is writing the advice' + (s.total ? ' (' + (s.done || 0) + ' of ' + s.total + ')' : '') + '…');
+                            if (++tries <= 150) setTimeout(poll, 4000);
+                            return;
+                        }
+                        p.ai = s.source === 'ai';
+                        p.done = p.ai ? 'Written by Poro AI for ' + s.written + ' of ' + s.total + ' subject' + (s.total === 1 ? '' : 's') + '; checked before it is shown'
+                                      : 'Decided from the grades by rules a person can check';
+                        if (people[current] === p) source(p.done, p.ai);
+                    });
+                };
+                poll();
+            });
+    }
+    list.addEventListener('click', function (e) { var b = e.target.closest('[data-learner-pick]'); if (b) show(+b.dataset.learnerPick); });
+    search.addEventListener('input', filter);
+    subject.addEventListener('change', filter);
+    function open(from) {
+        opener = from; modal.hidden = false; document.body.style.overflow = 'hidden';
+        modal.querySelector('.tp-modal-card').focus();
+    }
+    function close() { modal.hidden = true; document.body.style.overflow = ''; if (opener) opener.focus(); }
+    document.querySelectorAll('[data-below-open]').forEach(function (b) { b.addEventListener('click', function () { open(b); }); });
+    modal.addEventListener('click', function (e) { if (e.target === modal || e.target.closest('[data-close]')) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+}
+
 (function () {
     'use strict';
     // the section and period pickers apply at once (with the next page's outline while it loads)
     document.querySelectorAll('[data-go]').forEach(function (el) {
         el.addEventListener('change', function () { if (window.ArmsSkeleton) ArmsSkeleton.submit(el.form); else el.form.submit(); });
     });
+
+    belowDialog();
 
     var dataEl = document.getElementById('recordData');
     if (!dataEl) return;
