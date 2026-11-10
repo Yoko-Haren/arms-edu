@@ -609,6 +609,8 @@ def _workbook(xml, hidden, visible, active, order):
     xml = re.sub(r'<sheet\b[^>]*/>', sheet, xml)
     if active is not None and active in order:
         index = order.index(active)
+        if not re.search(r'<workbookView\b', xml):         # some templates have no view; Excel would open on sheet 1, maybe hidden
+            xml = re.sub(r'<sheets\b', '<bookViews><workbookView/></bookViews><sheets', xml, count=1)
         xml = re.sub(r'(<workbookView\b[^>]*?)\sactiveTab="\d+"', r'\1', xml)
         xml = re.sub(r'(<workbookView\b[^>]*?)\sfirstSheet="\d+"', r'\1', xml)
         xml = re.sub(r'<workbookView\b', f'<workbookView activeTab="{index}"', xml, count=1)

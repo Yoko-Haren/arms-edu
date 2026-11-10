@@ -28,7 +28,7 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-graduation-cap" style="color:#123499;"></i> Learners</h2>
-            <p class="hint">{% if current_sy %}Everyone registered in SY {{ current_sy.year_label }}. Open a learner for the record, the report card and any transfer or drop-out.{% else %}Learners appear here once a school year has enrollment.{% endif %}</p>
+            <p class="hint">{% if current_sy %}{{ counts.active }} enrolled ({{ counts.male }} male, {{ counts.female }} female){% if counts.left %} &middot; {{ counts.left }} left{% endif %}{% else %}Learners appear here once a school year has enrollment.{% endif %}</p>
         </div>
         <div class="actions">
             {% if years %}
@@ -45,13 +45,6 @@
     {% if no_year %}
     <section class="card"><p class="empty"><i class="fi fi-rr-calendar"></i>There is no school year yet.</p></section>
     {% else %}
-    <div class="tiles" style="--tiles:4">
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-users-alt"></i></span><div><span>Enrolled</span><b>{{ counts.active }}</b><small>active this school year</small></div></div>
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-user"></i></span><div><span>Male</span><b>{{ counts.male }}</b><small>enrolled</small></div></div>
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-user"></i></span><div><span>Female</span><b>{{ counts.female }}</b><small>enrolled</small></div></div>
-        <div class="card tile {% if counts.left %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-exit"></i></span><div><span>Left</span><b>{{ counts.left }}</b><small>transferred out or dropped</small></div></div>
-    </div>
-
     <section class="card panel" aria-labelledby="listTitle">
         <h3 id="listTitle" class="sr-only">Learner list</h3>
         <form method="get" id="llForm">

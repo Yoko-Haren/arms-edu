@@ -1,5 +1,0 @@
-<li data-find="{{ c.code|lower }} {{ c.name|lower }} {{ c.teacher|lower }}" data-left="{{ c.left }}" data-avg="{% if c.average is not None %}{{ c.average|stringformat:'s' }}{% endif %}">
-    <span><b title="{{ c.name }}">{{ c.code }} &middot; {{ c.name }}</b><small>{{ c.teacher|default:"No teacher assigned" }} &middot; {{ c.graded }} of {{ c.total }} graded{% if c.average is not None %} &middot; average {{ c.average }}{% endif %}</small></span>
-    <span class="pill {{ c.tone }}">{{ c.state_label }}</span>
-    <div class="bar {% if c.graded >= c.total and c.total %}good{% elif c.graded %}warn{% endif %}" aria-hidden="true"><i style="width:{% widthratio c.graded c.total 100 %}%"></i></div>
-</li>

@@ -73,7 +73,7 @@ def class_records(request):
         cur = row['current'] or {}
         label, tone, hint = R.STATE_INFO[row['state']]
         classes.append({
-            'id': a.id, 'grade': a.section.grade_level.grade_name, 'grade_order': a.section.grade_level.sort_order,
+            'id': a.id, 'section_id': a.section_id, 'grade': a.section.grade_level.grade_name, 'grade_order': a.section.grade_level.sort_order,
             'section': a.section.section_name, 'subject': a.subject.subject_name, 'code': a.subject.subject_code,
             'advisory': a.is_advisory, 'learners': row['learners'], 'state': row['state'], 'state_label': label, 'tone': tone,
             'hint': hint, 'note': notes.get((a.section_id, a.subject_id), ''),
@@ -93,6 +93,10 @@ def class_records(request):
     counts = {}
     for c in classes:
         counts[c['state']] = counts.get(c['state'], 0) + 1
+    sections, subjects = {}, {}
+    for c in classes:                       # the filters: each section and subject once, in the order of the list
+        sections.setdefault(c['section_id'], f"{c['grade']} {c['section']}")
+        subjects.setdefault(c['subject'].lower(), c['subject'])
     graded = sum(c['graded'] for c in classes)
     learners = sum(c['learners'] for c in classes)
     days_left, overdue = P.deadline_info(current) if current else (None, False)
@@ -100,6 +104,7 @@ def class_records(request):
         'school': school, 'sy': sy, 'periods': periods, 'current': current, 'current_name': P.name(current),
         'period_word': P.word(school, periods), 'period_word_plural': P.word(school, periods, plural=True),
         'classes': classes, 'counts': counts, 'graded': graded, 'learners': learners,
+        'section_choices': list(sections.items()), 'subject_choices': sorted(subjects.items()),
         'to_grade': learners - graded, 'ready': counts.get('ready', 0), 'returned': counts.get('returned', 0),
         'days_left': days_left, 'overdue': overdue,
         'deadline': current.grade_encoding_deadline if current else None,

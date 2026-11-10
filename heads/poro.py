@@ -163,10 +163,20 @@ def _fact_lines(facts):
     return '\n'.join(lines)
 
 
+# who reads the advice: the School Head passes it on; a class adviser shares it with the section's subject teachers
+# (teachers/standing.py); a teacher uses it in their own classes
+READERS = {
+    'head': 'Write advice that a School Head can pass on to the teachers below. In two or three short sentences, tell the '
+            'teachers what to do in class next',
+    'adviser': 'Write advice that a class adviser can share with the subject teachers of the section below. In two or three '
+               'short sentences, say what the teachers can do in class next',
+    'teacher': 'Write advice for the teacher of the classes below. In two or three short sentences, say what to do in class next',
+}
+
+
 def _advice_prompt(facts):
-    return ('Write advice that a School Head can pass on to the teachers below. In two or three short sentences, tell the '
-            'teachers what to do in class next to reach the goal: concrete activities, materials or routines that suit the '
-            'discipline, in your own ideas. Do not copy the facts word for word; turn the decided step'
+    return (READERS.get(facts.get('reader'), READERS['head']) + ' to reach the goal: concrete activities, materials or '
+            'routines that suit the discipline, in your own ideas. Do not copy the facts word for word; turn the decided step'
             + (' and the weakest part' if facts.get('weak') else '') + ' into classroom ideas. Start with the most important '
             'action.\nRules: no numbers, percentages, dates or grade levels; do not name the levels; no lists; do not name '
             'learners; do not say what the grades did or will do; do not promise results; do not write "I". Call them '

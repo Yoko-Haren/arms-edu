@@ -34,24 +34,13 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-chalkboard-user" style="color:#123499;"></i> Teacher accounts</h2>
-            <p class="hint">Teachers sign in with these accounts to upload class records and give assessments.{% if current_sy %} Classes shown are for SY {{ current_sy.year_label }}.{% endif %}</p>
+            {% if current_sy %}<p class="hint">Classes are for SY {{ current_sy.year_label }}.</p>{% endif %}
         </div>
         <div class="actions">
             <a class="btn btn-line" href="{% url 'registrars:teacher_import' %}"><i class="fi fi-rr-users-medical"></i> Import from CSV</a>
             <a class="btn btn-main" href="{% url 'registrars:teacher_create' %}"><i class="fi fi-rr-user-add"></i> Add teacher</a>
         </div>
     </section>
-
-    <div class="tiles" style="--tiles:4">
-        <div class="card tile good"><span class="tile-ico"><i class="fi fi-rr-circle-user"></i></span>
-            <div><span>Active</span><b>{{ active_teachers }} <small style="display:inline;font-size:0.8rem;">of {{ total_teachers }}</small></b><small>can sign in</small></div></div>
-        <div class="card tile {% if without_classes %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-user-time"></i></span>
-            <div><span>No class yet</span><b>{{ without_classes }}</b><small>this school year</small></div></div>
-        <div class="card tile {% if pending_password %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-key"></i></span>
-            <div><span>Not signed in yet</span><b>{{ pending_password }}</b><small>still on the temporary password</small></div></div>
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-ban"></i></span>
-            <div><span>Inactive</span><b>{{ inactive_teachers }}</b><small>cannot sign in</small></div></div>
-    </div>
 
     <section class="card panel tl" aria-labelledby="tlTitle">
         <h3 id="tlTitle" class="sr-only">All teachers</h3>

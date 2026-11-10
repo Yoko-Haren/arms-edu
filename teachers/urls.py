@@ -5,6 +5,7 @@ app_name = 'teachers'
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
+    path('api/poro/<str:token>/', views.poro_status, name='poro'),
 
     # Class records: progress per grading period, uploads (check first, then save), submission
     path('class-records/', views_records.class_records, name='class_record_list'),
@@ -23,7 +24,7 @@ urlpatterns = [
     path('school-forms/<int:section_id>/report-card/<int:enrollment_id>/', views_forms.report_card, name='report_card'),
     path('school-forms/<int:section_id>/comments/', views_forms.save_comment, name='save_comment'),
 
-    # My Advisory: every subject's grades for the section the teacher advises, and each learner's record
+    # My Advisory is the home page now; the old address keeps working
     path('advisory/', views_advisory.advisory, name='advisory'),
 
     # Notification bell

@@ -9,16 +9,8 @@
     /* Shared portal look is in static/shared/css/portal-pages.css. */
     .cr-list { padding: 1rem 1.15rem 1.1rem; container-type: inline-size; }
     .cr-toolbar { display: flex; gap: 0.6rem 0.8rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.9rem; }
-    .cr-toolbar .search { position: relative; flex: 1 1 240px; max-width: 340px; }
-    .cr-toolbar .search i { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.8rem; }
-    .cr-toolbar .search input { padding-left: 2.1rem; border-radius: 20px; }
     .cr-toolbar .sort { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
-    .cr-toolbar .sort select { width: auto; border-radius: 20px; }
-    .chips { display: inline-flex; gap: 0.35rem; flex-wrap: wrap; }
-    .chips button { border: 1.5px solid #dfe4ec; background: #fff; border-radius: 20px; padding: 0.35rem 0.75rem; font: inherit; font-size: 0.78rem;
-                    font-weight: 600; color: var(--muted); cursor: pointer; }
-    .chips button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
-    .chips button em { font-style: normal; opacity: 0.75; margin-left: 0.25rem; }
+    .cr-toolbar .sort select { width: auto; max-width: 15rem; border-radius: 20px; }
     .cr-count { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
 
     .cr-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
@@ -100,62 +92,46 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-folder-open" style="color:#123499;"></i> Class records</h2>
-            <p class="hint">
-                {% if current %}{{ current_name }} is the current {{ period_word|lower }}{% if deadline %}; grades are due {{ deadline|date:"M j, g:i A" }}{% endif %}.{% else %}No grading period is open.{% endif %}
-                Grades you upload stay drafts until you submit them to the registrar.
-            </p>
+            <p class="hint">{% if current %}{{ current_name }}{% if deadline %} grades are due {{ deadline|date:"M j, g:i A" }}{% if to_grade %}; {{ to_grade }} learner{{ to_grade|pluralize }} still {{ to_grade|pluralize:"has,have" }} no grade{% endif %}{% else %} is open{% endif %}.{% else %}No grading period is open.{% endif %}</p>
         </div>
         <div class="actions">
             <a class="btn btn-main" href="{% url 'teachers:upload_class_record' %}"><i class="fi fi-rr-upload"></i> Upload grades</a>
         </div>
     </section>
 
-    {% if current and days_left is not None and to_grade %}
-    <div class="note {% if overdue %}risk{% elif days_left <= 7 %}warn{% endif %}">
-        <i class="fi fi-rr-alarm-clock"></i>
-        <span>{% if overdue %}The {{ current_name }} deadline has passed and <b>{{ to_grade }} learner{{ to_grade|pluralize }}</b> still {{ to_grade|pluralize:"has,have" }} no grade.
-              {% elif days_left == 0 %}{{ current_name }} grades are due <b>today</b>; <b>{{ to_grade }} learner{{ to_grade|pluralize }}</b> still {{ to_grade|pluralize:"has,have" }} no grade.
-              {% else %}{{ current_name }} grades are due in <b>{{ days_left }} day{{ days_left|pluralize }}</b>; <b>{{ to_grade }} learner{{ to_grade|pluralize }}</b> still {{ to_grade|pluralize:"has,have" }} no grade.{% endif %}</span>
-    </div>
-    {% endif %}
-
     {% if classes %}
-    <div class="tiles" style="--tiles:4">
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-users-alt"></i></span>
-            <div><span>Classes</span><b>{{ classes|length }}</b><small>{{ learners }} learner{{ learners|pluralize }}</small></div></div>
-        <div class="card tile {% if graded == learners and learners %}good{% endif %}"><span class="tile-ico"><i class="fi fi-rr-chart-pie-alt"></i></span>
-            <div><span>Graded in {{ current_name|default:"this period" }}</span><b>{{ graded }} <small style="display:inline;font-size:0.8rem;">of {{ learners }}</small></b>
-                <small>{% widthratio graded learners 100 %}% of your learners</small></div></div>
-        <div class="card tile {% if to_grade %}warn{% else %}good{% endif %}"><span class="tile-ico"><i class="fi fi-rr-time-quarter-past"></i></span>
-            <div><span>Still to grade</span><b>{{ to_grade }}</b><small>{% if to_grade %}learner{{ to_grade|pluralize }} without a {{ period_word|lower }} grade{% else %}every learner has a grade{% endif %}</small></div></div>
-        <div class="card tile {% if returned %}risk{% elif ready %}{% else %}good{% endif %}"><span class="tile-ico"><i class="fi {% if returned %}fi-rr-undo{% else %}fi-rr-paper-plane{% endif %}"></i></span>
-            <div>{% if returned %}<span>Returned</span><b>{{ returned }}</b><small>class{{ returned|pluralize:"es" }} to correct</small>
-                 {% else %}<span>Ready to submit</span><b>{{ ready }}</b><small>class{{ ready|pluralize:"es" }} waiting for you</small>{% endif %}</div></div>
-    </div>
-
     <section class="card cr-list" aria-labelledby="crTitle">
         <h3 id="crTitle" class="sr-only">Your classes</h3>
         <div class="cr-toolbar">
-            <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="crSearch" placeholder="Find a section or subject" aria-label="Find a section or subject"></label>
-            <label class="sort">Sort by
-                <select id="crSort">
-                    <option value="attention">Needs attention first</option>
-                    <option value="avg_high">Class average: highest first</option>
-                    <option value="avg_low">Class average: lowest first</option>
-                    <option value="missing">Most learners without a grade</option>
-                    <option value="progress">Least complete first</option>
-                    <option value="section">Grade level and section</option>
-                    <option value="subject">Subject</option>
-                    <option value="learners">Most learners</option>
+            <label class="sort">Section
+                <select id="crSection">
+                    <option value="">All sections</option>
+                    {% for id, name in section_choices %}<option value="{{ id }}">{{ name }}</option>{% endfor %}
                 </select>
             </label>
-            <div class="chips" role="group" aria-label="Show">
-                <button type="button" data-filter="" aria-pressed="true">All</button>
-                <button type="button" data-filter="grade" aria-pressed="false">To grade<em>{{ chip_grade }}</em></button>
-                <button type="button" data-filter="ready" aria-pressed="false">Ready to submit<em>{{ ready }}</em></button>
-                <button type="button" data-filter="returned" aria-pressed="false">Returned<em>{{ returned }}</em></button>
-                <button type="button" data-filter="done" aria-pressed="false">Submitted or validated<em>{{ chip_done }}</em></button>
-            </div>
+            <label class="sort">Subject
+                <select id="crSubject">
+                    <option value="">All subjects</option>
+                    {% for key, name in subject_choices %}<option value="{{ key }}">{{ name }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="sort">Status
+                <select id="crStatus">
+                    <option value="">All</option>
+                    {% if chip_grade %}<option value="grade">To grade ({{ chip_grade }})</option>{% endif %}
+                    {% if ready %}<option value="ready">Ready to submit ({{ ready }})</option>{% endif %}
+                    {% if returned %}<option value="returned">Returned ({{ returned }})</option>{% endif %}
+                    {% if chip_done %}<option value="done">Submitted or validated ({{ chip_done }})</option>{% endif %}
+                </select>
+            </label>
+            <label class="sort">Sort by
+                <select id="crSort">
+                    <option value="section">Section</option>
+                    <option value="subject">Subject</option>
+                    <option value="attention">Needs attention first</option>
+                    <option value="avg_low">Lowest average first</option>
+                </select>
+            </label>
             <span class="cr-count" id="crCount" aria-live="polite"></span>
         </div>
 
@@ -164,7 +140,7 @@
             <li>
                 <article class="cr-row tone-{{ c.tone }}" id="class-{{ c.id }}" data-id="{{ c.id }}" data-state="{{ c.state }}" data-average="{{ c.average|default_if_none:'' }}"
                          data-missing="{{ c.missing }}" data-percent="{{ c.percent }}" data-learners="{{ c.learners }}" data-order="{{ forloop.counter0 }}"
-                         data-text="{{ c.grade|lower }} {{ c.section|lower }} {{ c.subject|lower }} {{ c.code|lower }}" data-subject="{{ c.subject|lower }}">
+                         data-section="{{ c.section_id }}" data-subject="{{ c.subject|lower }}">
                     <div class="cr-who">
                         <b>{{ c.grade }} {{ c.section }}{% if c.advisory %}<span class="pill info">Adviser</span>{% endif %}</b>
                         <small>{{ c.subject }} &middot; {{ c.code }} &middot; {{ c.learners }} learner{{ c.learners|pluralize }}</small>
@@ -247,45 +223,35 @@
     var list = document.getElementById('crRows');
     if (!list) return;
     var items = Array.prototype.slice.call(list.children);
-    var search = document.getElementById('crSearch'), sort = document.getElementById('crSort'), filter = '';
+    var sort = document.getElementById('crSort'), section = document.getElementById('crSection'),
+        subject = document.getElementById('crSubject'), status = document.getElementById('crStatus');
     var RANK = { returned: 0, encoding: 1, not_started: 2, ready: 3, submitted: 4, validated: 5, locked: 6 };
     var GROUP = { grade: ['not_started', 'encoding'], ready: ['ready'], returned: ['returned'], done: ['submitted', 'validated', 'locked'] };
     var num = function (el, key) { var v = el.dataset[key]; return v === '' || v == null ? null : +v; };
     var nullsLast = function (a, b, dir) { if (a === null && b === null) return 0; if (a === null) return 1; if (b === null) return -1; return dir * (a - b); };
     var SORTS = {
-        attention: function (a, b) { return (RANK[a.dataset.state] - RANK[b.dataset.state]) || (num(b, 'missing') - num(a, 'missing')) || (num(a, 'order') - num(b, 'order')); },
-        avg_high: function (a, b) { return nullsLast(num(a, 'average'), num(b, 'average'), -1) || (num(a, 'order') - num(b, 'order')); },
-        avg_low: function (a, b) { return nullsLast(num(a, 'average'), num(b, 'average'), 1) || (num(a, 'order') - num(b, 'order')); },
-        missing: function (a, b) { return (num(b, 'missing') - num(a, 'missing')) || (num(a, 'order') - num(b, 'order')); },
-        progress: function (a, b) { return (num(a, 'percent') - num(b, 'percent')) || (num(a, 'order') - num(b, 'order')); },
         section: function (a, b) { return num(a, 'order') - num(b, 'order'); },
         subject: function (a, b) { return a.dataset.subject.localeCompare(b.dataset.subject) || (num(a, 'order') - num(b, 'order')); },
-        learners: function (a, b) { return (num(b, 'learners') - num(a, 'learners')) || (num(a, 'order') - num(b, 'order')); }
+        attention: function (a, b) { return (RANK[a.dataset.state] - RANK[b.dataset.state]) || (num(b, 'missing') - num(a, 'missing')) || (num(a, 'order') - num(b, 'order')); },
+        avg_low: function (a, b) { return nullsLast(num(a, 'average'), num(b, 'average'), 1) || (num(a, 'order') - num(b, 'order')); }
     };
-    try { var saved = localStorage.getItem('arms-records-sort'); if (saved && SORTS[saved]) sort.value = saved; } catch (e) {}
+    try { var saved = localStorage.getItem('arms-records-order'); if (saved && SORTS[saved]) sort.value = saved; } catch (e) {}
     function show() {
-        var q = search.value.trim().toLowerCase(), shown = 0;
-        var rows = items.map(function (li) { return li.firstElementChild; }).sort(SORTS[sort.value] || SORTS.attention);
+        var shown = 0, filter = status.value;
+        var rows = items.map(function (li) { return li.firstElementChild; }).sort(SORTS[sort.value] || SORTS.section);
         rows.forEach(function (row) {
             var li = row.parentElement;
-            var ok = (!q || row.dataset.text.indexOf(q) > -1) && (!filter || GROUP[filter].indexOf(row.dataset.state) > -1);
+            var ok = (!section.value || row.dataset.section === section.value) && (!subject.value || row.dataset.subject === subject.value)
+                && (!filter || GROUP[filter].indexOf(row.dataset.state) > -1);
             li.hidden = !ok;
             if (ok) shown++;
             list.appendChild(li);
         });
         document.getElementById('crNone').hidden = shown > 0;
         document.getElementById('crCount').textContent = 'Showing ' + shown + ' of ' + items.length + ' class' + (items.length === 1 ? '' : 'es');
-        try { localStorage.setItem('arms-records-sort', sort.value); } catch (e) {}
+        try { localStorage.setItem('arms-records-order', sort.value); } catch (e) {}
     }
-    search.addEventListener('input', show);
-    sort.addEventListener('change', show);
-    document.querySelectorAll('.chips button').forEach(function (b) {
-        b.addEventListener('click', function () {
-            filter = b.dataset.filter;
-            document.querySelectorAll('.chips button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-            show();
-        });
-    });
+    [sort, section, subject, status].forEach(function (el) { el.addEventListener('change', show); });
     document.addEventListener('click', function (e) {     // one open menu at a time
         document.querySelectorAll('.cr-more[open]').forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute('open'); });
     });

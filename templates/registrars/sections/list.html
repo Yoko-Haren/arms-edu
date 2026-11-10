@@ -39,23 +39,12 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-users-alt" style="color:#123499;"></i> Sections</h2>
-            <p class="hint">{% if current_sy %}SY {{ current_sy.year_label }}: {{ total_sections }} section{{ total_sections|pluralize }} with {{ total_enrolled }} learner{{ total_enrolled|pluralize }}. Open a section to manage its learners, classes and adviser.{% else %}There is no current school year yet.{% endif %}</p>
+            <p class="hint">{% if current_sy %}{{ total_sections }} section{{ total_sections|pluralize }} &middot; {{ total_enrolled }} learner{{ total_enrolled|pluralize }}{% else %}There is no current school year yet.{% endif %}</p>
         </div>
         <div class="actions">
             {% if current_sy %}<a class="btn btn-main" href="{% url 'registrars:upload_class_list' %}"><i class="fi fi-rr-user-add"></i> Enroll from SF1</a>{% endif %}
         </div>
     </section>
-
-    <div class="tiles" style="--tiles:4">
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-users-alt"></i></span>
-            <div><span>Sections</span><b>{{ total_sections }}</b><small>{{ sections_with_students }} with learners</small></div></div>
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-graduation-cap"></i></span>
-            <div><span>Learners</span><b>{{ total_enrolled }}</b><small>enrolled this school year</small></div></div>
-        <div class="card tile {% if sections_without_teacher %}warn{% else %}good{% endif %}"><span class="tile-ico"><i class="fi fi-rr-chalkboard-user"></i></span>
-            <div><span>Without a teacher</span><b>{{ sections_without_teacher }}</b><small>{% if sections_without_teacher %}need their classes set{% else %}every section has classes{% endif %}</small></div></div>
-        <div class="card tile {% if sections_empty %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-folder-open"></i></span>
-            <div><span>Empty</span><b>{{ sections_empty }}</b><small>{% if sections_full %}{{ sections_full }} full{% else %}none full{% endif %}</small></div></div>
-    </div>
 
     <section class="card panel sl" aria-labelledby="slTitle">
         <h3 id="slTitle" class="sr-only">All sections</h3>

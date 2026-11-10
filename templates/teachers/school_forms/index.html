@@ -40,7 +40,6 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-document" style="color:#123499;"></i> {% if section %}School forms: {{ section.grade_level.grade_name }} {{ section.section_name }}{% else %}School forms{% endif %}</h2>
-            <p class="hint">{% if section %}The registrar's SF1 starts your class's forms. Add what only you know below, and ARMS fills the rest from the same records.{% else %}Your advisory class's school forms are here.{% endif %}</p>
         </div>
         {% if section %}
         <div class="fm-pick">
@@ -62,11 +61,11 @@
 
     <section class="card panel" aria-labelledby="addTitle">
         <div class="panel-head"><div><h3 id="addTitle"><i class="fi fi-rr-upload" style="color:#123499;"></i> What your forms need from you</h3>
-            <p class="hint">Download the form, fill it in, and upload it here. Nothing is saved until you check it.</p></div></div>
+            <p class="hint">Nothing is saved until you check it.</p></div></div>
         <div class="fm-steps">
             <div class="fm-step">
                 <div class="fm-step-top"><span class="fm-code">SF2</span><b>Daily attendance</b></div>
-                <p class="hint">{{ needs.SF2.detail }}. Feeds SF4 and the attendance on every SF9.</p>
+                <p class="hint">{{ needs.SF2.detail }}.</p>
                 <div class="fm-step-foot"><span class="pill {% if needs.SF2.done %}good{% else %}warn{% endif %}">{{ needs.SF2.state }}</span>
                     <a class="btn btn-main btn-sm" href="{% url 'teachers:form_upload' %}?kind=SF2&amp;section={{ section.id }}"><i class="fi fi-rr-upload"></i> Upload</a></div>
             </div>
@@ -78,7 +77,7 @@
             </div>
             <div class="fm-step">
                 <div class="fm-step-top"><span class="fm-code">SF8</span><b>Weight and height</b></div>
-                <p class="hint">{{ needs.SF8.detail }} ARMS works out the BMI.</p>
+                <p class="hint">{{ needs.SF8.detail }}</p>
                 <div class="fm-step-foot"><span class="pill {% if needs.SF8.done %}good{% else %}warn{% endif %}">{{ needs.SF8.state }}</span>
                     <a class="btn btn-line btn-sm" href="{% url 'teachers:form_upload' %}?kind=SF8&amp;section={{ section.id }}"><i class="fi fi-rr-upload"></i> Upload</a></div>
             </div>
@@ -88,11 +87,11 @@
     <section class="card panel" aria-labelledby="cardsTitle">
         <div class="panel-head">
             <div><h3 id="cardsTitle"><i class="fi fi-rr-id-badge" style="color:#123499;"></i> SF9 report cards</h3>
-                <p class="hint">{% if official_card %}DepEd's SF9 workbook, every sheet: Input Data, the term summaries, the report card and attendance, filled from your records. The class workbook holds everyone; each learner's file holds only that learner.{% else %}SY {{ sy.year_label }} is {{ system|lower }}. DepEd's SF9 workbooks in ARMS are for three-term years, so there is no official form to fill yet.{% endif %}</p></div>
+                <p class="hint">{% if official_card %}Each file opens on the report card sheet, ready to print.{% else %}SY {{ sy.year_label }} is {{ system|lower }}. DepEd's SF9 workbooks in ARMS are for three-term years, so there is no official form to fill yet.{% endif %}</p></div>
             {% if official_card %}
             <div class="fm-actions">
-                <a class="btn btn-line btn-sm" href="{% url 'teachers:section_form' section.id %}?code=SF9"><i class="fi fi-rr-download"></i> Class workbook</a>
-                <button type="button" class="btn btn-main btn-sm" data-sf9-zip="{% url 'teachers:report_cards' section.id %}"><i class="fi fi-rr-folder-download"></i> Download all (zip)</button>
+                <a class="btn btn-line btn-sm" href="{% url 'teachers:section_form' section.id %}?code=SF9"><i class="fi fi-rr-download"></i> Whole class</a>
+                <button type="button" class="btn btn-main btn-sm" data-sf9-zip="{% url 'teachers:report_cards' section.id %}"><i class="fi fi-rr-folder-download"></i> Each learner (zip)</button>
             </div>
             {% endif %}
         </div>
@@ -117,14 +116,13 @@
     </section>
 
     <section class="card panel" aria-labelledby="formsTitle">
-        <div class="panel-head"><div><h3 id="formsTitle"><i class="fi fi-rr-document" style="color:#123499;"></i> Your section's forms</h3>
-            <p class="hint">DepEd's templates, filled from ARMS. Check them, sign and submit.</p></div></div>
+        <div class="panel-head"><div><h3 id="formsTitle"><i class="fi fi-rr-document" style="color:#123499;"></i> Your section's forms</h3></div></div>
         <div class="fm-list">
             {% for f in forms %}
             <form method="get" action="{% url 'teachers:section_form' section.id %}" class="fm-form">
                 <input type="hidden" name="code" value="{{ f.code }}">
                 <span class="fm-code">{{ f.badge|default:f.code }}</span>
-                <span class="who"><b>{{ f.title }}</b><small>From: {{ f.from }}</small></span>
+                <span class="who"><b>{{ f.title }}</b></span>
                 {% if f.month %}
                 <select name="month" aria-label="Month">{% for number, label in months %}<option value="{{ number }}" {% if number == month %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
                 {% elif f.stage %}

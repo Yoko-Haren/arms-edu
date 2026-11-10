@@ -40,29 +40,13 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-dashboard" style="color:#123499;"></i> {% if current_sy %}SY {{ current_sy.year_label }} at a glance{% else %}Dashboard{% endif %}</h2>
-            <p class="hint">
-                {% if not current_sy %}There is no current school year yet. Learners can be enrolled once your system administrator sets it.
-                {% elif current_period %}{{ current_period_name }} is the current grading period{% if period.locked %}, and its grades are locked{% endif %}.
-                    {% if not period.locked and current_period.grade_encoding_deadline %}Teachers submit grades by {{ current_period.grade_encoding_deadline|date:"M j" }}{% if current_period.grade_validation_deadline %} and you validate them by {{ current_period.grade_validation_deadline|date:"M j" }}{% endif %}.{% endif %}
-                {% else %}No grading period is open yet.{% endif %}
-            </p>
+            <p class="hint">{% if current_sy %}{{ numbers.students }} learner{{ numbers.students|pluralize }} in {{ numbers.sections }} section{{ numbers.sections|pluralize }} &middot; {{ numbers.teachers }} teacher{{ numbers.teachers|pluralize }} &middot; {{ numbers.classes }} class{{ numbers.classes|pluralize:"es" }}{% else %}There is no current school year yet. Your system administrator sets it.{% endif %}</p>
         </div>
         <div class="actions">
             {% if current_sy %}<a class="btn btn-line" href="{% url 'registrars:upload_class_list' %}"><i class="fi fi-rr-user-add"></i> Enroll from SF1</a>{% endif %}
             <a class="btn btn-main" href="{% url 'registrars:teacher_create' %}"><i class="fi fi-rr-user-add"></i> Add teacher</a>
         </div>
     </section>
-
-    <div class="tiles" style="--tiles:4">
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-graduation-cap"></i></span>
-            <div><span>Learners enrolled</span><b>{{ numbers.students }}</b><small>in {{ numbers.sections }} section{{ numbers.sections|pluralize }}</small></div></div>
-        <div class="card tile {% if numbers.sections_without_teacher %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-users-alt"></i></span>
-            <div><span>Classes</span><b>{{ numbers.classes }}</b><small>{% if numbers.sections_without_teacher %}{{ numbers.sections_without_teacher }} section{{ numbers.sections_without_teacher|pluralize }} without a teacher{% else %}{{ numbers.subjects }} subject{{ numbers.subjects|pluralize }} offered{% endif %}</small></div></div>
-        <div class="card tile {% if numbers.teachers_without_classes %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-chalkboard-user"></i></span>
-            <div><span>Teachers</span><b>{{ numbers.teachers }}</b><small>{% if numbers.teachers_without_classes %}{{ numbers.teachers_without_classes }} with no class yet{% else %}every teacher has a class{% endif %}</small></div></div>
-        <div class="card tile {% if ready_to_validate %}good{% endif %}"><span class="tile-ico"><i class="fi fi-rr-shield-check"></i></span>
-            <div><span>Ready to validate</span><b>{{ ready_to_validate }}</b><small>{% if current_period %}class{{ ready_to_validate|pluralize:"es" }} in {{ current_period_name }}{% else %}no open period{% endif %}</small></div></div>
-    </div>
 
     <div class="db-grid">
         <section class="card panel" aria-labelledby="todoTitle">

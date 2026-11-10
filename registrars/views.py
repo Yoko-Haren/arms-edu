@@ -1205,6 +1205,10 @@ def grade_validation(request):
     for row in rows:
         counts[row['state']] = counts.get(row['state'], 0) + 1
     filters = [{'key': key, 'label': label, 'count': counts.get(key, 0)} for key, label in STATE_FILTERS if counts.get(key)]
+    section_choices = {}
+    for row in rows:                        # the section filter: each section once, in the order of the list
+        s = row['assignment'].section
+        section_choices.setdefault(s.id, f'{s.grade_level.grade_name} {s.section_name}')
     encode_days, encode_overdue = P.deadline_info(period) if period else (None, False)
     validate_days, validate_overdue = P.deadline_info(period, field='grade_validation_deadline') if period else (None, False)
     return render(request, 'registrars/grades/validation.html', {
@@ -1215,6 +1219,7 @@ def grade_validation(request):
         'rows': rows,
         'counts': counts,
         'filters': filters,
+        'section_choices': list(section_choices.items()),
         'clean_count': sum(1 for r in rows if r['state'] == 'submitted' and r['clean']),
         'held_count': sum(1 for r in rows if r['state'] == 'submitted' and not r['clean']),
         'waiting_count': sum(1 for r in rows if r['state'] in WAITING_ON_TEACHER),

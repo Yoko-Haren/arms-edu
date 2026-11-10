@@ -40,7 +40,7 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-shield-check" style="color:#123499;"></i> Grade validation</h2>
-            <p class="hint">A class is ready to validate once its teacher submits it. ARMS checks each one first: every learner graded, valid grades that follow from their scores, saved by the class teacher, and no unusual jumps from the last period.</p>
+            <p class="hint">ARMS checks each class when its teacher submits it.</p>
         </div>
     </section>
 
@@ -89,22 +89,22 @@
         </div>
     </section>
 
-    <div class="tiles" style="--tiles:4">
-        <div class="card tile {% if counts.submitted %}good{% endif %}"><span class="tile-ico"><i class="fi fi-rr-shield-check"></i></span>
-            <div><span>Ready to validate</span><b>{{ counts.submitted|default:0 }}</b><small>{% if counts.submitted %}{{ clean_count }} passed every check{% else %}none submitted yet{% endif %}</small></div></div>
-        <div class="card tile {% if waiting_count %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-time-quarter-past"></i></span>
-            <div><span>With the teachers</span><b>{{ waiting_count }}</b><small>not submitted yet</small></div></div>
-        <div class="card tile {% if counts.returned %}risk{% endif %}"><span class="tile-ico"><i class="fi fi-rr-undo"></i></span>
-            <div><span>Returned</span><b>{{ counts.returned|default:0 }}</b><small>being corrected</small></div></div>
-        <div class="card tile {% if rows and pending_count == 0 %}good{% endif %}"><span class="tile-ico"><i class="fi fi-rr-badge-check"></i></span>
-            <div><span>{% if period.is_grades_locked %}Finalized{% else %}Validated{% endif %}</span><b>{{ done_count }}</b><small>of {{ rows|length }} class{{ rows|length|pluralize:"es" }}</small></div></div>
-    </div>
-
     <section class="card panel gv" aria-labelledby="gvTitle">
         <h3 id="gvTitle" class="sr-only">Classes in {{ period_name }}</h3>
         {% if rows %}
         <div class="toolbar">
-            <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="gvSearch" data-remember="search" placeholder="Find a section, subject or teacher" aria-label="Find a section, subject or teacher"></label>
+            <label class="sort">Section
+                <select id="gvSection">
+                    <option value="">All sections</option>
+                    {% for id, name in section_choices %}<option value="{{ id }}">{{ name }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="sort">Status
+                <select id="gvStatus">
+                    <option value="">All ({{ rows|length }})</option>
+                    {% for f in filters %}<option value="{{ f.key }}">{{ f.label }} ({{ f.count }})</option>{% endfor %}
+                </select>
+            </label>
             <label class="sort">Sort by
                 <select id="gvSort">
                     <option value="attention">Needs attention first</option>
@@ -114,19 +114,13 @@
                     <option value="progress">Least complete first</option>
                 </select>
             </label>
-        </div>
-        <div class="toolbar" style="margin-top:0.7rem;">
-            <div class="chips" role="group" aria-label="Show">
-                <button type="button" data-show="" aria-pressed="true">All<em>{{ rows|length }}</em></button>
-                {% for f in filters %}<button type="button" data-show="{{ f.key }}" aria-pressed="false">{{ f.label }}<em>{{ f.count }}</em></button>{% endfor %}
-            </div>
             <span class="count" id="gvCount" aria-live="polite"></span>
         </div>
 
         <ol class="gv-rows" id="gvRows">
             {% for row in rows %}{% with a=row.assignment r=row.review %}
             <li>
-                <article class="gv-row" data-state="{{ row.state }}" data-order="{{ forloop.counter0 }}" data-percent="{{ row.percent }}"
+                <article class="gv-row" data-state="{{ row.state }}" data-section="{{ a.section_id }}" data-order="{{ forloop.counter0 }}" data-percent="{{ row.percent }}"
                          data-subject="{{ a.subject.subject_code|lower }}" data-teacher="{{ a.teacher.last_name|default:''|lower }} {{ a.teacher.first_name|default:''|lower }}"
                          data-problems="{% if row.state == 'submitted' %}{{ r.errors|add:r.warnings }}{% else %}0{% endif %}"
                          data-text="{{ a.section.grade_level.grade_name|lower }} {{ a.section.section_name|lower }} {{ a.subject.subject_code|lower }} {{ a.subject.subject_name|lower }} {{ a.teacher.get_full_name|lower }}">
@@ -163,10 +157,9 @@
     var list = document.getElementById('gvRows');
     if (!list) return;
     var items = Array.prototype.slice.call(list.children);
-    var search = document.getElementById('gvSearch'), sort = document.getElementById('gvSort');
-    var chips = Array.prototype.slice.call(document.querySelectorAll('.chips button'));
-    var show = new URLSearchParams(location.search).get('show') || '';
-    if (!chips.some(function (c) { return c.dataset.show === show; })) show = '';
+    var sort = document.getElementById('gvSort'), section = document.getElementById('gvSection'), status = document.getElementById('gvStatus');
+    var wanted = new URLSearchParams(location.search).get('show') || '';
+    if (Array.prototype.some.call(status.options, function (o) { return o.value === wanted; })) status.value = wanted;
     var RANK = { submitted: 0, returned: 1, ready: 2, encoding: 3, not_started: 4, validated: 5, locked: 6 };
     var num = function (el, k) { return +el.dataset[k]; };
     var SORTS = {
@@ -178,19 +171,18 @@
     };
     try { var saved = localStorage.getItem('arms:validation:sort'); if (saved && SORTS[saved]) sort.value = saved; } catch (e) {}
     function apply() {
-        var q = search.value.trim().toLowerCase(), shown = 0;
+        var shown = 0, show = status.value;
         items.map(function (li) { return li.firstElementChild; }).sort(SORTS[sort.value]).forEach(function (row) {
-            var ok = (!q || row.dataset.text.indexOf(q) > -1) && (!show || row.dataset.state === show);
+            var ok = (!section.value || row.dataset.section === section.value) && (!show || row.dataset.state === show);
             row.parentElement.hidden = !ok;
             if (ok) shown++;
             list.appendChild(row.parentElement);
         });
-        chips.forEach(function (c) { c.setAttribute('aria-pressed', c.dataset.show === show ? 'true' : 'false'); });
         document.getElementById('gvCount').textContent = 'Showing ' + shown + ' of ' + items.length;
         document.getElementById('gvNone').style.display = shown ? 'none' : 'block';
     }
-    chips.forEach(function (c) { c.addEventListener('click', function () { show = c.dataset.show; apply(); }); });
-    search.addEventListener('input', apply);
+    section.addEventListener('change', apply);
+    status.addEventListener('change', apply);
     sort.addEventListener('change', function () { try { localStorage.setItem('arms:validation:sort', sort.value); } catch (e) {} apply(); });
     apply();
 })();

@@ -287,6 +287,58 @@ html[data-explain="off"] .hp .explain { display: none !important; }
 .ladder-all a, .ladder-all span.item { padding: 0.55rem 0.8rem; border-radius: 12px; font-size: 0.86rem; }
 .ladder-all .nm { white-space: normal; overflow: visible; font-weight: 600; }
 
+/* ---------- the status, Poro AI's recommendations and the forecast (School Head dashboard, teacher home) ---------- */
+/* ---------- the status and the forecast on the left; Poro's recommendations beside both, kept in view ---------- */
+.dash-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); grid-template-areas: "status advice" "chart advice";
+             gap: 1rem; align-items: start; }
+.dash-grid > .status, .dash-grid > .empty-card { grid-area: status; }
+.dash-grid > .advice { grid-area: advice; position: sticky; top: 1rem; }
+.dash-grid > .chart-card { grid-area: chart; }
+.dash-grid.solo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "status" "chart"; }
+@media (max-width: 1100px) {
+    .dash-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "status" "advice" "chart"; }
+    .dash-grid > .advice { position: static; }
+}
+
+/* ---------- Poro AI recommends: one decision for each level, the lowest first ---------- */
+.advice { padding: 1.1rem 1.15rem 0.95rem; display: flex; flex-direction: column; gap: 0.8rem; }
+.advice-head { display: flex; gap: 0.7rem; align-items: center; }
+.advice-head img { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; flex-shrink: 0; }
+.advice-head .hint { margin-top: 0.1rem; }
+.advice-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.advice-list details { border: 1px solid var(--line); border-radius: 12px; background: #fff; transition: box-shadow 0.15s; }
+.advice-list details[open] { box-shadow: inset 3px 0 0 var(--lv); background: #fcfdff; }
+.advice-list summary { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.55rem 0.7rem; cursor: pointer; list-style: none; border-radius: 12px; }
+.advice-list summary::-webkit-details-marker { display: none; }
+.advice-list summary::after { content: '\203A'; margin-left: auto; padding-left: 0.3rem; color: var(--muted); font-size: 1.1rem; line-height: 1.3;
+                              transition: transform 0.15s; }
+.advice-list details[open] > summary::after { transform: rotate(90deg); }
+.advice-list summary:hover { background: var(--soft); }
+.advice-list summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.advice-badge { min-width: 26px; height: 26px; padding: 0 0.3rem; border-radius: 8px; background: var(--lv-bg); color: var(--lv); border: 1.5px solid var(--lv);
+                font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.advice-sum { min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }
+.advice-sum b { font-size: 0.84rem; font-weight: 650; color: var(--ink); line-height: 1.35; }
+.advice-sum small { font-size: 0.74rem; color: var(--muted); line-height: 1.45; }
+.advice-first { display: inline-block; margin-left: 0.25rem; padding: 0.05rem 0.45rem; border-radius: 10px; background: var(--risk-bg); color: var(--risk);
+                font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; vertical-align: 1px; white-space: nowrap; }
+.advice-list p { margin: 0; padding: 0.1rem 0.85rem 0.6rem 2.75rem; font-size: 0.84rem; line-height: 1.6; color: var(--ink); transition: opacity 0.25s; }
+.advice-body p.fading { opacity: 0.35; }
+.advice-body { display: flex; flex-direction: column; gap: 0.6rem; }
+/* the main recommendation: the selection's own level, always open */
+.advice-main { border: 1px solid var(--line); border-radius: 14px; padding: 0.75rem 0.85rem 0.8rem; background: #fcfdff;
+               box-shadow: inset 3px 0 0 var(--lv); display: flex; flex-direction: column; gap: 0.45rem; }
+.advice-tag { font-size: 0.66rem; font-weight: 700; color: var(--lv); text-transform: uppercase; letter-spacing: 0.06em; }
+.advice-main-head { display: flex; gap: 0.55rem; align-items: center; }
+.advice-main-head h4 { margin: 0; font-size: 0.92rem; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.advice-main p { margin: 0; font-size: 0.86rem; line-height: 1.6; color: var(--ink); transition: opacity 0.25s; }
+.advice-for { font-size: 0.74rem; color: var(--muted); line-height: 1.45; }
+.advice-sub { margin: 0.2rem 0 0; font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.advice-foot { margin-top: auto; display: flex; flex-wrap: wrap; gap: 0.25rem 0.8rem; align-items: baseline; justify-content: space-between; }
+.poro-src { font-size: 0.72rem; color: var(--muted); }
+.poro-src.ai { color: var(--brand); font-weight: 600; }
+.advice-foot .link-btn { padding: 0; font-size: 0.76rem; }
+
 /* ---------- forecast charts (static/heads/js/forecast-chart.js) ---------- */
 .fc { position: relative; }
 .fc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.4rem; }

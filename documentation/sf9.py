@@ -1,17 +1,20 @@
-"""SF9, DepEd's own workbooks filled by ARMS, every sheet kept (documentation/sf_templates/sf9).
+"""SF9, DepEd's own workbooks filled by ARMS, every sheet kept and only the report card shown (documentation/sf_templates/sf9).
 
 Kindergarten, Grades 1, 2, 3, 4 to 10, and Grades 11 and 12 by track each have a workbook: Home, INPUT DATA, the term
 summaries, the report card, the attendance record. ARMS fills them as an adviser would, and the workbook's own formulas
 make the report card: INPUT DATA from the SF1, the summaries from the class records, the attendance sheet from the
 adviser's SF2 uploads. A class gets one workbook, where the report card's dropdown chooses the learner; a learner gets
 the same workbook with only that learner in it, so a card that goes home does not carry its classmates.
+The file opens on the report card sheet ("SF9 - GRADE 11 ACADEMIC") with the other sheets hidden, so it prints as the card.
 
 A cell with no grade yet gets an empty text: the workbooks read an empty cell as 0, which would fail the learner. In
 Kindergarten and Grade 1 the competencies stay for the adviser to write, in the workbook. These workbooks are for
 three-term years; DepEd's set has none for a quarterly or semestral year, and ARMS does not make one up.
 """
 import calendar
+import io
 import re
+import zipfile
 from datetime import date
 from pathlib import Path
 
@@ -377,7 +380,12 @@ def _workbook(section, sy, only=None):
             p['promoted'] = p.get('action') == 'PROMOTED'
         card.update(_learner_cells(section, book, people[0], periods))
     edits[book['card']] = card
-    data = xlsx_patch.patch((TEMPLATES / f'{name}.xlsx').read_bytes(), edits, active=book['card'])
+    # the file opens on the report card alone, so printing it prints the card: every other sheet is kept, hidden, because the
+    # card's formulas read them (the adviser can still unhide them in Excel)
+    template = (TEMPLATES / f'{name}.xlsx').read_bytes()
+    with zipfile.ZipFile(io.BytesIO(template)) as z:
+        others = [sheet for sheet in xlsx_patch.sheet_parts(z) if sheet != book['card']]
+    data = xlsx_patch.patch(template, edits, active=book['card'], hidden=others)
     return xlsx_patch.replace_shape(data, 'School Logo', school_header.logo(section.school)), people
 
 

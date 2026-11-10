@@ -1,0 +1,329 @@
+{% extends 'teachers/base.html' %}
+{% load static %}
+
+{% block title %}{% if view == 'advisory' %}My Advisory{% else %}My Classes{% endif %}{% endblock %}
+{% block subtitle %}{% if view == 'advisory' %}My Advisory{% else %}My Classes{% endif %}{% if sy %} &bull; SY {{ sy.year_label }}{% endif %}{% if period_name %} &bull; {{ period_name }}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'heads/css/head-portal.css' %}">
+<style>
+    /* The status, Poro AI's recommendations and the forecast share the School Head dashboard's look (head-portal.css). */
+    .home-pick { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
+    .home-pick select { width: auto; min-width: 9rem; }
+    .home-pick .seg a { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; font-size: 0.84rem; font-weight: 600;
+                        color: var(--muted); text-decoration: none; }
+    .home-pick .seg a[aria-current="page"] { background: var(--brand); color: #fff; }
+    .home-pick .seg a:not([aria-current="page"]):hover { background: #e8ecf1; color: var(--ink); }
+    .todo-line { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding: 0.7rem 1rem; text-decoration: none; color: var(--ink);
+                 font-size: 0.86rem; border-left: 4px solid var(--brand); }
+    .todo-line.risk { border-left-color: var(--risk); }
+    .todo-line i { color: var(--brand); display: inline-flex; }
+    .todo-line.risk i { color: var(--risk); }
+    .todo-line .go { margin-left: auto; color: var(--brand); font-weight: 650; font-size: 0.82rem; }
+    .todo-line:hover .go { text-decoration: underline; }
+    .hp .status-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .hp .fc-method { display: none; }            /* how the forecast is made: on the School Head's pages */
+    @media (max-width: 760px) { .hp .status-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    /* every learner's grades: learners down, subjects across; the name column stays in view */
+    .gwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    .gtable th, .gtable td { white-space: nowrap; }
+    .gtable th.sub { text-align: center; }
+    .gtable th.sub small { display: block; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--faint); font-size: 0.66rem; }
+    .gtable td:first-child, .gtable th:first-child { position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: 1px 0 0 var(--line); }
+    .gtable th:first-child { background: var(--soft); }
+    .gtable tbody tr { cursor: pointer; }
+    .gtable tbody tr:hover td { background: #f7f9ff; }
+    .gtable .who { font-weight: 600; }
+    .gtable .avg { font-weight: 700; }
+    .gtable tr[hidden] { display: none; }
+    .gtable .lvl { font-size: 0.72rem; padding: 0.15rem 0.55rem; background: var(--lv-bg); color: var(--lv); }
+
+    /* a learner's record */
+    .rec-table td.cur, .rec-table th.cur { background: #f3f6ff; }
+    .rec-table tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
+    .rec-parts { color: var(--muted); font-size: 0.76rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi {% if view == 'advisory' %}fi-rr-users-alt{% else %}fi-rr-chalkboard-user{% endif %}" style="color:#123499;"></i>
+                {% if view == 'advisory' %}My advisory: {{ scope }}{% else %}My classes{% endif %}</h2>
+        </div>
+        <form method="get" class="home-pick" aria-label="Choose what to show">
+            {% if advised and has_classes %}
+            <div class="seg" role="group" aria-label="Show">
+                <a href="?view=advisory" {% if view == 'advisory' %}aria-current="page"{% endif %}>My advisory</a>
+                <a href="?view=classes" {% if view == 'classes' %}aria-current="page"{% endif %}>My classes</a>
+            </div>
+            {% endif %}
+            <input type="hidden" name="view" value="{{ view }}">
+            {% if view == 'advisory' and advised|length > 1 %}
+            <select name="section" aria-label="Section" data-go>
+                {% for s in advised %}<option value="{{ s.id }}" {% if s == section %}selected{% endif %}>{{ s.grade_level.grade_name }} {{ s.section_name }}</option>{% endfor %}
+            </select>
+            {% endif %}
+            {% if periods %}
+            <select name="period" aria-label="Grading period" data-go>
+                {% for p in periods %}<option value="{{ p.id }}" {% if p == period %}selected{% endif %}>{{ p.quarter_label }}{% if p == current %} (current){% endif %}</option>{% endfor %}
+            </select>
+            {% endif %}
+            {% if view == 'advisory' %}<a class="btn btn-line" href="{% url 'teachers:school_forms' %}{% if section %}?section={{ section.id }}{% endif %}"><i class="fi fi-rr-document"></i> School forms</a>{% endif %}
+        </form>
+    </section>
+
+    {% if todo.returned or todo.ready %}
+    <a class="card todo-line {% if todo.returned %}risk{% endif %}" href="{% url 'teachers:class_record_list' %}">
+        <i class="fi {% if todo.returned %}fi-rr-undo{% else %}fi-rr-paper-plane{% endif %}"></i>
+        <span>{% if todo.returned %}<b>{{ todo.returned }} class{{ todo.returned|pluralize:"es" }}</b> returned for correction{% endif %}{% if todo.returned and todo.ready %} &middot; {% endif %}{% if todo.ready %}<b>{{ todo.ready }} class{{ todo.ready|pluralize:"es" }}</b> ready to submit{% endif %}</span>
+        <span class="go">Class records &rsaquo;</span>
+    </a>
+    {% endif %}
+
+    <div class="hp">
+        <div class="dash-grid{% if not status %} solo{% endif %}">
+            {% if status %}
+            <section class="card status level-{{ status.level.key }}" aria-labelledby="statusTitle">
+                <span class="eyebrow">{% if view == 'advisory' %}Section status &middot; {{ scope }}{% else %}Your classes{% endif %} &middot; {{ period_name }}</span>
+                <div class="status-main">
+                    <div class="status-badge" aria-hidden="true">{{ status.level.letter }}</div>
+                    <div>
+                        <div class="status-level" id="statusTitle">{{ status.level.name }}</div>
+                        <div class="status-meaning">{{ status.level.meaning }}</div>
+                    </div>
+                </div>
+                <div class="status-facts">
+                    <div class="fact">
+                        <b>{{ status.average }}%</b>
+                        <span>Average grade</span>
+                        {% if status.delta is not None %}
+                        <span class="chg {% if status.delta > 0 %}up{% elif status.delta < 0 %}down{% else %}flat{% endif %}">
+                            {% if status.delta > 0 %}<i class="fi fi-rr-caret-up"></i>{% elif status.delta < 0 %}<i class="fi fi-rr-caret-down"></i>{% else %}no change{% endif %}{% if status.delta %}{{ status.delta_abs }}{% endif %} vs {{ status.prev_name }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="fact"><b>{{ status.passing_rate }}%</b><span>Passing (75 and above)</span></div>
+                    <div class="fact {% if status.below %}alert{% endif %}"><b>{{ status.below }}</b><span>Learners below 75</span></div>
+                    <div class="fact"><b>{{ status.learners }}</b><span>Learners</span></div>
+                </div>
+
+                {% if ladder %}
+                <div class="ladder" aria-labelledby="ladderTitle">
+                    <div class="ladder-head"><h4 id="ladderTitle">Where each {{ item_word }} stands</h4></div>
+                    <div class="ladder-cols">
+                        {% for step in ladder %}
+                        <div class="ladder-col level-{{ step.level.key }}">
+                            <div class="ladder-top"><b>{{ step.level.letter }}</b><span>{{ step.level.short }}<small>{{ step.level.range }}</small></span></div>
+                            <div class="ladder-bar" aria-hidden="true"><i style="width: {{ step.share }}%"></i></div>
+                            <div class="ladder-count">{{ step.count }} {% if item_word == 'class' %}class{{ step.count|pluralize:"es" }}{% else %}{{ item_word }}{{ step.count|pluralize }}{% endif %}</div>
+                            {% if step.items %}
+                            <ul class="ladder-items">
+                                {% for i in step.items %}<li><span class="item" title="{{ i.name }}: {{ i.average }}%"><span class="nm">{{ i.short }}</span><span class="vl">{{ i.average }}</span></span></li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </section>
+
+            <aside class="card advice" aria-labelledby="adviceTitle">
+                <div class="advice-head">
+                    <img src="{% static 'shared/poro/Poro.png' %}" alt="" onerror="this.remove()">
+                    <div>
+                        <h3 id="adviceTitle">Poro AI recommends</h3>
+                        <p class="hint">What to do next, starting with {% if view == 'advisory' %}your section's{% else %}your classes'{% endif %} own level.</p>
+                    </div>
+                </div>
+                <div class="advice-body" id="adviceList"{% if poro_token %} data-url="{% url 'teachers:poro' poro_token %}"{% endif %}>
+                    {% if main %}
+                    <section class="advice-main level-{{ main.level.key }}" aria-labelledby="mainTitle">
+                        <span class="advice-tag">Main recommendation &middot; {{ main.level.name }}</span>
+                        <div class="advice-main-head">
+                            <span class="advice-badge" aria-hidden="true">{{ main.level.letter }}</span>
+                            <h4 id="mainTitle">{{ main.title }}</h4>
+                        </div>
+                        {% if main.items %}<small class="advice-for">{{ main.level.name }}: {% for i in main.items %}{{ i.name }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}</small>{% endif %}
+                        <p data-poro="main">{{ main.text }}</p>
+                    </section>
+                    {% endif %}
+                    {% if decisions %}
+                    <h4 class="advice-sub">Other recommendations</h4>
+                    <ol class="advice-list">
+                        {% for d in decisions %}
+                        <li class="level-{{ d.level.key }}">
+                            <details>
+                                <summary>
+                                    <span class="advice-badge" aria-hidden="true">{{ d.level.letter }}</span>
+                                    <span class="advice-sum">
+                                        <b>{{ d.title }}{% if forloop.first and d.urgent %}<span class="advice-first">Act first</span>{% endif %}</b>
+                                        <small>{{ d.level.name }}: {% for i in d.items %}{{ i.name }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}</small>
+                                    </span>
+                                </summary>
+                                <p data-poro="decision-{{ forloop.counter0 }}">{{ d.text }}</p>
+                            </details>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% endif %}
+                </div>
+                <div class="advice-foot">
+                    <span class="poro-src" id="poroSrc">Decided from the grades by rules a person can check</span>
+                    <button type="button" class="link-btn" id="poroSwitch" hidden>Show the computed wording</button>
+                </div>
+            </aside>
+            {% else %}
+            <section class="card empty-card" style="padding:1.1rem 1.25rem;">
+                <p class="hint">{% if view == 'advisory' %}No subject of {{ scope }} has {{ period_name|default:"grades" }} grades yet.{% else %}None of your classes has {{ period_name|default:"grades" }} grades yet.{% endif %} Choose another grading period above.</p>
+            </section>
+            {% endif %}
+
+            {% if forecast %}
+            <section class="card chart-card" aria-labelledby="fcTitle">
+                <div class="card-head" style="margin-bottom:0.3rem">
+                    <div><h3 id="fcTitle"><i class="fi fi-rr-chart-line-up" style="color:#123499;"></i> {{ scope }}: averages and forecast{% if sy %} &middot; SY {{ sy.year_label }}{% endif %}</h3></div>
+                </div>
+                <div data-forecast="homeForecast"></div>
+            </section>
+            {% endif %}
+        </div>
+        {% if forecast %}{{ forecast|json_script:"homeForecast" }}{% endif %}
+    </div>
+
+    {% if section and status %}
+    <section class="card panel" aria-labelledby="gradesTitle">
+        <div class="panel-head">
+            <div><h3 id="gradesTitle"><i class="fi fi-rr-table-list" style="color:#123499;"></i> Learners &middot; {{ period_name }}</h3>
+                <p class="hint">Open a learner for every subject and period.</p></div>
+            <div class="toolbar">
+                <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="gSearch" placeholder="Find a learner or LRN" aria-label="Find a learner or LRN"></label>
+                <label class="sort">Sort by
+                    <select id="gSort">
+                        <option value="name">Surname A to Z</option>
+                        <option value="below">Most subjects below 75</option>
+                        <option value="low">Lowest average first</option>
+                        <option value="high">Highest average first</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+        {% if learners and columns %}
+        <div class="gwrap">
+            <table class="table gtable">
+                <thead><tr><th scope="col">Learner</th>
+                    {% for c in columns %}<th scope="col" class="sub" title="{{ c.name }}{% if c.teacher %} ({{ c.teacher }}){% endif %}">{{ c.code }}<small>{{ c.graded }}/{{ c.total }}</small></th>{% endfor %}
+                    <th scope="col" class="num">Average</th><th scope="col">Level</th></tr></thead>
+                <tbody id="gBody">
+                    {% for l in learners %}
+                    <tr tabindex="0" data-learner="{{ forloop.counter0 }}" data-name="{{ l.name|lower }}" data-lrn="{{ l.lrn }}" data-avg="{% if l.average is not None %}{{ l.average }}{% endif %}" data-below="{{ l.below|length }}">
+                        <td><span class="who">{{ l.name }}</span></td>
+                        {% for g in l.grades %}<td class="center">{% if g is None %}<span class="grade none">&mdash;</span>{% else %}<span class="grade {% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g|floatformat:"-1" }}</span>{% endif %}</td>{% endfor %}
+                        <td class="num avg">{% if l.average is not None %}{{ l.average }}{% else %}&mdash;{% endif %}</td>
+                        <td>{% if l.level %}<span class="lvl level-{{ l.level.key }}">{{ l.level.short }}</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="empty" id="gNone" hidden>No learner matches.</p>
+        {% else %}
+        <p class="empty"><i class="fi fi-rr-table-list"></i>{% if learners %}No subject has {{ period_name }} grades yet.{% else %}No learner is enrolled in this section yet.{% endif %}</p>
+        {% endif %}
+    </section>
+    <div class="tp-modal" id="recModal" role="dialog" aria-modal="true" aria-labelledby="recTitle" hidden>
+        <div class="tp-modal-card" tabindex="-1">
+            <div class="tp-modal-head">
+                <div><h3 id="recTitle"></h3><p class="hint" id="recSub"></p></div>
+                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+            </div>
+            <div class="tp-modal-body" id="recBody"></div>
+        </div>
+    </div>
+    {{ record|json_script:"recordData" }}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'heads/js/forecast-chart.js' %}"></script>
+<script src="{% static 'heads/js/poro-advice.js' %}"></script>
+<script>
+(function () {
+    'use strict';
+    // the section and period pickers apply at once (with the next page's outline while it loads)
+    document.querySelectorAll('[data-go]').forEach(function (el) {
+        el.addEventListener('change', function () { if (window.ArmsSkeleton) ArmsSkeleton.submit(el.form); else el.form.submit(); });
+    });
+
+    var dataEl = document.getElementById('recordData');
+    if (!dataEl) return;
+    var data = JSON.parse(dataEl.textContent);
+    var comps = [{% for key, name, abbr in components %}{ abbr: '{{ abbr|escapejs }}', name: '{{ name|escapejs }}' }{% if not forloop.last %}, {% endif %}{% endfor %}];
+    var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    var fmt = function (n) { return n == null ? '&mdash;' : (Number.isInteger(n) ? String(n) : n.toFixed(1)); };
+    var grade = function (n) { return n == null ? '<span class="grade none">&mdash;</span>' : '<span class="grade ' + (n >= 75 ? 'pass' : 'fail') + '">' + fmt(n) + '</span>'; };
+
+    // ---------- every learner's grades: search and sort ----------
+    var body = document.getElementById('gBody');
+    if (body) {
+        var rows = Array.prototype.slice.call(body.querySelectorAll('tr'));
+        var search = document.getElementById('gSearch'), sort = document.getElementById('gSort');
+        var avg = function (r) { return r.dataset.avg === '' ? null : +r.dataset.avg; };
+        var SORTS = {
+            name: function (a, b) { return a.dataset.name.localeCompare(b.dataset.name); },
+            low: function (a, b) { return (avg(a) == null) - (avg(b) == null) || avg(a) - avg(b); },
+            high: function (a, b) { return (avg(a) == null) - (avg(b) == null) || avg(b) - avg(a); },
+            below: function (a, b) { return +b.dataset.below - +a.dataset.below || (avg(a) || 0) - (avg(b) || 0); }
+        };
+        var draw = function () {
+            var q = search.value.trim().toLowerCase(), shown = 0;
+            rows.sort(SORTS[sort.value] || SORTS.name).forEach(function (r) {
+                r.hidden = q && r.dataset.name.indexOf(q) === -1 && r.dataset.lrn.indexOf(q) === -1;
+                if (!r.hidden) shown++;
+                body.appendChild(r);
+            });
+            document.getElementById('gNone').hidden = shown > 0;
+        };
+        search.addEventListener('input', draw);
+        sort.addEventListener('change', draw);
+    }
+
+    // ---------- a learner's record: every subject and period, the components of the period shown, the general average ----------
+    var modal = document.getElementById('recModal'), last = null;
+    function open(i) {
+        var who = data.people[i], rec = data.learners[i];
+        if (!who || !rec) return;
+        var at = data.periods.map(function (p) { return p.label; }).indexOf(data.period);
+        var head = '<tr><th>Subject</th>' + data.periods.map(function (p, j) { return '<th class="center' + (j === at ? ' cur' : '') + '">' + esc(p.label) + '</th>'; }).join('') +
+            '<th class="center">Final</th>' + comps.map(function (c) { return '<th class="center" title="' + esc(c.name) + ', ' + esc(data.period) + '">' + esc(c.abbr) + '</th>'; }).join('') + '</tr>';
+        var rows = rec.rows.map(function (r) {
+            return '<tr><td><b>' + esc(r.code) + '</b> <span class="rec-parts">' + esc(r.name) + '</span></td>' +
+                r.grades.map(function (g, j) { return '<td class="center' + (j === at ? ' cur' : '') + '">' + grade(g) + '</td>'; }).join('') +
+                '<td class="center">' + grade(r.final) + '</td>' +
+                [0, 1, 2].map(function (k) { return '<td class="center rec-parts">' + (r.parts ? fmt(r.parts[k]) : '&mdash;') + '</td>'; }).join('') + '</tr>';
+        }).join('');
+        var foot = '<tr><td>General average</td>' + rec.averages.map(function (a, j) { return '<td class="center' + (j === at ? ' cur' : '') + '">' + fmt(a) + '</td>'; }).join('') +
+            '<td></td>' + comps.map(function () { return '<td></td>'; }).join('') + '</tr>';
+        document.getElementById('recTitle').textContent = who.name;
+        document.getElementById('recSub').textContent = (who.lrn ? 'LRN ' + who.lrn + ' · ' : '') + comps.map(function (c) { return c.abbr; }).join(', ') +
+            ' are the ' + data.period + ' component scores in percent.';
+        document.getElementById('recBody').innerHTML = '<div style="overflow-x:auto"><table class="table rec-table"><thead>' + head + '</thead><tbody>' + rows +
+            '</tbody><tfoot>' + foot + '</tfoot></table></div>';
+        last = document.activeElement;
+        modal.hidden = false;
+        modal.querySelector('.tp-modal-card').focus();
+    }
+    function close() { modal.hidden = true; if (last) last.focus(); }
+    document.querySelectorAll('[data-learner]').forEach(function (el) {
+        el.addEventListener('click', function () { open(+el.dataset.learner); });
+        el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(+el.dataset.learner); } });
+    });
+    modal.addEventListener('click', function (e) { if (e.target === modal || e.target.closest('[data-close]')) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+})();
+</script>
+{% endblock %}

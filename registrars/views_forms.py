@@ -28,25 +28,17 @@ XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 # The cards of the page, in DepEd's order: what each form is, what it is filled from, what it asks for
 CARDS = (
-    ('SF1', 'School Register', 'Every learner with LRN, birth date, address, parents or guardian and REMARKS codes, from the SF1 you imported.',
-     'section', ('semester',)),
-    ('SF2', 'Daily Attendance Report', 'The adviser\'s upload: each learner\'s absences and tardiness, and the summary box.',
-     'section', ('month', 'semester')),
-    ('SF3', 'Books Issued and Returned', 'The class list with the titles and dates from the adviser\'s upload.',
-     'section', ('semester',)),
-    ('SF4', "Monthly Learner's Movement", 'Every section\'s SF2 added up: registered learners, average daily attendance, dropouts and transfers.',
-     'school', ('month', 'level', 'semester')),
-    ('SF5', 'Report on Promotion', 'General average and action taken (Grades 7 to 10); end-of-{word} status SF5A (Senior High).',
-     'section', ('semester',)),
-    ('SF5B', 'SHS Completers', 'Grade 12 learners who completed every subject of the school year.', 'section12', ()),
-    ('SF6', 'Summarized Promotion Report', 'Every SF5 added up: promoted, conditional and retained, and the learning progress, by grade level.',
-     'school', ('level', 'semester')),
-    ('SF7', 'Personnel Assignment List', 'Staff by position with their subjects, sections, advisory and teaching minutes.',
-     'school', ('level', 'semester')),
-    ('SF8', 'Health and Nutrition', 'The adviser\'s upload: weight and height, with the BMI worked out.', 'section', ('stage',)),
-    ('SF9', 'SF9 Workbook', 'DepEd\'s workbook for the class: Input Data, the term summaries, the report card and attendance.', 'section', ()),
-    ('SUMMARY', 'Summary of Final Grades', 'Each learner\'s {word} grades in the eight learning areas; the sheet computes the '
-     'final grades and the general average.', 'section_jhs', ()),
+    ('SF1', 'School Register', 'Every learner, from the SF1 you imported.', 'section', ('semester',)),
+    ('SF2', 'Daily Attendance Report', "From the adviser's upload.", 'section', ('month', 'semester')),
+    ('SF3', 'Books Issued and Returned', "From the adviser's upload.", 'section', ('semester',)),
+    ('SF4', "Monthly Learner's Movement", "Every section's SF2 added up.", 'school', ('month', 'level', 'semester')),
+    ('SF5', 'Report on Promotion', 'General average and action taken.', 'section', ('semester',)),
+    ('SF5B', 'SHS Completers', 'Grade 12 learners who completed every subject.', 'section12', ()),
+    ('SF6', 'Summarized Promotion Report', 'Every SF5 added up, by grade level.', 'school', ('level', 'semester')),
+    ('SF7', 'Personnel Assignment List', 'Staff, their subjects, advisory and teaching minutes.', 'school', ('level', 'semester')),
+    ('SF8', 'Health and Nutrition', "From the adviser's upload, with the BMI.", 'section', ('stage',)),
+    ('SF9', 'SF9 Report Cards', 'Opens on the report card sheet, ready to print.', 'section', ()),
+    ('SUMMARY', 'Summary of Final Grades', "Each learner's {word} grades in the eight learning areas.", 'section_jhs', ()),
 )
 
 

@@ -40,7 +40,7 @@
     <section class="card tp-head">
         <div>
             <h2><i class="fi fi-rr-document" style="color:#123499;"></i> School forms</h2>
-            <p class="hint">DepEd's own templates, filled from what ARMS already has. Your SF1 starts them; advisers add attendance, books and weights; the grades do the rest. {% if system %}SY {{ current_sy.year_label }} is {{ system|lower }}, so the forms print {{ period_word|lower }}s.{% endif %}</p>
+            <p class="hint">DepEd's templates, filled from ARMS.{% if system %} SY {{ current_sy.year_label }} is {{ system|lower }}.{% endif %}</p>
         </div>
         {% if years %}
         <form method="get" class="sy-pick">
@@ -60,14 +60,12 @@
     {% else %}
 
     {% if unvalidated %}
-    <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span><b>{{ unvalidated }} grade{{ unvalidated|pluralize }} of SY {{ current_sy.year_label }} {{ unvalidated|pluralize:"is,are" }} not validated yet.</b> SF5, SF6 and the summaries use the grades as recorded; validate them on Grade Validation before you submit these forms.</span></div>
+    <div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span><b>{{ unvalidated }} grade{{ unvalidated|pluralize }} not validated yet.</b> Validate them on Grade Validation before you submit SF5, SF6 and the summaries.</span></div>
     {% endif %}
 
-    <section class="card hdr" aria-labelledby="hdrTitle">
-        <div class="panel-head" style="margin-bottom:0.6rem;">
-            <h3 id="hdrTitle"><i class="fi fi-rr-id-card-clip-alt" style="color:#123499;"></i> Printed on every form</h3>
-        </div>
-        <form method="post" enctype="multipart/form-data">
+    <details class="card hdr"{% if not region_label or not header.division %} open{% endif %}>
+        <summary class="sf-sum"><span><b>Printed on every form</b></span><span class="pill {% if region_label and header.division %}good{% else %}warn{% endif %}">{% if region_label and header.division %}{{ region_label }} &middot; {{ header.division }}{% if logo_uri %} &middot; logo saved{% endif %}{% else %}Region or division missing{% endif %}</span><i class="fi fi-rr-angle-small-down"></i></summary>
+        <form method="post" enctype="multipart/form-data" style="margin-top:0.8rem;">
             {% csrf_token %}
             <input type="hidden" name="action" value="header">
             <input type="hidden" name="sy" value="{{ current_sy.id }}">
@@ -87,11 +85,11 @@
                 </div>
             </div>
             <div class="hdr-actions">
-                <span class="hint" style="margin:0;">School {{ school.school_name }} &middot; ID {{ school.school_id }}. ARMS fills the region, division and district from the SF1 you import.</span>
+                <span class="hint" style="margin:0;">ARMS fills these from the SF1 you import.</span>
                 <button type="submit" class="btn btn-line btn-sm"><i class="fi fi-rr-disk"></i> Save header</button>
             </div>
         </form>
-    </section>
+    </details>
 
     {% if uploads.rows %}
     <details class="card hdr">
