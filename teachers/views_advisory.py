@@ -6,7 +6,7 @@ the school year (every subject and period, the grade components and the general 
 sees it. Levels follow the school's DepEd order (core/grading_policy.py).
 """
 from collections import defaultdict
-from statistics import mean
+from statistics import fmean as mean          # fast float mean: these are averages of thousands of grades
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect

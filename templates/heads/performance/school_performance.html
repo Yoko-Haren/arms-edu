@@ -196,7 +196,7 @@
         <div class="card-head" style="margin-bottom:0.3rem">
             <div>
                 <h3 id="spFcTitle"><i class="fi fi-rr-chart-line-up" style="color:#123499;"></i> {{ scope_name }}: school performance forecast &middot; SY {{ sy.year_label }}</h3>
-                <p class="hint explain">{% if grade %}{{ grade.grade_name }}{% else %}The whole school{% endif %} across every learning area first; choose a {{ forecast.word }} under Show to see it against that line, or every one together. The legend above the chart names each mark.</p>
+                <p class="hint explain">{% if grade %}{{ grade.grade_name }}{% else %}The whole school{% endif %} across every learning area first; choose a {{ forecast.word }} under Show. The blue line is the actual grade, the green dashed line the grade the model predicted.</p>
             </div>
         </div>
         <div data-forecast="spForecast"></div>
@@ -295,7 +295,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'heads/js/forecast-chart.js' %}"></script>
+<script src="{% static 'heads/js/forecast-chart.js' %}?v=20261111"></script>
 <script>
 (function () {
     var form = document.getElementById('filterForm');

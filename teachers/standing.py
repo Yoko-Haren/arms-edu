@@ -13,7 +13,7 @@ school year with what comes next. Recommendations have no numbers, since the sta
 writes its own advice from the same facts when it runs (heads/poro.py) and the computed wording shows otherwise.
 """
 from collections import defaultdict
-from statistics import mean
+from statistics import fmean as mean          # fast float mean: these are averages of thousands of grades
 
 from django.db.models import F
 

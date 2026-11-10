@@ -5,7 +5,7 @@
 {% block subtitle %}{% if advised %}My Advisory{% else %}My Classes{% endif %}{% if sy %} &bull; SY {{ sy.year_label }}{% endif %}{% if period_name %} &bull; {{ period_name }}{% endif %}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'heads/css/head-portal.css' %}">
+<link rel="stylesheet" href="{% static 'heads/css/head-portal.css' %}?v=20261111">
 <style>
     /* The status, Poro AI's recommendations and the forecast share the School Head dashboard's look (head-portal.css). */
     .home-pick { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
@@ -332,8 +332,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'heads/js/forecast-chart.js' %}"></script>
-<script src="{% static 'heads/js/poro-advice.js' %}"></script>
+<script src="{% static 'heads/js/forecast-chart.js' %}?v=20261111"></script>
+<script src="{% static 'heads/js/poro-advice.js' %}?v=20261111"></script>
 <script>
 // ---------- learners below 75: the dialog, a learner's subjects, and Poro AI's advice for that learner ----------
 function belowDialog() {

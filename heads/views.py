@@ -13,12 +13,9 @@ import json
 import csv
 
 from academics.models import SchoolYear, GradeLevel, Section, Quarter, Subject, GradingSchema, SectionQuarterlySummary, AISectionRecommendation, GradePrediction
-from enrollment.models import Enrollment
 from accounts.models import UserProfile, SchoolForm
 from evaluation.models import TeacherEvaluation
 from documentation.models import FormSubmission, FormCompliance
-from grades.models import GradeComponent
-from core.periods import grade_value
 from communication.models import Announcement, Notification
 from transfers.models import Transfer
 from audit.models import ActivityLog
@@ -75,49 +72,6 @@ def _log(request, action_type, resource_type, resource_id, description):
         )
     except Exception:
         pass
-
-
-@login_required
-def get_ai_remark(request, enrollment_id, subject_id, quarter_id):
-    """AJAX endpoint: Generate AI remark for a single student"""
-    if not hasattr(request.user, 'profile') or request.user.profile.role != 'schoolhead':
-        return JsonResponse({'error': 'Access denied'}, status=403)
-    
-    try:
-        enrollment = Enrollment.objects.get(id=enrollment_id)
-        subject = Subject.objects.get(id=subject_id)
-        quarter = Quarter.objects.get(id=quarter_id)
-        
-        grade = GradeComponent.objects.filter(
-            enrollment=enrollment, subject=subject, quarter=quarter
-        ).first()
-        
-        value = grade_value(grade.transmuted_grade, grade.initial_grade) if grade else None
-        if value is None:
-            return JsonResponse({'remark': 'No grade data', 'level': 'N/A'})
-        
-        from ml_engine.services.ai_remark_generator import ai_remark_generator
-        
-        result = ai_remark_generator.generate_remark({
-            'first_name': enrollment.student.first_name,
-            'last_name': enrollment.student.last_name,
-            'subject_name': subject.subject_name,
-            'grade': value,
-            'trend': 'stable',
-            'attendance_rate': 85,
-            'quarter': quarter.quarter_label,
-            'grade_level': enrollment.section.grade_level.grade_number if enrollment.section and enrollment.section.grade_level else 10,
-        })
-        
-        return JsonResponse({
-            'remark': result['personalized_remark'],
-            'level': result['proficiency_abbreviation'],
-            'model': result['ai_model'],
-        })
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-
 
 
 @login_required

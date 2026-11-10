@@ -17,8 +17,6 @@ urlpatterns = [
     path('notifications/<int:notification_id>/open/', views_academic.open_notification, name='heads-open-notification'),
     path('ai-mark-recommendation/<int:recommendation_id>/',
          views.ai_mark_recommendation_implemented, name='heads-ai-mark-recommendation'),
-    path('ai-remark/<int:enrollment_id>/<int:subject_id>/<int:quarter_id>/',
-         views.get_ai_remark, name='get-ai-remark'),
 
     # School Performance: the whole school across learning areas and grade levels
     path('performance/', views_performance.school_performance, name='heads-school-performance'),

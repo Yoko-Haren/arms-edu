@@ -9,7 +9,7 @@ the transmuted grade), so the two pages agree.
 """
 from collections import defaultdict
 from datetime import date
-from statistics import mean
+from statistics import fmean as mean          # fast float mean: these are averages of thousands of grades
 
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum

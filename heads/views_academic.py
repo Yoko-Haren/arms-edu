@@ -1,7 +1,7 @@
 """School Head: Academic Dashboard, Poro AI's recommendations, report download and live updates."""
 import hashlib
 from collections import defaultdict
-from statistics import mean
+from statistics import fmean as mean          # fast float mean: these are averages of thousands of grades
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -216,6 +216,17 @@ def _dashboard_data(params, school):
                       'weak': weak, 'parts': insights.part_scores(parts, weak), 'url': link(k)})
     ladder = _ladder(items) if items else []
 
+    # one discipline: its average and performance level in each grade level, the table above the forecast
+    grade_table = []
+    if mode == 'family' and not all_families and rows:
+        order = {g.grade_name: g.sort_order for g in grade_levels}
+        by_grade = defaultdict(list)
+        for r in rows:
+            by_grade[r['enrollment__section__grade_level__grade_name'] or 'Other'].append(float(r['grade']))
+        for name in sorted(by_grade, key=lambda n: order.get(n, 99)):
+            avg = round(mean(by_grade[name]), 1)
+            grade_table.append({'name': name, 'average': avg, 'level': level_of(avg), 'learners': len(by_grade[name])})
+
     grades = whole['grades']
     status = None
     if grades:
@@ -254,7 +265,8 @@ def _dashboard_data(params, school):
     forecast_spec = None
     table_, meta = forecasts.year_table(school, sy) if ids else ({}, None)
     if ids and periods and table_:
-        in_scope = {k for k, v in table_.items() if v['subject'] in set(ids)}
+        wanted = set(ids)
+        in_scope = {k for k, v in table_.items() if v["subject"] in wanted}
         if all_families:
             fam = {s.id: s.subject_family_id for s in scope}
             items_fc = [{'key': f'family-{f.id}', 'name': f.family_name, 'keys': [k for k in in_scope if fam.get(table_[k]['subject']) == f.id],
@@ -299,6 +311,7 @@ def _dashboard_data(params, school):
         'scope_name': scope_name, 'scope_detail': scope_detail,
         'status': status, 'levels': policy.levels(), 'items': items, 'main': main, 'decisions': decisions,
         'ladder': ladder, 'ladder_word': item_word if items else '', 'ladder_rows': LADDER_ROWS, 'forecast': forecast_spec,
+        'grade_table': grade_table,
     }
 
 

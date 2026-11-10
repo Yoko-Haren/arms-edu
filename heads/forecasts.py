@@ -10,7 +10,7 @@ trend of heads.insights projects each series instead, so the pages always show a
 
 The page draws the chart (static/heads/js/forecast-chart.js) from the spec built here.
 """
-from statistics import mean
+from statistics import fmean as mean          # fast float mean: these are averages of thousands of grades
 
 from core.periods import GRADE, HAS_GRADE
 from enrollment.models import Enrollment
@@ -95,9 +95,9 @@ def method_note(meta):
     return {'kind': 'model', 'version': meta['version'],
             'text': f'Forecast by the ARMS grade model (XGBoost), trained on {meta["samples"]:,} grade records. On the latest '
                     f'quarter it had not seen, a learner\'s grade was off by {latest["model"]["mae"]:.1f} points on average '
-                    f'and class averages stayed within {class_range:.1f} points 9 times out of 10. Diamonds are its one-step '
-                    'forecasts for periods that already have grades; it learned from those grades, so they look closer '
-                    'than a forecast of a new period will be.'}
+                    f'and class averages stayed within {class_range:.1f} points 9 times out of 10. For periods that already '
+                    'have grades, the green line is what it forecast one period earlier; it learned from those grades, so '
+                    'they look closer than a forecast of a new period will be.'}
 
 
 def chart(*, table, meta, periods, items, reference=None, level='group', step_sd=2.5, selected=None, period_name=str):

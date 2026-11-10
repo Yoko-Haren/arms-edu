@@ -9,6 +9,12 @@
 <style>
     /* Shared parts (filters, status, dialogs, forecast charts, level ladder) are in static/heads/css/head-portal.css. */
 
+    /* one discipline's grade levels sit between the status and the forecast */
+    .dash-grid.with-table { grid-template-areas: "status advice" "table advice" "chart advice"; }
+    .dash-grid > .levels-card { grid-area: table; padding: 1.1rem 1.25rem; }
+    .levels-card .lvl { background: var(--lv-bg); color: var(--lv); }
+    @media (max-width: 1100px) { .dash-grid.with-table { grid-template-areas: "status" "advice" "table" "chart"; } }
+
     /* the report download sits with "Start over" at the end of the filter summary */
     .guide-summary .btn-outline { margin-left: auto; }
     .guide-summary .btn-outline + .reset { margin-left: 0.4rem; }
@@ -86,7 +92,7 @@
     </section>
 
     <!-- 2. One status for the selection with where each item stands, what to decide for each level, and the forecast -->
-    <div class="dash-grid{% if not status %} solo{% endif %}">
+    <div class="dash-grid{% if not status %} solo{% endif %}{% if grade_table %} with-table{% endif %}">
         {% if status %}
         <section class="card status level-{{ status.level.key }}" aria-labelledby="statusTitle">
             <span class="eyebrow">School status &middot; {{ scope_name }}{% if scope_detail %} &middot; {{ scope_detail }}{% endif %} &middot; {{ period_name }}</span>
@@ -190,13 +196,30 @@
         </section>
         {% endif %}
 
+        {% if grade_table %}
+        <!-- One discipline in each grade level: its average and performance level -->
+        <section class="card levels-card" aria-labelledby="gtTitle">
+            <div class="card-head" style="margin-bottom:0.6rem">
+                <div><h3 id="gtTitle"><i class="fi fi-rr-table-list" style="color:#123499;"></i> {{ scope_name }} by grade level &middot; {{ period_name }}</h3></div>
+            </div>
+            <table class="sec-table">
+                <thead><tr><th scope="col">Grade Level</th><th scope="col" class="num">Average grade</th><th scope="col">Performance Level</th></tr></thead>
+                <tbody>
+                    {% for g in grade_table %}
+                    <tr><td>{{ g.name }}</td><td class="num"><b>{{ g.average }}%</b></td><td><span class="lvl level-{{ g.level.key }}">{{ g.level.name }}</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+
         {% if forecast and forecast.series %}
         <!-- Averages over the school year, and the forecast for the periods ahead -->
         <section class="card chart-card" aria-labelledby="fcTitle">
             <div class="card-head" style="margin-bottom:0.3rem">
                 <div>
                     <h3 id="fcTitle"><i class="fi fi-rr-chart-line-up" style="color:#123499;"></i> {{ scope_name }}: averages and forecast{% if sy %} &middot; SY {{ sy.year_label }}{% endif %}</h3>
-                    <p class="hint explain">The whole selection first; choose a {{ forecast.word }} under Show to see it against the overall line, or every one together. The legend above the chart names each mark. Point at a period to read its values, or switch to Bar or Table.</p>
+                    <p class="hint explain">The blue line is the actual grade, the green dashed line the grade the model predicted. The whole selection first; choose a {{ forecast.word }} under Show. Point at a period to read both values, or switch to Table.</p>
                 </div>
             </div>
             <div data-forecast="dashForecast"></div>
@@ -245,8 +268,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'heads/js/forecast-chart.js' %}"></script>
-<script src="{% static 'heads/js/poro-advice.js' %}"></script>
+<script src="{% static 'heads/js/forecast-chart.js' %}?v=20261111"></script>
+<script src="{% static 'heads/js/poro-advice.js' %}?v=20261111"></script>
 <script>
 (function () {
     var form = document.getElementById('filterForm');

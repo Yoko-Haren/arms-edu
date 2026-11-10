@@ -17,7 +17,7 @@ the previous period big enough to suggest scores typed into another learner's ro
 import re
 from collections import defaultdict
 from decimal import Decimal
-from statistics import mean
+from statistics import fmean as mean          # fast float mean: these are averages of thousands of grades
 
 from django.utils import timezone
 
