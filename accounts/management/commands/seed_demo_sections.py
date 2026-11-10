@@ -336,14 +336,14 @@ def grade_one(out):
     return totals
 
 
-def fill_term2(out):
+def fill_term2(out, include_imported=False):
     """Give every learner of every demo class a Term 2 grade: the classes not started and the ones half encoded get the
     missing grades as drafts (so they are ready to submit), each a little above the learner's Term 1 grade in that
-    subject. Sections holding learners the user imported (Grade 7 Oakwood) are left as they are."""
+    subject. Sections holding learners the user imported (Grade 7 Oakwood) are left as they are unless include_imported."""
     ex = Expansion(out)
     t1, t2 = ex.terms[0], ex.terms[1]
-    imported = set(Enrollment.objects.filter(section__school=ex.school, school_year=ex.sy)
-                   .exclude(student__lrn__startswith=TERMS.lrn_prefix).values_list('section_id', flat=True))
+    imported = set() if include_imported else set(Enrollment.objects.filter(section__school=ex.school, school_year=ex.sy)
+                                                  .exclude(student__lrn__startswith=TERMS.lrn_prefix).values_list('section_id', flat=True))
     classes = list(ClassAssignment.objects.filter(section__school=ex.school, school_year=ex.sy, is_active=True)
                    .exclude(section_id__in=imported).select_related('subject__subject_family', 'teacher'))
     sections = {c.section_id for c in classes}
@@ -431,6 +431,8 @@ class Command(BaseCommand):
         parser.add_argument('--remove', action='store_true', help='Remove everything this command added.')
         parser.add_argument('--grade1', action='store_true', help="Add Grade 1's learning areas, classes and grades to every Grade 1 section.")
         parser.add_argument('--fill', action='store_true', help='Give every learner of every demo class a Term 2 grade.')
+        parser.add_argument('--include-imported', action='store_true',
+                            help='With --fill: sections of learners the user imported (Grade 7 Oakwood) too.')
 
     def handle(self, *args, **options):
         class Undo(Exception):
@@ -443,7 +445,7 @@ class Command(BaseCommand):
                 elif options['grade1']:
                     grade_one(self.stdout)
                 elif options['fill']:
-                    fill_term2(self.stdout)
+                    fill_term2(self.stdout, include_imported=options['include_imported'])
                 else:
                     if Student.objects.filter(lrn__startswith=LRN_PREFIX).exists():
                         self.stdout.write(self.style.WARNING('The demo school is already grown; run with --remove first.'))
