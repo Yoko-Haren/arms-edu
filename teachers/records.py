@@ -17,6 +17,7 @@ from django.core.cache import caches
 from django.db import transaction
 from django.utils import timezone
 
+from core import grading_policy
 from core import periods as P
 from enrollment.models import Enrollment
 from grades import ecr
@@ -166,7 +167,8 @@ def analyse_upload(uploaded, assignment, period, school):
         from grades.ecr_template import sshs_subject_type
         result = ecr.analyse(parsed, period.quarter_number, subject_names=[assignment.subject.subject_name, family],
                              senior_high=senior, roster=people, mapeh=is_mapeh(assignment) and not senior,
-                             subject_type=sshs_subject_type(assignment.subject) if senior else None)
+                             subject_type=sshs_subject_type(assignment.subject) if senior else None,
+                             policy=grading_policy.key_of(school), period_word=P.grade_word(period))
         result['meta'] = parsed['meta']
         result['source'] = 'ecr'
         meta = parsed['meta']

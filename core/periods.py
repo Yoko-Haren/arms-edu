@@ -56,6 +56,14 @@ def name(period):
     return f'{w} {period.quarter_number}'
 
 
+GRADE_WORDS = {'Q': 'quarterly', 'T': 'term', 'S': 'semester'}
+
+
+def grade_word(period):
+    """'quarterly', 'term' or 'semester': what a period's grade is called ('the term grade')."""
+    return GRADE_WORDS.get(((period.quarter_label if period else '') or 'Q')[:1].upper(), 'quarterly')
+
+
 def long_name(period):
     """'Second Quarter' (the e-class record says it this way in cell A7)."""
     if not period:

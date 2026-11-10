@@ -167,13 +167,14 @@ def upload(request):
 
 
 def _review_context(request, stash, token, problems=None):
-    assignment = get_object_or_404(ClassAssignment.objects.select_related('section', 'section__grade_level', 'subject'),
+    assignment = get_object_or_404(ClassAssignment.objects.select_related('section', 'section__school', 'section__grade_level', 'subject'),
                                    id=stash['assignment'], teacher=request.user)
     period = get_object_or_404(Quarter, id=stash['period'], school_year=assignment.school_year)
     result = stash['result']
     rows = result['rows']
     errors = [t for level, t in result['checks'] if level == 'error']
     warns = [t for level, t in result['checks'] if level == 'warn']
+    infos = [t for level, t in result['checks'] if level == 'info']
     groups = {'ready': [], 'settle': [], 'skipped': [], 'empty': []}
     for r in rows:
         r['grade_text'] = '' if r['quarterly'] is None else str(r['quarterly'])
@@ -194,9 +195,11 @@ def _review_context(request, stash, token, problems=None):
             groups['settle'].append(r)
     acknowledge = bool(warns) or any(r['warnings'] for r in rows if r['quarterly'] is not None)
     resubmit = any(r.get('current_status') == 'Submitted' for r in groups['ready'] + groups['settle'])
+    order = policy.POLICIES[policy.key_of(assignment.section.school)]
     return {
+        'order': order, 'order_components': ', '.join(label.lower() for _, label, _ in order['components']),
         'assignment': assignment, 'period': period, 'period_name': P.name(period), 'token': token, 'file': stash['file'],
-        'result': result, 'errors': errors, 'warns': warns, 'groups': groups, 'acknowledge': acknowledge,
+        'result': result, 'errors': errors, 'warns': warns, 'infos': infos, 'groups': groups, 'acknowledge': acknowledge,
         'resubmit': resubmit, 'problems': problems or [], 'roster': result['roster'],
         'roster_json': json.dumps(result['roster']),
         'other_periods': [f'{P.word(assignment.section.school, [period])} {n}' for n in result.get('other_periods', [])],

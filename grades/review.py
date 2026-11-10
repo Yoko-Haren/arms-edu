@@ -11,8 +11,9 @@ Teacher, registrar and principal pages describe a class's grades with the same s
     locked        the period is locked and its grades are final
 
 review_classes() runs the automatic checks: every enrolled learner graded and submitted, every grade a
-valid quarterly grade that follows from its own scores, saved by the class teacher, and no change from
-the previous period big enough to suggest scores typed into another learner's row.
+valid period grade that follows from its own scores (transmuted with the table of the DepEd order the school
+follows), saved by the class teacher, and no change from the previous period big enough to suggest scores
+typed into another learner's row.
 """
 import re
 from collections import defaultdict
@@ -21,7 +22,8 @@ from statistics import fmean as mean          # fast float mean: these are avera
 
 from django.utils import timezone
 
-from academics.models import Quarter
+from academics.models import Quarter, School
+from core import grading_policy
 from core import periods as P
 from enrollment.models import Enrollment
 from grades import ecr
@@ -32,6 +34,8 @@ BIG_CHANGE = 15            # points between two periods that call for a second l
 MANY_BELOW = 0.30          # share of a class below passing that calls for a second look
 MAPEH_NAMES = (('MUSIC', 'Music'), ('ARTS', 'Arts'), ('PE', 'PE'), ('HEALTH', 'Health'))
 _MAPEH_PART = re.compile(r'\b(Music|Arts|PE|Physical Education|Health) (\d{2,3})\b', re.IGNORECASE)
+TERM_MAPEH_NAMES = (('MA', 'Music and Arts'), ('PEH', 'PE and Health'))
+_TERM_MAPEH_PART = re.compile(r'\b(Music and Arts|M and A|PE and Health|PE and H) (\d{2,3})\b', re.IGNORECASE)
 LEFT_WORDS = {'Transferred_Out': 'transferred out', 'Dropped': 'dropped', 'Graduated': 'graduated',
               'Inactive': 'inactive', 'Deceased': 'deceased'}
 
@@ -64,37 +68,48 @@ def is_mapeh(assignment):
 
 
 def mapeh_remark(parts):
-    """'Music 85, Arts 88, PE 90, Health 87' from [(component, grade)], kept with a MAPEH grade for later checks."""
-    names = dict(MAPEH_NAMES)
-    return ', '.join(f'{names.get(ecr.mapeh_part(component) or "", component.title())} {grade}' for component, grade in parts)
+    """'Music 85, Arts 88, PE 90, Health 87' (four quarters) or 'Music and Arts 85, PE and Health 88' (three terms)
+    from [(component, grade)], kept with a MAPEH grade for later checks."""
+    names, term_names = dict(MAPEH_NAMES), dict(TERM_MAPEH_NAMES)
+
+    def label(component):
+        text = (component or '').strip()
+        if re.match(r'(M|PE) and (A|H)\b', text, re.IGNORECASE):          # the three-term record's two sheets
+            return term_names[ecr.term_mapeh_part(text)]
+        return names.get(ecr.mapeh_part(text) or '', text.title())
+    return ', '.join(f'{label(component)} {grade}' for component, grade in parts)
 
 
 def mapeh_parts(remarks):
-    """The four component grades written by mapeh_remark(), or None when they are not all there."""
+    """The component grades written by mapeh_remark(): the four of a quarter or the two of a term, else None."""
+    term = {ecr.term_mapeh_part(name): int(grade) for name, grade in _TERM_MAPEH_PART.findall(remarks or '')}
+    if all(key in term for key, _ in TERM_MAPEH_NAMES):
+        return [term[key] for key, _ in TERM_MAPEH_NAMES]
     found = {ecr.mapeh_part(name): int(grade) for name, grade in _MAPEH_PART.findall(remarks or '')}
     if not all(key in found for key, _ in MAPEH_NAMES):
         return None
     return [found[key] for key, _ in MAPEH_NAMES]
 
 
-def recompute(g, mapeh=False):
-    """(quarterly grade, initial grade) that a record's own numbers give, or None when they cannot be recomputed.
+def recompute(g, mapeh=False, policy=None):
+    """(period grade, initial grade) that a record's own numbers give, or None when they cannot be recomputed.
 
     A grade saved from an e-class record keeps its weighted scores and initial grade: the initial grade is the
-    sum of the weighted scores and the quarterly grade its transmutation (DepEd Order No. 8, s. 2015). A MAPEH
-    grade is the rounded average of its four components. A record whose initial grade equals its quarterly
-    grade was entered as a quarterly grade only, so there is nothing to recompute.
+    sum of the weighted scores and the period grade its transmutation, with the table of the school's DepEd order
+    (policy: DepEd Order No. 015, s. 2026 or No. 8, s. 2015; see ecr.transmuter). A MAPEH grade is the rounded
+    average of its components (four a quarter, two a term). A record whose initial grade equals its period grade
+    was entered as a grade only, so there is nothing to recompute.
     """
     quarterly, initial = g['transmuted_grade'], g['initial_grade']
     if mapeh:
         parts = mapeh_parts(g.get('remarks'))
-        return (int(ecr.xround(Decimal(sum(parts)) / 4, 0)), None) if parts else None
+        return (int(ecr.xround(Decimal(sum(parts)) / len(parts), 0)), None) if parts else None
     if quarterly is None or initial is None or Decimal(initial) == Decimal(quarterly):
         return None
     weighted = [g.get(f) for f in ('written_work_weighted', 'performance_task_weighted', 'quarterly_assessment_weighted')]
     if any(w is not None for w in weighted):
         initial = ecr.xround(sum((Decimal(w) for w in weighted if w is not None), Decimal(0)))
-    return ecr.transmute(Decimal(initial)), Decimal(initial)
+    return ecr.transmuter(policy)(Decimal(initial)), Decimal(initial)
 
 
 def _s(n, many='s', one=''):
@@ -116,11 +131,17 @@ def _person(first, last, username):
     return f'{first} {last}'.strip() or username or 'someone'
 
 
-def review_classes(assignments, period, passing=75):
-    """The state and automatic checks of each class's grades in one period, in a few queries: {assignment id: review}."""
+def review_classes(assignments, period, passing=75, policy=None):
+    """The state and automatic checks of each class's grades in one period, in a few queries: {assignment id: review}.
+
+    policy: the school's DepEd order (core.grading_policy); the grades are checked against its transmutation table.
+    When it is not given, the period's school decides.
+    """
     assignments = list(assignments)
     if not assignments or period is None:
         return {}
+    if policy not in grading_policy.POLICIES:
+        policy = grading_policy.key_of(School.objects.filter(school_years=period.school_year_id).first())
     sections = {a.section_id for a in assignments}
     subjects = {a.subject_id for a in assignments}
     pairs = {(a.section_id, a.subject_id) for a in assignments}
@@ -160,10 +181,10 @@ def review_classes(assignments, period, passing=75):
         edits[c['grade_component_id']].append(c)
 
     return {a.id: _review(a, period, previous_period, people, roster[a.section_id], grades.get((a.section_id, a.subject_id), []),
-                          previous, edits, passing) for a in assignments}
+                          previous, edits, passing, policy) for a in assignments}
 
 
-def _review(a, period, previous_period, people, active_ids, rows, previous, edits, passing):
+def _review(a, period, previous_period, people, active_ids, rows, previous, edits, passing, policy=grading_policy.DEFAULT):
     mapeh = is_mapeh(a)
     active = set(active_ids)
     mine = {g['enrollment_id']: g for g in rows if g['enrollment_id'] in active}
@@ -205,13 +226,14 @@ def _review(a, period, previous_period, people, active_ids, rows, previous, edit
     elif mine:
         add('submitted', 'ok', 'Submitted by the teacher', teacher)
 
-    # 3. every grade is a quarterly grade from 60 to 100
+    # 3. every grade is a period grade from 60 to 100
+    gw = P.grade_word(period)                         # 'quarterly', 'term' or 'semester'
     values, invalid = {}, []
     for eid, g in mine.items():
         q = g['transmuted_grade']
         if q is None:
-            invalid.append(f'{name(eid)}: no quarterly grade (initial grade {_num(g["initial_grade"])})')
-            flags[eid].append(('error', 'No quarterly grade'))
+            invalid.append(f'{name(eid)}: no {gw} grade (initial grade {_num(g["initial_grade"])})')
+            flags[eid].append(('error', f'No {gw} grade'))
         elif not 60 <= q <= 100:
             invalid.append(f'{name(eid)}: {q}')
             flags[eid].append(('error', 'Outside 60 to 100'))
@@ -219,15 +241,17 @@ def _review(a, period, previous_period, people, active_ids, rows, previous, edit
         if value is not None:
             values[eid] = value
     if invalid:
-        add('range', 'error', f'{len(invalid)} grade{_s(len(invalid))} {_s(len(invalid), "are", "is")} not a valid quarterly grade',
-            'A quarterly grade is a whole number from 60 to 100, after transmutation.', invalid)
+        add('range', 'error', f'{len(invalid)} grade{_s(len(invalid))} {_s(len(invalid), "are", "is")} not a valid {gw} grade',
+            f'A {gw} grade is a whole number from 60 to 100, after transmutation.', invalid)
     elif values:
-        add('range', 'ok', 'Valid quarterly grades', f'Whole numbers from {_num(min(values.values()))} to {_num(max(values.values()))}.')
+        add('range', 'ok', f'Valid {gw} grades', f'Whole numbers from {_num(min(values.values()))} to {_num(max(values.values()))}.')
 
-    # 4. each grade follows from its own scores
+    # 4. each grade follows from its own scores, transmuted with the table of the school's DepEd order
+    order = grading_policy.POLICIES[policy]
+    terms = (period.quarter_label or '').upper().startswith('T')
     checked, wrong = 0, []
     for eid, g in mine.items():
-        result = recompute(g, mapeh)
+        result = recompute(g, mapeh, policy)
         if result is None:
             continue
         checked += 1
@@ -236,15 +260,19 @@ def _review(a, period, previous_period, people, active_ids, rows, previous, edit
             got = f'saved {_num(g["transmuted_grade"])}' + (f' (initial {_num(g["initial_grade"])})' if initial is not None else '')
             wrong.append(f'{name(eid)}: the scores give {_num(expected)}' + (f' (initial {_num(initial)})' if initial is not None else '') + f', {got}')
             flags[eid].append(('error', f'Scores give {_num(expected)}'))
-    source = 'Music, Arts, PE and Health' if mapeh else 'the written work, performance task and quarterly assessment scores'
+    parts = 'Music and Arts and PE and Health' if terms else 'Music, Arts, PE and Health'
+    names = [label.lower() for _, label, _ in order['components']]
+    source = parts if mapeh else f'the {names[0]}, {names[1]} and {names[2]} scores'
     if wrong:
         add('computed', 'error', f'{len(wrong)} grade{_s(len(wrong))} {_s(len(wrong), "do", "does")} not follow from the scores',
-            'A MAPEH grade is the rounded average of Music, Arts, PE and Health.' if mapeh else
-            'The quarterly grade is the transmuted initial grade, and the initial grade is the sum of the weighted scores '
-            '(DepEd Order No. 8, s. 2015).', wrong)
+            f'A MAPEH {gw} grade is the rounded average of {parts}.' if mapeh else
+            f'The {gw} grade is the initial grade transmuted with the table of {order["name"]}, the order this school '
+            'follows, and the initial grade is the sum of the weighted scores.', wrong)
     elif checked:
         add('computed', 'ok', 'Grades follow from the scores',
-            f'ARMS recomputed {checked} of {len(mine)} grade{_s(len(mine))} from {source}; {_s(checked, "all match", "it matches")}.')
+            f'ARMS recomputed {checked} of {len(mine)} grade{_s(len(mine))} from {source}'
+            + ('' if mapeh else f', with the transmutation table of {order["short"]}')
+            + f'; {_s(checked, "all match", "it matches")}.')
     elif mine:
         add('computed', 'info', 'Grades cannot be recomputed',
             'These grades were not saved from an e-class record with scores (for example, a CSV upload), so ARMS '

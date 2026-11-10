@@ -59,6 +59,9 @@
     <div class="note warn"><i class="fi fi-rr-triangle-warning"></i>
         <div><b>Check these first.</b><ul>{% for w in warns %}<li>{{ w }}</li>{% endfor %}</ul></div></div>
     {% endif %}
+    {% for i in infos %}
+    <div class="note"><i class="fi fi-rr-info"></i><span>{{ i }}</span></div>
+    {% endfor %}
     {% if other_periods %}
     <div class="note"><i class="fi fi-rr-info"></i><span>The file also has scores for {{ other_periods|join:", " }}. Only {{ period_name }} is imported now.</span></div>
     {% endif %}
@@ -108,7 +111,7 @@
 
     <section class="card rv-sec" aria-labelledby="readyTitle">
         <div class="head"><div><h3 id="readyTitle"><i class="fi fi-rr-check-circle" style="color:#2E7D32;"></i> Ready to save &middot; {{ groups.ready|length }}</h3>
-            <p class="hint">Each grade is recomputed from the scores (written work, performance tasks, quarterly assessment) with the DepEd weights and transmutation table.</p></div></div>
+            <p class="hint">Each grade is recomputed from the scores ({{ order_components }}) with the DepEd weights and the transmutation table of {{ order.short }}, the order this school follows.</p></div></div>
         {% if groups.ready %}
         <div class="rv-table">
             <table class="table">

@@ -93,6 +93,7 @@
         <h3 id="gvTitle" class="sr-only">Classes in {{ period_name }}</h3>
         {% if rows %}
         <div class="toolbar">
+            <label class="search" style="max-width:280px;"><i class="fi fi-rr-search"></i><input type="search" id="gvSearch" placeholder="Find a class, subject or teacher" aria-label="Find a class, subject or teacher" autocomplete="off"></label>
             <label class="sort">Section
                 <select id="gvSection">
                     <option value="">All sections</option>
@@ -123,7 +124,7 @@
                 <article class="gv-row" data-state="{{ row.state }}" data-section="{{ a.section_id }}" data-order="{{ forloop.counter0 }}" data-percent="{{ row.percent }}"
                          data-subject="{{ a.subject.subject_code|lower }}" data-teacher="{{ a.teacher.last_name|default:''|lower }} {{ a.teacher.first_name|default:''|lower }}"
                          data-problems="{% if row.state == 'submitted' %}{{ r.errors|add:r.warnings }}{% else %}0{% endif %}"
-                         data-text="{{ a.section.grade_level.grade_name|lower }} {{ a.section.section_name|lower }} {{ a.subject.subject_code|lower }} {{ a.subject.subject_name|lower }} {{ a.teacher.get_full_name|lower }}">
+                         data-text="{{ a.section.grade_level.grade_name|lower }} {{ a.section.section_name|lower }} {{ a.subject.subject_code|lower }} {{ a.subject.subject_name|lower }} {{ a.teacher.get_full_name|lower }} {{ row.label|lower }}">
                     <div class="gv-cls"><b>{{ a.section.grade_level.grade_name }} {{ a.section.section_name }}</b><small>{{ a.subject.subject_code }} · {{ a.subject.subject_name }}</small></div>
                     <div class="gv-teacher">{{ a.teacher.get_full_name|default:a.teacher.username|default:"No teacher" }}</div>
                     <div class="gv-grades"><b>{{ row.encoded }}</b> of {{ row.enrolled }} graded
@@ -158,7 +159,10 @@
     if (!list) return;
     var items = Array.prototype.slice.call(list.children);
     var sort = document.getElementById('gvSort'), section = document.getElementById('gvSection'), status = document.getElementById('gvStatus');
+    var search = document.getElementById('gvSearch');
     var wanted = new URLSearchParams(location.search).get('show') || '';
+    // every word typed must appear in the class: "7 math", "maharlika pineda", "returned"
+    var words = function () { return search.value.toLowerCase().split(/\s+/).filter(Boolean); };
     if (Array.prototype.some.call(status.options, function (o) { return o.value === wanted; })) status.value = wanted;
     var RANK = { submitted: 0, returned: 1, ready: 2, encoding: 3, not_started: 4, validated: 5, locked: 6 };
     var num = function (el, k) { return +el.dataset[k]; };
@@ -171,9 +175,10 @@
     };
     try { var saved = localStorage.getItem('arms:validation:sort'); if (saved && SORTS[saved]) sort.value = saved; } catch (e) {}
     function apply() {
-        var shown = 0, show = status.value;
+        var shown = 0, show = status.value, find = words();
         items.map(function (li) { return li.firstElementChild; }).sort(SORTS[sort.value]).forEach(function (row) {
-            var ok = (!section.value || row.dataset.section === section.value) && (!show || row.dataset.state === show);
+            var ok = (!section.value || row.dataset.section === section.value) && (!show || row.dataset.state === show)
+                && find.every(function (w) { return row.dataset.text.indexOf(w) !== -1; });
             row.parentElement.hidden = !ok;
             if (ok) shown++;
             list.appendChild(row.parentElement);
@@ -183,6 +188,7 @@
     }
     section.addEventListener('change', apply);
     status.addEventListener('change', apply);
+    search.addEventListener('input', apply);
     sort.addEventListener('change', function () { try { localStorage.setItem('arms:validation:sort', sort.value); } catch (e) {} apply(); });
     apply();
 })();

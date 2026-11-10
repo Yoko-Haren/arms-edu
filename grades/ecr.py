@@ -22,6 +22,8 @@ from difflib import SequenceMatcher
 
 from openpyxl import load_workbook
 
+from core import grading_policy as GP
+
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_UNZIPPED_BYTES = 150 * 1024 * 1024
 LRN_COLUMN = 'AK'                 # hidden column of INPUT DATA where ARMS-generated files keep each learner's LRN
@@ -127,6 +129,43 @@ def transmute(initial):
     return grade
 
 
+def transmuter(policy):
+    """The transmutation of a school's DepEd order: the term table of DepEd Order No. 015, s. 2026, or the table of
+    DepEd Order No. 8, s. 2015. The school chooses its order (core.grading_policy), so its grades and the registrar's
+    check of them both follow it, whichever e-class record the scores came from."""
+    return term_transmute if policy == GP.DO15_2026 else transmute
+
+
+def record_policy(kind):
+    """The order whose transmutation table an e-class record carries: the three-term record DepEd Order No. 015,
+    s. 2026; the four-quarter and the SSHS records DepEd Order No. 8, s. 2015."""
+    return GP.DO15_2026 if kind == 'TERM' else GP.DO8_2015
+
+
+def _other_table_note(policy, own, word):
+    return (f'This school follows {GP.POLICIES[policy]["name"]}, so ARMS turns each initial grade into the {word} grade '
+            f'with that order\'s transmutation table. The file\'s own {word} grade column uses the table of '
+            f'{GP.POLICIES[own]["name"]}, so a grade here can differ from the one the file shows; the initial grades are '
+            'the same.')
+
+
+def _file_differs(same, result, prefix, foreign):
+    """The warning when a row's own grade in the file is not what its scores give, else None. When the school's order
+    transmutes with another table than the file's (foreign), only the initial grades can be compared."""
+    if same['file_quarterly'] is None or result['quarterly'] is None:
+        return None
+    initial_differs = same['file_initial'] is not None and abs(same['file_initial'] - result['initial']) > Decimal('0.01')
+    if foreign:
+        if initial_differs:
+            return (f'{prefix}the file shows an initial grade of {same["file_initial"]}, but its scores give '
+                    f'{result["initial"]}. The formulas may have been changed.')
+        return None
+    if same['file_quarterly'] != result['quarterly'] or initial_differs:
+        return (f'{prefix}the file shows {same["file_quarterly"]}, but its scores give '
+                f'{result["quarterly"]} (initial grade {result["initial"]}). The formulas may have been changed.')
+    return None
+
+
 def descriptor(quarterly):
     return next(name for low, name in DESCRIPTORS if quarterly >= low)
 
@@ -140,8 +179,9 @@ def learning_area(*names):
     return None
 
 
-def compute(scores, weights, every_part=False):
-    """One learner's grade from the raw scores, following the template cell by cell.
+def compute(scores, weights, every_part=False, table=None):
+    """One learner's grade from the raw scores, following the template cell by cell (table: the transmutation, by
+    default the record's own of DepEd Order No. 8, s. 2015).
 
     scores: {'ww': [..], 'pt': [..], 'qa': [..]} item scores (Decimal or None) and 'hps' with the same keys.
     every_part: the Senior High rule. Its initial grade is WS(written work) + WS(performance tasks)
@@ -170,7 +210,7 @@ def compute(scores, weights, every_part=False):
         # the template only grades a learner who has a quarterly assessment score; blank components count as 0
         initial = xround(sum(out[p]['ws'] or Decimal(0) for p in ('ww', 'pt', 'qa'))) if has_qa else None
     out['initial'] = initial
-    out['quarterly'] = transmute(initial)
+    out['quarterly'] = (table or transmute)(initial)
     return out
 
 
@@ -566,21 +606,29 @@ def _scores(raw, hps, prefix='', hps_row=10):
     return scores, errors
 
 
-def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=False, subject_type=None):
+def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=False, subject_type=None, policy=None,
+            period_word=None):
     """Grades of one grading period from a parsed workbook, checked and matched to the class.
 
     subject_names: the class subject and discipline names (DepEd weights check).
     subject_type: for a Senior High class, the SSHS subject type ARMS expects (a mismatch is a warning).
+    policy: the school's DepEd order (core.grading_policy), whose transmutation table turns the initial grades into
+    period grades; None keeps the record's own table. When the two differ, the file's own grades are checked by their
+    initial grade only, and an 'info' check says why. period_word: 'quarterly', 'term' or 'semester', for that note.
     Returns {'sheets', 'checks', 'rows', 'other_periods'}. checks are (level, text) with level
-    'error' (the file cannot be imported) or 'warn'. Every row has:
+    'error' (the file cannot be imported), 'warn' (to confirm) or 'info'. Every row has:
       quarterly / initial  the grade the scores give (None when the template gives no grade)
       errors               reasons the row cannot be imported (a score is unusable, scores without a name)
       warnings             things the teacher must confirm (the file shows another grade)
       notes                plain facts (no quarterly assessment yet, so no grade)
       status, enrollment, candidates, reasons   from match_rows
     """
+    own = record_policy(parsed.get('kind'))
+    policy = policy if policy in GP.POLICIES else own
     if parsed.get('kind') == 'TERM':
-        return _analyse_terms(parsed, period_number, subject_names=subject_names, roster=roster, mapeh=mapeh)
+        return _analyse_terms(parsed, period_number, subject_names=subject_names, roster=roster, mapeh=mapeh, policy=policy,
+                              period_word=period_word or 'term')
+    table, foreign = transmuter(policy), policy != own
     sheets = parsed['periods'].get(period_number)
     if not sheets:
         found = ', '.join(str(n) for n in sorted(parsed['periods']))
@@ -600,7 +648,7 @@ def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=
         raise EcrError('The file has more than one subject for this period. Upload one subject per file '
                        '(the four MAPEH sheets are read together when the class is MAPEH).')
 
-    checks = []
+    checks = [('info', _other_table_note(policy, own, period_word or 'quarterly'))] if foreign else []
     sshs = parsed.get('kind') == 'SSHS'
     area = None if senior_high or sshs else learning_area(*subject_names)
     for s in sheets:
@@ -639,22 +687,21 @@ def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=
             same = next((x for x in s['rows'] if x['row'] == base['row']), None)
             prefix = f'{s["component"]}: ' if mapeh else ''
             if same is None:
-                entry['parts'].append({'component': s['component'], 'result': compute({'ww': [], 'pt': [], 'qa': [], 'hps': s['hps']}, s['weights']),
+                entry['parts'].append({'component': s['component'], 'result': compute({'ww': [], 'pt': [], 'qa': [], 'hps': s['hps']},
+                                                                                       s['weights'], table=table),
                                        'has_scores': False})
                 continue
             scores, errors = _scores(same['raw'], s['hps'], prefix, s.get('hps_row', 10))
             weights = tuple(w if w is not None else Decimal(0) for w in s['weights'])
-            result = compute(scores, weights, every_part=sshs)
+            result = compute(scores, weights, every_part=sshs, table=table)
             entry['errors'] += errors
             has_scores = any(v not in (None, '') for vals in same['raw'].values() for v in vals)
             if has_scores and result['quarterly'] is None and not errors:
                 missing = ', '.join(_PART_NAMES[p] for p in result['missing']) or 'score'
                 entry['notes'].append(f'{prefix}no {missing} score yet, so the template gives no grade.')
-            if same['file_quarterly'] is not None and result['quarterly'] is not None and (
-                    same['file_quarterly'] != result['quarterly'] or
-                    (same['file_initial'] is not None and abs(same['file_initial'] - result['initial']) > Decimal('0.01'))):
-                entry['warnings'].append(f'{prefix}the file shows {same["file_quarterly"]}, but its scores give '
-                                         f'{result["quarterly"]} (initial grade {result["initial"]}). The formulas may have been changed.')
+            warning = _file_differs(same, result, prefix, foreign)
+            if warning:
+                entry['warnings'].append(warning)
             entry['parts'].append({'component': s['component'], 'result': result, 'has_scores': has_scores})
         rows.append(entry)
 
@@ -798,14 +845,15 @@ def term_transmute(initial):
     return TERM_TRANSMUTATION[at + 1][1]
 
 
-def compute_term(blocks, values):
+def compute_term(blocks, values, table=None):
     """One learner's term grade from the raw scores, cell by cell as the three-term record computes it.
 
     blocks: the sheet's score blocks; values: one list of item scores (Decimal or None) per block. A block's percentage
     is its total over its highest possible score (the examinations: each test's share of its own highest score, 30, 30
     and 40), and its weighted score that times the block weight. The initial grade adds the weighted scores (a blank
     block counts 0) once the learner has any score. Returns, per component ('ww', 'pt', 'qa'), the totals, percentage
-    and weighted score (a component of several blocks: their weighted average), the initial grade and the term grade.
+    and weighted score (a component of several blocks: their weighted average), the initial grade and the term grade
+    (table: the transmutation, by default the record's own term table of DepEd Order No. 015, s. 2026).
     """
     out = {p: {'total': None, 'hps': None, 'ps': None, 'ws': None, 'weight': Decimal(0)} for p in ('ww', 'pt', 'qa')}
     initial, scored = Decimal(0), False
@@ -833,7 +881,7 @@ def compute_term(blocks, values):
         part['ps'] = xround(part['ws'] / part['weight']) if part['ws'] is not None and part['weight'] else None
         part['ws'] = xround(part['ws'])
     raw = initial if scored else None
-    out.update(initial=xround(raw), quarterly=term_transmute(raw), missing=[])
+    out.update(initial=xround(raw), quarterly=(table or term_transmute)(raw), missing=[])
     return out
 
 
@@ -993,7 +1041,7 @@ def _term_values(raw, blocks, prefix, hps_row):
     return values, errors
 
 
-def _analyse_terms(parsed, period_number, *, subject_names, roster, mapeh):
+def _analyse_terms(parsed, period_number, *, subject_names, roster, mapeh, policy=GP.DO15_2026, period_word='term'):
     """analyse() for the three-term record: one term of one class, checked and matched (same result shape).
 
     MAPEH keeps Music and Arts and Physical Education and Health on two sheets a term, and its term grade is their
@@ -1015,7 +1063,8 @@ def _analyse_terms(parsed, period_number, *, subject_names, roster, mapeh):
     elif len(sheets) > 1:
         raise EcrError('The file has more than one subject for this term. Upload one subject per file.')
 
-    checks = []
+    table, foreign = transmuter(policy), policy != GP.DO15_2026
+    checks = [('info', _other_table_note(policy, GP.DO15_2026, period_word))] if foreign else []
     area = learning_area(*subject_names)
     key = 'mapeh_tle' if area == 'mapeh_tle' else ('core' if area else None)
     for s in sheets:
@@ -1042,16 +1091,14 @@ def _analyse_terms(parsed, period_number, *, subject_names, roster, mapeh):
             prefix = f'{s["component"]}: ' if combine else ''
             if same is None:
                 entry['parts'].append({'component': s['component'], 'has_scores': False,
-                                       'result': compute_term(blocks, [[None] * len(b['items']) for b in blocks])})
+                                       'result': compute_term(blocks, [[None] * len(b['items']) for b in blocks], table=table)})
                 continue
             values, errors = _term_values(same['raw'], blocks, prefix, s['hps_row'])
-            result = compute_term(blocks, values)
+            result = compute_term(blocks, values, table=table)
             entry['errors'] += errors
-            if same['file_quarterly'] is not None and result['quarterly'] is not None and (
-                    same['file_quarterly'] != result['quarterly'] or
-                    (same['file_initial'] is not None and abs(same['file_initial'] - result['initial']) > Decimal('0.01'))):
-                entry['warnings'].append(f'{prefix}the file shows {same["file_quarterly"]}, but its scores give '
-                                         f'{result["quarterly"]} (initial grade {result["initial"]}). The formulas may have been changed.')
+            warning = _file_differs(same, result, prefix, foreign)
+            if warning:
+                entry['warnings'].append(warning)
             entry['parts'].append({'component': s['component'], 'result': result,
                                    'has_scores': any(v is not None for vals in values for v in vals)})
         results = [p['result'] for p in entry['parts']]

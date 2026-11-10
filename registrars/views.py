@@ -24,6 +24,7 @@ from grades.models import GradeComponent
 from grades.review import review_classes
 from communication.models import Notification
 from communication.notify import notify, sent_recently
+from core import grading_policy
 from core import periods as P
 
 from core.caching import cache_page_for_user, remember_filters
@@ -1060,7 +1061,7 @@ def _grade_overview(school, current_sy, period, periods):
                    .select_related('section', 'section__grade_level', 'subject', 'subject__subject_family', 'teacher', 'semester')
                    .order_by('section__grade_level__sort_order', 'section__section_name', 'subject__subject_code')
                    if period in P.for_class(a, periods)]
-    reviews = review_classes(assignments, period, school.passing_grade)
+    reviews = review_classes(assignments, period, school.passing_grade, grading_policy.key_of(school))
     rows = []
     for a in assignments:
         review = reviews[a.id]
@@ -1247,7 +1248,7 @@ def grade_class_detail(request, assignment_id, period_id):
         id=assignment_id, section__school=school,
     )
     period = get_object_or_404(Quarter, id=period_id, school_year=assignment.school_year)
-    review = review_classes([assignment], period, school.passing_grade)[assignment.id]
+    review = review_classes([assignment], period, school.passing_grade, grading_policy.key_of(school))[assignment.id]
     where, word = _class_name(assignment), P.name(period)
 
     if request.method == 'POST':
