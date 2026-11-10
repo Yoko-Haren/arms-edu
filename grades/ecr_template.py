@@ -140,6 +140,30 @@ def _text(cell, value):
         cell.data_type = 's'
 
 
+# Grade 1's DepEd workbook (Grade 1 ECR, PACE Form, and SF9) rates learning competencies, a sheet for each learning area:
+# the record of a Grade 1 class opens on its own (the period's sheet where there is one a term)
+EARLY_SHEETS = (('READING', 'TERM {n} READING & LITERACY'), ('LANGUAGE', 'TERM {n} LANGUAGE'), ('MATH', 'TERM 1-3 MATHEMATICS'),
+                ('GMRC', 'TERM 1-3 GMRC'), ('MAKABANSA', 'G1 PACE FORM MAKABANSA'))
+
+
+def _build_early(assignment, number):
+    """Kindergarten's and Grade 1's record in a three-term year: DepEd's own workbook for that grade (documentation/sf9),
+    with the class filled in. DepEd's Grades 2-10 three-term records do not cover them."""
+    from documentation import sf9
+    section, sy = assignment.section, assignment.school_year
+    sheet = 'INPUT DATA'
+    if section.grade_level.grade_number == 1:
+        name = assignment.subject.subject_name.upper()
+        sheet = next((s.format(n=number) for word, s in EARLY_SHEETS if word in name), 'INPUT DATA')
+    try:
+        data = sf9.record(section, sy, sheet)
+    except sf9.CardUnavailable as exc:
+        raise TemplateUnavailable(str(exc)) from exc
+    code = re.sub(r'[^A-Za-z0-9]+', '-', assignment.subject.subject_code).strip('-')
+    name = re.sub(r'[^A-Za-z0-9]+', '-', section.section_name).strip('-')
+    return data, f'ECR_{code}_{name}_3Term_SY{sy.year_label}.xlsx'
+
+
 def build(assignment, roster, teacher, period=None):
     """(bytes, file name) of the class's e-class record."""
     from academics.models import Quarter
@@ -149,6 +173,8 @@ def build(assignment, roster, teacher, period=None):
     count = len(own) or 4
     prefix = P.prefix(school, periods)
     number = period.quarter_number if period else (own[0].quarter_number if own else 1)
+    if prefix == 'T' and not assignment.section.grade_level.is_senior_high and (assignment.section.grade_level.grade_number or 0) <= 1:
+        return _build_early(assignment, number)            # Kindergarten and Grade 1: DepEd's own workbook for the grade
     path, mapeh = template_for(assignment, number)
     if not path.exists():
         raise TemplateUnavailable('The e-class record template is missing on the server. Ask the administrator to restore grades/ecr_templates.')

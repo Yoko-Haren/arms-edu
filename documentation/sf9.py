@@ -337,7 +337,7 @@ def _people(section, sy, only=None):
     return people, {(c.enrollment_id, c.quarter_id): c.comment for c in LearnerComment.objects.filter(enrollment_id__in=[p['enrollment'].id for p in people])}
 
 
-def _workbook(section, sy, only=None):
+def _workbook(section, sy, only=None, record_sheet=None):
     """(bytes of the workbook, the learners in it). only: one enrollment id, for that learner's own copy."""
     periods = FD.periods_of(sy)
     if not available(periods):
@@ -384,8 +384,12 @@ def _workbook(section, sy, only=None):
     # card's formulas read them (the adviser can still unhide them in Excel)
     template = (TEMPLATES / f'{name}.xlsx').read_bytes()
     with zipfile.ZipFile(io.BytesIO(template)) as z:
-        others = [sheet for sheet in xlsx_patch.sheet_parts(z) if sheet != book['card']]
-    data = xlsx_patch.patch(template, edits, active=book['card'], hidden=others)
+        sheets = list(xlsx_patch.sheet_parts(z))
+    if record_sheet is not None:            # the class record: every sheet as DepEd made it, open on the subject's own
+        active = record_sheet if record_sheet in sheets else 'INPUT DATA'
+        data = xlsx_patch.patch(template, edits, active=active)
+    else:
+        data = xlsx_patch.patch(template, edits, active=book['card'], hidden=[s for s in sheets if s != book['card']])
     return xlsx_patch.replace_shape(data, 'School Logo', school_header.logo(section.school)), people
 
 
@@ -395,6 +399,13 @@ def _class_name(section, sy):
 
 def learner_file(p, section, sy):
     return f'SF9_{_slug(p["last"])}-{_slug(p["first"])}_{_class_name(section, sy)}.xlsx'
+
+
+def record(section, sy, sheet='INPUT DATA'):
+    """Kindergarten's and Grade 1's e-class record: DepEd's workbook for the class (it holds the class record, the
+    competency sheets and the SF9 in one file), every sheet shown, opening on `sheet`."""
+    data, _ = _workbook(section, sy, record_sheet=sheet)
+    return data
 
 
 def build_class(section, sy):

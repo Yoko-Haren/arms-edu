@@ -143,8 +143,12 @@ def analyse_upload(uploaded, assignment, period, school):
         result['meta'] = {}
         result['source'] = 'csv'
     elif name.endswith(('.xlsx', '.xlsm')):
-        parsed = ecr.read_workbook(uploaded)
         terms = (period.quarter_label or '').upper().startswith('T')      # the school year is graded in three terms
+        if terms and not senior and (assignment.section.grade_level.grade_number or 0) <= 1:
+            raise ecr.EcrError(f'{assignment.section.grade_level.grade_name} rates learning competencies in DepEd\'s record '
+                               '(the PACE form), not grades, so there is nothing in it for ARMS to read. Keep the filled '
+                               'record with you; to enter grades, use the class list (CSV) from Class records.')
+        parsed = ecr.read_workbook(uploaded)
         if senior and parsed['kind'] != 'SSHS':
             raise ecr.EcrError('This is a Grades 7 to 10 e-class record. Senior High classes use the SSHS e-class record: '
                                'download it for this class from Class records (the menu on the class).')
