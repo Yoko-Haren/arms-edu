@@ -555,6 +555,50 @@ def rewrite_sheet(data, sheet, replacements):
     return _rezip(src, {part: xml.encode('utf-8')})
 
 
+def rename_sheets(data, names):
+    """A copy of the workbook with sheets renamed ({old: new}): the tabs, and every formula, defined name and link
+    that names one ('Q1'!F10 or Q1!F10). A name a formula builds from a cell (INDIRECT) is the caller's to set."""
+    src = zipfile.ZipFile(io.BytesIO(data))
+    parts = sheet_parts(src)
+    missing = [old for old in names if old not in parts]
+    taken = [new for new in names.values() if new in parts and new not in names]
+    if missing or taken:
+        raise PatchError(f'Cannot rename: no sheet named {", ".join(missing)}.' if missing else
+                         f'Cannot rename: a sheet named {", ".join(taken)} already exists.')
+
+    def repoint(xml):
+        for old, new in names.items():
+            quoted = "'" + escape(new).replace("'", "''") + "'!"
+            xml = xml.replace("'" + escape(old).replace("'", "''") + "'!", quoted)
+            if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.]*', old):          # a plain name may be written without quotes
+                xml = re.sub(rf"(?<![A-Za-z0-9_.'\]]){re.escape(old)}!", lambda _: quoted, xml)
+        return xml
+
+    changed = {}
+    for part in {p for p in parts.values() if p}:
+        xml = src.read(part).decode('utf-8')
+        new_xml = repoint(xml)
+        if new_xml != xml:
+            changed[part] = new_xml.encode('utf-8')
+
+    def sheet(m):
+        tag = m.group(0)
+        name = _unescape(re.search(r'\bname="([^"]+)"', tag).group(1))
+        if name in names:
+            tag = re.sub(r'\bname="[^"]+"', lambda _: f'name="{escape(names[name], {chr(34): "&quot;"})}"', tag, count=1)
+        return tag
+    workbook = re.sub(r'<sheet\b[^>]*/>', sheet, src.read('xl/workbook.xml').decode('utf-8'))
+    workbook = re.sub(r'(<definedName\b[^>]*>)(.*?)(</definedName>)', lambda m: m.group(1) + repoint(m.group(2)) + m.group(3),
+                      workbook, flags=re.S)
+    changed['xl/workbook.xml'] = workbook.encode('utf-8')
+    if 'docProps/app.xml' in src.namelist():                           # the list of sheet titles in the file's properties
+        app = src.read('docProps/app.xml').decode('utf-8')
+        for old, new in names.items():
+            app = app.replace(f'<vt:lpstr>{escape(old)}</vt:lpstr>', f'<vt:lpstr>{escape(new)}</vt:lpstr>')
+        changed['docProps/app.xml'] = app.encode('utf-8')
+    return _rezip(src, changed)
+
+
 def drop_external_links(data, sheet_names):
     """Formulas that point at another copy of this workbook ([1]) point here again, and the link itself goes,
     so Excel does not ask to update links from a file nobody has."""

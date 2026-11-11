@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css">
-    <link rel="stylesheet" href="{% static 'landing/css/landing.css' %}">
+    <link rel="stylesheet" href="{% static 'landing/css/landing.css' %}?v=20261111">
     <link rel="preload" as="image" type="image/webp" imagesrcset="{% static 'landing/images/web/school-900.webp' %} 900w, {% static 'landing/images/web/school-1600.webp' %} 1600w, {% static 'landing/images/web/school-2400.webp' %} 2400w, {% static 'landing/images/web/school-3840.webp' %} 3840w" imagesizes="max(104vw, 1040px)">
     <script>
         // Scroll-in effects only run with JavaScript; if the page script never starts, show everything.
@@ -39,7 +39,7 @@
             <a href="#contact">Contact</a>
         </nav>
         <div class="header-actions">
-            <a class="btn btn-primary btn-sm" href="{% url 'signin' %}">{% if user.is_authenticated %}Open dashboard{% else %}Sign in{% endif %}<i class="fi fi-rr-arrow-small-right" aria-hidden="true"></i></a>
+            <a class="btn btn-primary btn-sm" href="{% url 'signin' %}">{% if user.is_authenticated %}Open dashboard{% else %}Sign in{% endif %}</a>
             <button class="menu-btn" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><i class="fi fi-rr-menu-burger" aria-hidden="true"></i></button>
         </div>
     </div>
@@ -54,12 +54,11 @@
                 <a class="partner-pill" href="#partner">
                     <img src="{% static 'landing/logo/NPTCI_logo.jpg' %}" alt="" width="26" height="26">
                     <span>Built with <b>NPTCI</b>, Panabo City</span>
-                    <i class="fi fi-rr-angle-small-right" aria-hidden="true"></i>
                 </a>
                 <h1 id="heroTitle">Enter it once. <span class="grad-text">Every school form follows.</span></h1>
                 <p class="lead">ARMS turns one SF1 and each teacher's class record into checked grades, finished DepEd forms and clear decisions for the school head.</p>
                 <div class="hero-cta">
-                    <a class="btn btn-primary btn-lg" href="{% url 'signin' %}">{% if user.is_authenticated %}Go to your dashboard{% else %}Sign in to ARMS{% endif %}<i class="fi fi-rr-arrow-right" aria-hidden="true"></i></a>
+                    <a class="btn btn-primary btn-lg" href="{% url 'signin' %}">{% if user.is_authenticated %}Go to your dashboard{% else %}Sign in to ARMS{% endif %}</a>
                     <a class="hero-link" href="#forms">See how forms connect<i class="fi fi-rr-arrow-small-right" aria-hidden="true"></i></a>
                 </div>
             </div>
@@ -404,7 +403,7 @@
                     <p>{% if user.is_authenticated %}You are signed in. Pick up where you left off in your portal.{% else %}Sign in with the account your school gave you, or continue with your school Google account.{% endif %}</p>
                 </div>
                 <div class="cta-actions">
-                    <a class="btn btn-white btn-lg" href="{% url 'signin' %}">{% if user.is_authenticated %}Go to your dashboard{% else %}Sign in to ARMS{% endif %}<i class="fi fi-rr-arrow-right" aria-hidden="true"></i></a>
+                    <a class="btn btn-white btn-lg" href="{% url 'signin' %}">{% if user.is_authenticated %}Go to your dashboard{% else %}Sign in to ARMS{% endif %}</a>
                     {% if not user.is_authenticated %}<a class="cta-link" href="{% url 'password_reset' %}">Forgot your password?</a>{% endif %}
                 </div>
                 <p class="cta-note"><i class="fi fi-rr-info" aria-hidden="true"></i>Learners do not need an account. To take a quiz, open the link your teacher shared.</p>

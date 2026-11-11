@@ -277,11 +277,11 @@ def _layout(grid, header=8, sub=9):
             groups['ww'] = col
         elif 'PERFORMANCE TASK' in text:
             groups['pt'] = col
-        elif 'QUARTERLY ASSESSMENT' in text:
+        elif 'QUARTERLY ASSESSMENT' in text or 'TERM ASSESSMENT' in text:      # the SSHS record of a term year says Term
             groups['qa'] = col
         elif text.startswith('INITIAL'):
             groups['initial'] = col
-        elif text.startswith('QUARTERLY'):
+        elif text.startswith(('QUARTERLY', 'TERM')):
             groups['quarterly'] = col
     if not {'ww', 'pt', 'qa', 'initial', 'quarterly'} <= set(groups):
         return _layout_from_numbers(grid, sub)
@@ -650,6 +650,8 @@ def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=
 
     checks = [('info', _other_table_note(policy, own, period_word or 'quarterly'))] if foreign else []
     sshs = parsed.get('kind') == 'SSHS'
+    # the SSHS record of a term year calls its third component the term assessment (grades/ecr_template._sshs_terms)
+    qa_name = 'term assessment' if period_word == 'term' else 'quarterly assessment'
     area = None if senior_high or sshs else learning_area(*subject_names)
     for s in sheets:
         w = s['weights']
@@ -661,7 +663,7 @@ def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=
             checks.append(('error', f'{s["sheet"]}: the component weights in row {row} do not add up to 100%.'))
         elif sshs:
             if tuple(w) not in SSHS_TYPES.values():
-                checks.append(('error', f'{s["sheet"]} weighs written work, performance tasks and quarterly assessment '
+                checks.append(('error', f'{s["sheet"]} weighs written work, performance tasks and {qa_name} '
                                         f'{_pct(w)}, which is not one of the SSHS subject types. The formulas may have been changed.'))
             elif subject_type and SSHS_TYPES.get(subject_type) != tuple(w):
                 checks.append(('warn', f'The file grades this subject as {parsed["meta"].get("subject_type") or _pct(w)} '
@@ -673,7 +675,7 @@ def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=
                 checks.append(('error', f'{s["sheet"]} weighs written work, performance tasks and quarterly assessment '
                                         f'{_pct(w)}, but {label} use {_pct(expected)} (DepEd Order No. 8, s. 2015). '
                                         'This looks like the template of another subject.'))
-        for (p, name), weight in zip((('ww', 'written work'), ('pt', 'performance tasks'), ('qa', 'quarterly assessment')),
+        for (p, name), weight in zip((('ww', 'written work'), ('pt', 'performance tasks'), ('qa', qa_name)),
                                      w if None not in w else (1, 1, 1)):
             if weight and not any(h for h in s['hps'][p] if h):
                 checks.append(('warn', f'{s["sheet"]}: there is no highest possible score for {name} in row {row}.'))
@@ -697,7 +699,7 @@ def analyse(parsed, period_number, *, subject_names, senior_high, roster, mapeh=
             entry['errors'] += errors
             has_scores = any(v not in (None, '') for vals in same['raw'].values() for v in vals)
             if has_scores and result['quarterly'] is None and not errors:
-                missing = ', '.join(_PART_NAMES[p] for p in result['missing']) or 'score'
+                missing = ', '.join(qa_name if p == 'qa' else _PART_NAMES[p] for p in result['missing']) or 'score'
                 entry['notes'].append(f'{prefix}no {missing} score yet, so the template gives no grade.')
             warning = _file_differs(same, result, prefix, foreign)
             if warning:

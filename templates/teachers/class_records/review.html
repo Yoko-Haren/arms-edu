@@ -24,10 +24,9 @@
     .skip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
     .was { font-size: 0.74rem; color: var(--muted); display: block; }
     .was .up { color: var(--good); } .was .down { color: var(--risk); }
-    .bar { position: sticky; bottom: 0; z-index: 10; padding: 0.85rem 1.15rem; display: flex; gap: 0.8rem; align-items: center; justify-content: space-between; flex-wrap: wrap;
-           box-shadow: 0 -6px 20px rgba(16, 24, 40, 0.06) !important; }
-    .bar label.ack { display: inline-flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; max-width: 560px; }
-    .bar label.ack input { margin-top: 0.2rem; }
+    /* the save bar is the shared .sticky-bar: a class named .bar here would become the 6px progress bar of portal-pages.css */
+    .sticky-bar label.ack { display: inline-flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; max-width: 560px; }
+    .sticky-bar label.ack input { margin-top: 0.2rem; }
     .missing { columns: 3 220px; margin: 0; padding-left: 1.1rem; font-size: 0.82rem; line-height: 1.7; }
     details.more summary { cursor: pointer; font-weight: 600; color: var(--brand); font-size: 0.84rem; }
 </style>
@@ -168,7 +167,7 @@
     </section>
     {% endif %}
 
-    <section class="card bar">
+    <section class="card sticky-bar">
         <div>
             {% if acknowledge %}
             <label class="ack"><input type="checkbox" name="acknowledge" value="yes" id="ack"> <span>I checked the notes above. Save the grades as ARMS computed them from the scores.</span></label>

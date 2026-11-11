@@ -124,14 +124,13 @@ i.fi { display: inline-flex; line-height: 1; }
 .hero-copy > :nth-child(4) { animation-delay: 0.18s; }
 .partner-pill {
     display: inline-flex; align-items: center; gap: 0.55rem; max-width: 100%;
-    padding: 0.32rem 0.75rem 0.32rem 0.35rem; border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
+    padding: 0.32rem 0.95rem 0.32rem 0.35rem; border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
     background: rgba(255, 255, 255, 0.72); box-shadow: var(--shadow-sm);
     -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
     color: var(--text); font-size: 0.86rem; text-decoration: none; transition: border-color 0.2s, box-shadow 0.2s;
 }
 .partner-pill img { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
 .partner-pill b { color: var(--ink); font-weight: 600; }
-.partner-pill i { color: var(--muted); font-size: 0.95rem; }
 .partner-pill:hover { border-color: #b8c1e0; box-shadow: var(--shadow-md); }
 .hero h1 {
     margin: 1.35rem 0 1.15rem; font-weight: 800;

@@ -183,7 +183,8 @@ def build(assignment, roster, teacher, period=None):
     if len(males) > 50 or len(females) > 50:
         raise TemplateUnavailable('The e-class record has room for 50 male and 50 female learners; this class has more. Use the class list (CSV).')
     if assignment.section.grade_level.is_senior_high:
-        return _build_sshs(assignment, males, females, teacher, path)
+        terms = sorted({p.quarter_number for p in own if 1 <= p.quarter_number <= 3} or {1, 2, 3}) if prefix == 'T' else None
+        return _build_sshs(assignment, males, females, teacher, path, terms)
     if prefix == 'T':
         return _build_term(assignment, males, females, teacher)
 
@@ -227,8 +228,56 @@ def build(assignment, roster, teacher, period=None):
     return buf.getvalue(), f'ECR_{code}_{section}{suffix}_SY{sy.year_label}.xlsx'
 
 
-def _build_sshs(assignment, males, females, teacher, path):
-    """The SSHS record with the class in INPUT DATA; every other part of the template untouched."""
+SSHS_FINAL = 'QUARTERLY AVERAGE'                   # the SSHS sheet of the year's final grades
+SSHS_FINAL_COLUMNS = {1: 'FGHI', 2: 'JKLM', 3: 'NOPQ', 4: 'RSTU'}      # its merged columns of each period's grade
+SSHS_LEARNER_ROWS = tuple(range(13, 63)) + tuple(range(64, 114))        # learners on the period and summary sheets
+SSHS_HELPER = 'Helper(IMPORTANT!)'
+
+
+def _sshs_terms(data, terms):
+    """The SSHS record for a school year graded in terms: (workbook, cell edits, patch options).
+
+    DepEd has no three-term Senior High record, so a term year relabels the SSHS one instead of calling terms
+    quarters. Q1 to Q3 become TERM 1 to TERM 3 and say "Term" where they said "Quarterly"; Q4 and the two semestral
+    sheets (they pair quarters) are hidden; and the average sheet becomes FINAL GRADE, the rounded average of the
+    class's terms (`terms`, their numbers), each read straight from its term sheet. Scores, weights and the
+    transmutation are DepEd's, untouched; the upload reads the sheets by the same FIRST / SECOND / THIRD.
+    """
+    names = {f'Q{n}': f'TERM {n}' for n in (1, 2, 3)}
+    names[SSHS_FINAL] = 'FINAL GRADE'
+    data = xlsx_patch.rename_sheets(data, names)
+    edits = {f'TERM {n}': {'A7': f'{P.ORDINALS[n].upper()} TERM', 'AJ9': 'Term\nGrade'} for n in (1, 2, 3)}
+    # the Helper sheet names the period sheets in row 1 (its INDIRECT formulas) and the third component in CK1
+    helper = {'CK1': 'TERM ASSESSMENT'}
+    for n, (semestral, annual) in enumerate((('CU', 'CY'), ('CV', 'CZ'), ('CW', 'DA')), start=1):
+        helper[f'{semestral}1'] = helper[f'{annual}1'] = f'TERM {n}'
+    edits[SSHS_HELPER] = helper
+    edits['INPUT DATA'] = {'C33': 'NOTE: \nFind the Final Grade Computation in the FINAL GRADE sheet.', 'C35': 'FINAL GRADE', 'G35': None}
+
+    final = {f'{SSHS_FINAL_COLUMNS[n][0]}11': f'{P.ORDINALS[n].upper()}\nTERM' for n in (1, 2, 3)}
+    for r in SSHS_LEARNER_ROWS:
+        grades = []
+        for n in (1, 2, 3):
+            cell = f'{SSHS_FINAL_COLUMNS[n][0]}{r}'
+            final[cell] = Formula(f"=IF('TERM {n}'!AJ{r}=\"\",\"\",'TERM {n}'!AJ{r})") if n in terms else None
+            if n in terms:
+                grades.append(cell)
+        blank = ','.join(f'{c}=""' for c in grades)
+        final[f'V{r}'] = Formula(f'=IF(OR({blank}),"",IFERROR(ROUND(AVERAGE({",".join(grades)}),0),""))')
+        final[f'Z{r}'] = Formula(f'=IF(V{r}="","",IF(V{r}>=75,"PASSED","FAILED"))')
+    edits['FINAL GRADE'] = final
+    unused = [n for n in (1, 2, 3, 4) if n not in terms]                # the fourth quarter, and any term the class skips
+    options = {
+        'hidden': ('Q4', '1st SEMESTRAL GRADE', '2nd SEMESTRAL GRADE') + tuple(f'TERM {n}' for n in unused if n != 4),
+        'columns': {'FINAL GRADE': {letter: None for n in unused for letter in SSHS_FINAL_COLUMNS[n]}},
+        'unshare': ('FINAL GRADE',), 'active': 'INPUT DATA',
+    }
+    return data, edits, options
+
+
+def _build_sshs(assignment, males, females, teacher, path, terms=None):
+    """The SSHS record with the class in INPUT DATA; every other part of the template untouched. terms: the numbers of
+    the class's terms when the school year is graded in terms (the record then speaks of terms, see _sshs_terms)."""
     section, subject, sy = assignment.section, assignment.subject, assignment.school_year
     school = section.school
     place = school_header.get(school)
@@ -252,7 +301,12 @@ def _build_sshs(assignment, males, females, teacher, path):
             p = people[i] if i < len(people) else None
             cells[f'{name_col}{r}'] = learner_name(p) if p else None
             cells[f'{lrn_col}{r}'] = str(p['lrn'] or '') if p else None
-    content = xlsx_patch.patch(path.read_bytes(), {'INPUT DATA': cells})
+    data, edits, options = path.read_bytes(), {'INPUT DATA': cells}, {}
+    if terms:
+        data, term_edits, options = _sshs_terms(data, terms)
+        for sheet, values in term_edits.items():
+            edits.setdefault(sheet, {}).update(values)
+    content = xlsx_patch.patch(data, edits, **options)
     code = re.sub(r'[^A-Za-z0-9]+', '-', subject.subject_code).strip('-')
     name = re.sub(r'[^A-Za-z0-9]+', '-', section.section_name).strip('-')
     return content, f'ECR_{code}_{name}_SY{sy.year_label}.xlsx'
