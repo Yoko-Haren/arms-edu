@@ -1,12 +1,14 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
-from . import views, views_academic, views_honors, views_performance, views_school_year, views_users
+from . import views, views_academic, views_honors, views_learners, views_performance, views_school_year, views_users
 
 urlpatterns = [
     # Academic Dashboard (the principal's landing page) and Poro AI's recommendations on it
     path('ai-dashboard/', views_academic.academic_dashboard, name='heads-ai-dashboard'),
     path('ai-dashboard/export/', views_academic.dashboard_export, name='heads-ai-dashboard-export'),
+    path('ai-dashboard/learners/', views_learners.learner_list, name='heads-learners'),
+    path('ai-dashboard/learners/<int:enrollment_id>/', views_learners.learner_record, name='heads-learner-record'),
     path('api/poro/<str:token>/', views_academic.poro_status, name='heads-poro'),
     # The section brief moved to the advisers (teacher portal, My Advisory); old links open the subject on the dashboard.
     path('ai-section/<int:section_id>/<int:subject_id>/<int:quarter_id>/', views_academic.section_moved),

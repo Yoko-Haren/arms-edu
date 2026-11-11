@@ -97,16 +97,20 @@ def preview(parsed, school, sy):
                 .select_related('student', 'section', 'section__grade_level')}
     counts = {'new': 0, 'enroll': 0, 'existing': 0, 'elsewhere': 0, 'duplicate': 0, 'invalid': 0}
     seen = set()
+    known = _known(students.values())
     for r in rows:
         r['status'] = enrollment_status(r['codes'])
         if r['errors']:
             r['state'], r['note'] = 'invalid', ' '.join(r['errors'])
         elif r['lrn'] in seen:
-            r['state'], r['note'] = 'duplicate', 'This LRN is listed twice in the file; only the first row is used.'
+            r['state'], r['note'] = 'duplicate', 'Duplicated: this LRN is listed twice in the file; only the first row is used.'
         else:
             e, st = enrolled.get(r['lrn']), students.get(r['lrn'])
             if e and section and e.section_id == section.id:
-                r['state'], r['note'] = 'existing', 'Already in this section. Details are updated from the SF1.'
+                if _would_change(r, st, e, known.get(st.id) if st else None, meta.get('region')):
+                    r['state'], r['note'] = 'existing', 'Already in this section. The details that changed are updated from the SF1.'
+                else:
+                    r['state'], r['note'] = 'duplicate', f'Duplicated: already enrolled in {section.section_name} with the same details.'
             elif e:
                 r['state'] = 'elsewhere'
                 r['note'] = f'Enrolled in {e.section.grade_level.grade_name} {e.section.section_name} this school year.'
@@ -129,7 +133,10 @@ def preview(parsed, school, sy):
             section=section, school_year=sy, status__in=ACTIVE).exclude(student__lrn__in=lrns).select_related('student')
             .order_by('student__last_name', 'student__first_name')]
     importable = counts['new'] + counts['enroll'] + counts['existing'] + counts['elsewhere']
-    if not importable:
+    if not importable and counts['duplicate'] and section:
+        checks.insert(0, ('error', f'Duplicated: every learner in this SF1 is already enrolled in {section.grade_level.grade_name} '
+                                   f'{section.section_name} with the same details, so there is nothing new to import.'))
+    elif not importable:
         checks.insert(0, ('error', 'No learner row of this SF1 can be imported. Fix the rows marked below in the file and upload it again.'))
     return {
         'kind': parsed['kind'], 'meta': meta, 'checks': checks, 'rows': rows, 'counts': counts,
@@ -198,6 +205,56 @@ def _update(obj, values):
             setattr(obj, field, value)
             changed.append(field)
     return changed
+
+
+def _known(students):
+    """{student id: (current address, {relationship: guardian}, {guardian id: [contact values]})} for the learners of a
+    preview, in three queries."""
+    ids = [s.id for s in students]
+    addresses = {a.student_id: a for a in StudentAddress.objects.filter(student_id__in=ids, address_type='Current')}
+    guardians, contacts = {}, {}
+    for g in Guardian.objects.filter(student_id__in=ids):
+        guardians.setdefault(g.student_id, {})[g.relationship] = g
+    for c in GuardianContact.objects.filter(guardian__student_id__in=ids).values('guardian_id', 'contact_value'):
+        contacts.setdefault(c['guardian_id'], []).append(c['contact_value'])
+    return {i: (addresses.get(i), guardians.get(i, {}), contacts) for i in ids}
+
+
+def _would_change(row, student, enrollment, known, region):
+    """Whether importing this register row again would change anything in ARMS for a learner already in the section:
+    their details, current address, parents and guardian, the contact number, or the enrollment's status and remarks.
+    The same rule as _save_learner and apply(): only a value the register has can replace one in ARMS."""
+    import copy
+    values = {
+        'first_name': row['first'][:100], 'middle_name': row['middle'][:100], 'last_name': row['last'][:100],
+        'name_extension': row['ext'], 'sex': row['sex'], 'birth_date': row['birth_date'],
+        'birth_place': row['birth_place'][:255], 'mother_tongue': row['mother_tongue'][:100],
+        'ethnicity': row['ethnic'][:100], 'religion': row['religion'][:100],
+    }
+    if _update(copy.copy(student), values):
+        return True
+    if (row['ethnic'] and not student.is_ip) or (('LWD' in row['codes'] or 'LWE' in row['codes']) and not student.has_disability):
+        return True
+    address, guardians, contacts = known or (None, {}, {})
+    if any(row[k] for k in ('street', 'barangay', 'city', 'province')):
+        if address is None or _update(copy.copy(address), {
+                'house_number_street': row['street'][:255], 'barangay': row['barangay'][:100], 'city_municipality': row['city'][:100],
+                'province': row['province'][:100], 'region': (region or '')[:50]}):
+            return True
+    people = [(_person(text), rel) for text, rel in ((row['father'], 'Father'), (row['mother'], 'Mother')) if _person(text)]
+    if _person(row['guardian']):
+        people.append((_person(row['guardian']), _relationship(row['relationship'])))
+    for (last, first, middle), rel in people:
+        g = guardians.get(rel)
+        if g is None or _update(copy.copy(g), {'last_name': last, 'first_name': first, 'middle_name': middle}):
+            return True
+    if row['contact']:
+        number = re.sub(r'[^\d+]', '', row['contact'])[:20] or row['contact'][:50]
+        if not any(number in contacts.get(g.id, []) for g in guardians.values()):
+            return True
+    if (row['status'] != 'Enrolled' or enrollment.status not in ACTIVE) and enrollment.status != row['status']:
+        return True
+    return bool(row['remarks']) and (enrollment.remarks or '') != row['remarks'][:1000]
 
 
 def _save_learner(row, user, region):

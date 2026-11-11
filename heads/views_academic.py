@@ -118,7 +118,9 @@ def _ladder(items):
     return ladder
 
 
-def _dashboard_data(params, school):
+def _selection(params, school):
+    """What the dashboard is showing: the school year and period (or all periods so far), the discipline or
+    subject and the grade levels. Shared by the dashboard and its learner table (heads/views_learners.py)."""
     school_years = list(SchoolYear.objects.filter(school=school).order_by('-year_start'))
     sy = next((s for s in school_years if str(s.id) == params.get('school_year')), None) or \
         next((s for s in school_years if s.is_current), None) or (school_years[0] if school_years else None)
@@ -162,6 +164,13 @@ def _dashboard_data(params, school):
         scope_detail = subject.grade_level.grade_name if subject and subject.grade_level_id else ''
     ids = [s.id for s in scope]
     query = {'school_year': sy.id if sy else '', 'quarter': quarter_value}
+    return {'school_years': school_years, 'sy': sy, 'periods': periods, 'wanted': wanted, 'latest': latest, 'all_periods': all_periods, 'period': period, 'ref_period': ref_period, 'span': span, 'earlier': earlier, 'prev_period': prev_period, 'quarter_value': quarter_value, 'shown_period': shown_period, 'grade_levels': grade_levels, 'families': families, 'subjects': subjects, 'subject_by_id': subject_by_id, 'mode': mode, 'grade_set': grade_set, 'grade_key': grade_key, 'grade_label': grade_label, 'family': family, 'subject': subject, 'all_families': all_families, 'scope': scope, 'scope_name': scope_name, 'scope_detail': scope_detail, 'ids': ids, 'query': query}
+
+
+def _dashboard_data(params, school):
+    s = _selection(params, school)
+    (school_years, sy, periods, wanted, latest, all_periods, period, ref_period, span, earlier, prev_period, quarter_value, shown_period, grade_levels, families, subjects, subject_by_id, mode, grade_set, grade_key, grade_label, family, subject, all_families, scope, scope_name, scope_detail, ids, query) = (
+        s['school_years'], s['sy'], s['periods'], s['wanted'], s['latest'], s['all_periods'], s['period'], s['ref_period'], s['span'], s['earlier'], s['prev_period'], s['quarter_value'], s['shown_period'], s['grade_levels'], s['families'], s['subjects'], s['subject_by_id'], s['mode'], s['grade_set'], s['grade_key'], s['grade_label'], s['family'], s['subject'], s['all_families'], s['scope'], s['scope_name'], s['scope_detail'], s['ids'], s['query'])
 
     base = GradeComponent.objects.filter(HAS_GRADE, subject_id__in=ids, enrollment__school_year=sy, enrollment__status__in=ACTIVE,
                                          enrollment__section__school=school)
@@ -347,6 +356,9 @@ def academic_dashboard(request):
     data['export_url'] = reverse('heads-ai-dashboard-export') + ('?' + request.GET.urlencode() if request.GET else '')
     data['live_fingerprint'] = school_fingerprint(school)
     data['poro_token'] = _poro_token(data['main'], data['decisions'], data['items'], _discipline(data))
+    # the learner table under the forecast reads the same selection (heads/views_learners.py)
+    data['selection_query'] = urlencode({k: request.GET[k] for k in ('view_mode', 'subject_family', 'school_year', 'quarter', 'grade_level', 'subject')
+                                         if request.GET.get(k)})
     return render(request, 'heads/ai_dashboard/index.html', data)
 
 

@@ -6,6 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'heads/css/head-portal.css' %}?v=20261111">
+<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112">
 <style>
     /* The status, Poro AI's recommendations and the forecast share the School Head dashboard's look (head-portal.css). */
     .home-pick { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
@@ -81,10 +82,12 @@
         .bm-detail .bm-back { display: inline-flex; margin-bottom: 0.6rem; }
     }
 
-    /* a learner's record */
-    .rec-table td.cur, .rec-table th.cur { background: #f3f6ff; }
-    .rec-table tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
-    .rec-parts { color: var(--muted); font-size: 0.76rem; }
+    /* the learner table's controls, under its heading */
+    .gtools { margin: 0 0 0.8rem; flex-wrap: wrap; justify-content: flex-start; gap: 0.6rem 1rem; }
+    .gtable td.muted { color: var(--muted); font-size: 0.8rem; }
+    .gtable th[hidden], .gtable td[hidden] { display: none; }
+    .gtable.with-grades .act-btn span { display: none; }       /* the subject columns need the room: Poro's face only */
+    .gtable.with-grades .act-btn { padding: 0.28rem 0.4rem; }
 </style>
 {% endblock %}
 
@@ -277,56 +280,62 @@
     {{ below_learners|json_script:"belowData" }}
     {% endif %}
 
-    {% if section and status %}
-    <section class="card panel" aria-labelledby="gradesTitle">
+    {% if table and table.rows %}
+    <section class="card panel" id="learners" aria-labelledby="gradesTitle">
         <div class="panel-head">
             <div><h3 id="gradesTitle"><i class="fi fi-rr-table-list" style="color:#123499;"></i> Learners &middot; {{ period_name }}</h3>
-                <p class="hint">{% if view == 'section' %}Your subjects in this section. {% endif %}Open a learner for every subject and period.</p></div>
-            <div class="toolbar">
-                <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="gSearch" placeholder="Find a learner or LRN" aria-label="Find a learner or LRN"></label>
-                <label class="sort">Sort by
-                    <select id="gSort">
-                        <option value="name">Surname A to Z</option>
-                        <option value="below">Most subjects below 75</option>
-                        <option value="low">Lowest average first</option>
-                        <option value="high">Highest average first</option>
-                    </select>
-                </label>
-            </div>
+                <p class="hint">Open a learner for every subject and period; Action shows Poro AI's recommendation in each subject.</p></div>
+            <a class="btn btn-line btn-sm" id="gPrint" href="{% url 'teachers:learners_print' %}?period={{ period.id }}" target="_blank" rel="noopener"
+               title="The table as a page to print or save as PDF"><i class="fi fi-rr-print"></i> Print</a>
         </div>
-        {% if learners and columns %}
+        <div class="toolbar gtools">
+            <div class="seg" role="tablist" aria-label="Columns">
+                <button type="button" role="tab" data-cols="with" aria-selected="true">With grades</button>
+                <button type="button" role="tab" data-cols="without" aria-selected="false">Without grades</button>
+            </div>
+            {% if table.sections|length > 1 %}
+            <label class="sort">Section
+                <select id="gSection">
+                    <option value="all">All my sections</option>
+                    {% for s in table.sections %}<option value="{{ s.id }}" {% if s.id|stringformat:"s" == table_section %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="gSearch" placeholder="Find a learner or LRN" aria-label="Find a learner or LRN"></label>
+            <label class="sort">Sort by
+                <select id="gSort">
+                    <option value="name">Surname A to Z</option>
+                    <option value="below">Most subjects below 75</option>
+                    <option value="low">Lowest average first</option>
+                    <option value="high">Highest average first</option>
+                </select>
+            </label>
+        </div>
         <div class="gwrap">
             <table class="table gtable">
                 <thead><tr><th scope="col">Learner</th>
-                    {% for c in columns %}<th scope="col" class="sub" title="{{ c.name }}{% if c.teacher %} ({{ c.teacher }}){% endif %}">{{ c.code }}<small>{{ c.graded }}/{{ c.total }}</small></th>{% endfor %}
-                    <th scope="col" class="num">Average</th><th scope="col">Level</th></tr></thead>
+                    <th scope="col" data-col="section">Section</th>
+                    {% for c in table.columns %}<th scope="col" class="sub" data-col="grade" data-sections="{% for s in c.sections %}{{ s }} {% endfor %}" title="{{ c.name }}">{{ c.code }}<small>{{ c.graded }}/{{ c.total }}</small></th>{% endfor %}
+                    <th scope="col" class="num">Average</th><th scope="col">Level</th><th scope="col" class="center">Action</th></tr></thead>
                 <tbody id="gBody">
-                    {% for l in learners %}
-                    <tr tabindex="0" data-learner="{{ forloop.counter0 }}" data-name="{{ l.name|lower }}" data-lrn="{{ l.lrn }}" data-avg="{% if l.average is not None %}{{ l.average }}{% endif %}" data-below="{{ l.below|length }}">
+                    {% for l in table.rows %}
+                    <tr tabindex="0" data-id="{{ l.id }}" data-section="{{ l.section }}" data-name="{{ l.name|lower }}" data-lrn="{{ l.lrn }}" data-avg="{% if l.average is not None %}{{ l.average }}{% endif %}" data-below="{{ l.below }}">
                         <td><span class="who">{{ l.name }}</span></td>
-                        {% for g in l.grades %}<td class="center">{% if g is None %}<span class="grade none">&mdash;</span>{% else %}<span class="grade {% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g|floatformat:"-1" }}</span>{% endif %}</td>{% endfor %}
+                        <td data-col="section" class="muted">{{ l.section_name }}</td>
+                        {% for g in l.grades %}<td class="center" data-col="grade">{% if g is None %}<span class="grade none">&mdash;</span>{% else %}<span class="grade {% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g|floatformat:"-1" }}</span>{% endif %}</td>{% endfor %}
                         <td class="num avg">{% if l.average is not None %}{{ l.average }}{% else %}&mdash;{% endif %}</td>
                         <td>{% if l.level %}<span class="lvl level-{{ l.level.key }}">{{ l.level.short }}</span>{% endif %}</td>
+                        <td class="center"><button type="button" class="act-btn" data-advice title="Recommend" aria-label="Poro AI's recommendations for {{ l.name }}"><img src="{% static 'shared/poro/Poro.png' %}" alt="" onerror="this.remove()"><span>Recommend</span></button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         <p class="empty" id="gNone" hidden>No learner matches.</p>
-        {% else %}
-        <p class="empty"><i class="fi fi-rr-table-list"></i>{% if learners %}No subject has {{ period_name }} grades yet.{% else %}No learner is enrolled in this section yet.{% endif %}</p>
-        {% endif %}
     </section>
-    <div class="tp-modal" id="recModal" role="dialog" aria-modal="true" aria-labelledby="recTitle" hidden>
-        <div class="tp-modal-card" tabindex="-1">
-            <div class="tp-modal-head">
-                <div><h3 id="recTitle"></h3><p class="hint" id="recSub"></p></div>
-                <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
-            </div>
-            <div class="tp-modal-body" id="recBody"></div>
-        </div>
-    </div>
-    {{ record|json_script:"recordData" }}
+    {% include 'shared/_learner_modal.html' %}
+    {% elif sy %}
+    <section class="card panel"><p class="empty"><i class="fi fi-rr-table-list"></i>No learner is enrolled in your sections yet.</p></section>
     {% endif %}
 </div>
 {% endblock %}
@@ -435,71 +444,63 @@ function belowDialog() {
 
     belowDialog();
 
-    var dataEl = document.getElementById('recordData');
-    if (!dataEl) return;
-    var data = JSON.parse(dataEl.textContent);
-    var comps = [{% for key, name, abbr in components %}{ abbr: '{{ abbr|escapejs }}', name: '{{ name|escapejs }}' }{% if not forloop.last %}, {% endif %}{% endfor %}];
-    var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
-    var fmt = function (n) { return n == null ? '&mdash;' : (Number.isInteger(n) ? String(n) : n.toFixed(1)); };
-    var grade = function (n) { return n == null ? '<span class="grade none">&mdash;</span>' : '<span class="grade ' + (n >= 75 ? 'pass' : 'fail') + '">' + fmt(n) + '</span>'; };
-
-    // ---------- every learner's grades: search and sort ----------
+    // ---------- every learner of the teacher's sections: with or without the subject columns, by section, search, sort ----------
     var body = document.getElementById('gBody');
-    if (body) {
-        var rows = Array.prototype.slice.call(body.querySelectorAll('tr'));
-        var search = document.getElementById('gSearch'), sort = document.getElementById('gSort');
-        var avg = function (r) { return r.dataset.avg === '' ? null : +r.dataset.avg; };
-        var SORTS = {
-            name: function (a, b) { return a.dataset.name.localeCompare(b.dataset.name); },
-            low: function (a, b) { return (avg(a) == null) - (avg(b) == null) || avg(a) - avg(b); },
-            high: function (a, b) { return (avg(a) == null) - (avg(b) == null) || avg(b) - avg(a); },
-            below: function (a, b) { return +b.dataset.below - +a.dataset.below || (avg(a) || 0) - (avg(b) || 0); }
-        };
-        var draw = function () {
-            var q = search.value.trim().toLowerCase(), shown = 0;
-            rows.sort(SORTS[sort.value] || SORTS.name).forEach(function (r) {
-                r.hidden = q && r.dataset.name.indexOf(q) === -1 && r.dataset.lrn.indexOf(q) === -1;
-                if (!r.hidden) shown++;
-                body.appendChild(r);
-            });
-            document.getElementById('gNone').hidden = shown > 0;
-        };
-        search.addEventListener('input', draw);
-        sort.addEventListener('change', draw);
+    if (!body) return;
+    var table = body.closest('table'), rows = Array.prototype.slice.call(body.querySelectorAll('tr'));
+    var search = document.getElementById('gSearch'), sort = document.getElementById('gSort'), section = document.getElementById('gSection');
+    var printLink = document.getElementById('gPrint'), printBase = printLink.getAttribute('href');
+    var cols = 'with';
+    try { if (localStorage.getItem('arms:learners:cols') === 'without') cols = 'without'; } catch (e) {}
+    var avg = function (r) { return r.dataset.avg === '' ? null : +r.dataset.avg; };
+    var SORTS = {
+        name: function (a, b) { return a.dataset.name.localeCompare(b.dataset.name); },
+        low: function (a, b) { return (avg(a) == null) - (avg(b) == null) || avg(a) - avg(b); },
+        high: function (a, b) { return (avg(a) == null) - (avg(b) == null) || avg(b) - avg(a); },
+        below: function (a, b) { return +b.dataset.below - +a.dataset.below || (avg(a) || 0) - (avg(b) || 0); }
+    };
+    var heads = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+    function draw() {
+        var q = search.value.trim().toLowerCase(), sec = section ? section.value : 'all', shown = 0;
+        // a subject column shows when the section chosen has it; Without grades hides them all; Section shows for all sections
+        var visible = heads.map(function (th) {
+            if (th.dataset.col === 'grade') return cols === 'with' && (sec === 'all' || (' ' + th.dataset.sections).indexOf(' ' + sec + ' ') > -1);
+            if (th.dataset.col === 'section') return !!section && sec === 'all';
+            return true;
+        });
+        heads.forEach(function (th, i) { th.hidden = !visible[i]; });
+        table.classList.toggle('with-grades', cols === 'with');
+        rows.sort(SORTS[sort.value] || SORTS.name).forEach(function (r) {
+            r.hidden = (sec !== 'all' && r.dataset.section !== sec) || (q && r.dataset.name.indexOf(q) === -1 && r.dataset.lrn.indexOf(q) === -1);
+            if (!r.hidden) {
+                shown++;
+                Array.prototype.forEach.call(r.children, function (td, i) { td.hidden = !visible[i]; });
+            }
+            body.appendChild(r);
+        });
+        document.getElementById('gNone').hidden = shown > 0;
+        document.querySelectorAll('[data-cols]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.cols === cols ? 'true' : 'false'); });
+        printLink.href = printBase + '&' + new URLSearchParams({ section: sec, view: cols, sort: sort.value, q: q }).toString();
     }
-
-    // ---------- a learner's record: every subject and period, the components of the period shown, the general average ----------
-    var modal = document.getElementById('recModal'), last = null;
-    function open(i) {
-        var who = data.people[i], rec = data.learners[i];
-        if (!who || !rec) return;
-        var at = data.periods.map(function (p) { return p.label; }).indexOf(data.period);
-        var head = '<tr><th>Subject</th>' + data.periods.map(function (p, j) { return '<th class="center' + (j === at ? ' cur' : '') + '">' + esc(p.label) + '</th>'; }).join('') +
-            '<th class="center">Final</th>' + comps.map(function (c) { return '<th class="center" title="' + esc(c.name) + ', ' + esc(data.period) + '">' + esc(c.abbr) + '</th>'; }).join('') + '</tr>';
-        var rows = rec.rows.map(function (r) {
-            return '<tr><td><b>' + esc(r.code) + '</b> <span class="rec-parts">' + esc(r.name) + '</span></td>' +
-                r.grades.map(function (g, j) { return '<td class="center' + (j === at ? ' cur' : '') + '">' + grade(g) + '</td>'; }).join('') +
-                '<td class="center">' + grade(r.final) + '</td>' +
-                [0, 1, 2].map(function (k) { return '<td class="center rec-parts">' + (r.parts ? fmt(r.parts[k]) : '&mdash;') + '</td>'; }).join('') + '</tr>';
-        }).join('');
-        var foot = '<tr><td>General average</td>' + rec.averages.map(function (a, j) { return '<td class="center' + (j === at ? ' cur' : '') + '">' + fmt(a) + '</td>'; }).join('') +
-            '<td></td>' + comps.map(function () { return '<td></td>'; }).join('') + '</tr>';
-        document.getElementById('recTitle').textContent = who.name;
-        document.getElementById('recSub').textContent = (who.lrn ? 'LRN ' + who.lrn + ' · ' : '') + comps.map(function (c) { return c.abbr; }).join(', ') +
-            ' are the ' + data.period + ' component scores in percent.';
-        document.getElementById('recBody').innerHTML = '<div style="overflow-x:auto"><table class="table rec-table"><thead>' + head + '</thead><tbody>' + rows +
-            '</tbody><tfoot>' + foot + '</tfoot></table></div>';
-        last = document.activeElement;
-        modal.hidden = false;
-        modal.querySelector('.tp-modal-card').focus();
-    }
-    function close() { modal.hidden = true; if (last) last.focus(); }
-    document.querySelectorAll('[data-learner]').forEach(function (el) {
-        el.addEventListener('click', function () { open(+el.dataset.learner); });
-        el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(+el.dataset.learner); } });
+    document.querySelectorAll('[data-cols]').forEach(function (b) {
+        b.addEventListener('click', function () { cols = b.dataset.cols; try { localStorage.setItem('arms:learners:cols', cols); } catch (e) {} draw(); });
     });
-    modal.addEventListener('click', function (e) { if (e.target === modal || e.target.closest('[data-close]')) close(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+    search.addEventListener('input', draw);
+    sort.addEventListener('change', draw);
+    if (section) section.addEventListener('change', draw);
+    draw();
+
+    // a learner: the row opens the record, Action the recommendations (static/shared/js/learner-record.js)
+    var url = '{% url "teachers:learner_record" 0 %}'.replace(/0\/$/, ''), period = '{{ period.id|default:"" }}';
+    function learner(r, tab) { if (window.ArmsLearner) ArmsLearner.open(url + r.dataset.id + '/?period=' + period, tab, r); }
+    body.addEventListener('click', function (e) {
+        var r = e.target.closest('tr[data-id]');
+        if (r) learner(r, e.target.closest('[data-advice]') ? 'advice' : 'record');
+    });
+    body.addEventListener('keydown', function (e) {
+        var r = e.target.closest('tr[data-id]');
+        if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); learner(r, 'record'); }
+    });
 })();
 </script>
 {% endblock %}

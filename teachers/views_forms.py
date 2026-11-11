@@ -228,6 +228,7 @@ def form_upload(request):
                 result = FU.read_sf8(uploaded, section, sy, stage, roster)
         except FU.UploadProblem as exc:
             return render(request, 'teachers/school_forms/upload.html', dict(context, error=str(exc)))
+        FU.mark_duplicates(result, sy)
         token = R.remember(request.user, {'section': section.id, 'file': uploaded.name, 'result': result})
         return redirect(f'{reverse("teachers:form_review")}?token={token}')
     return render(request, 'teachers/school_forms/upload.html', context)
@@ -238,12 +239,13 @@ def _review_context(request, stash, token, problems=None):
     result = stash['result']
     roster = _roster(section, section.school_year)
     by_id = {p['id']: p for p in roster}
-    ready, settle = [], []
+    ready, settle, duplicate = [], [], []
     for row in result['rows']:
         row['label'] = R.display_name(by_id[row['enrollment']]) if row.get('enrollment') in by_id else ''
-        (ready if row['status'] == 'matched' else settle).append(row)
+        (duplicate if row.get('duplicate') else ready if row['status'] == 'matched' else settle).append(row)
     moved = [row for row in result['rows'] if row.get('moved')]
     return {'section': section, 'token': token, 'file': stash['file'], 'result': result, 'ready': ready, 'settle': settle, 'moved': moved,
+            'duplicate': duplicate, 'errors': [t for level, t in result['checks'] if level == 'error'],
             'roster': [{'id': p['id'], 'name': R.display_name(p)} for p in roster], 'problems': problems or [],
             'warns': [t for level, t in result['checks'] if level == 'warn'], 'kind_title': KINDS[result['kind']]['title'],
             'missing': [R.display_name(by_id[i]) for i in result['missing'] if i in by_id]}
@@ -265,8 +267,11 @@ def form_review(request):
         plan, problems = FU.decide(result, choices)
         if problems:
             return render(request, 'teachers/school_forms/review.html', _review_context(request, stash, token, problems))
+        if any(level == 'error' for level, _ in result['checks']):
+            messages.error(request, next(text for level, text in result['checks'] if level == 'error'))
+            return redirect(_page(section))
         if not plan:
-            messages.info(request, 'Nothing was saved: no row was matched to a learner.')
+            messages.info(request, 'Nothing was saved: no row was matched to a learner, or every one is already in ARMS.')
             return redirect(_page(section))
         count = FU.SAVERS[result['kind']](section, section.school_year, result, plan, request.user)
         R.forget(request.user, token)

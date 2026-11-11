@@ -67,15 +67,18 @@
         </div>
     </section>
 
-    <div class="tiles" style="--tiles:4">
+    {% if preview.all_duplicate %}
+    <div class="note risk" role="alert"><i class="fi fi-rr-copy"></i>
+        <div><b>Duplicated: this class list is already in ARMS.</b> The class {{ parsed.subject_code }} of {{ parsed.section_name }} exists and
+            every learner in the file is already enrolled in it, so there is nothing new to import.</div></div>
+    {% endif %}
+    <div class="tiles" style="--tiles:3">
         <div class="card tile good"><span class="tile-ico"><i class="fi fi-rr-user-add"></i></span>
             <div><span>Will be enrolled</span><b>{{ preview.counts.new }}</b><small>new to this section</small></div></div>
-        <div class="card tile"><span class="tile-ico"><i class="fi fi-rr-users-alt"></i></span>
-            <div><span>Already here</span><b>{{ preview.counts.existing }}</b><small>in this section</small></div></div>
+        <div class="card tile {% if preview.counts.duplicate %}risk{% endif %}"><span class="tile-ico"><i class="fi fi-rr-copy"></i></span>
+            <div><span>Duplicated</span><b>{{ preview.counts.duplicate }}</b><small>already here or listed twice; not imported again</small></div></div>
         <div class="card tile {% if preview.counts.elsewhere %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-exchange"></i></span>
             <div><span>In another section</span><b>{{ preview.counts.elsewhere }}</b><small>stay where they are</small></div></div>
-        <div class="card tile {% if preview.counts.duplicate %}risk{% endif %}"><span class="tile-ico"><i class="fi fi-rr-copy"></i></span>
-            <div><span>Listed twice</span><b>{{ preview.counts.duplicate }}</b><small>extra rows are ignored</small></div></div>
     </div>
 
     <section class="card rv-sec" aria-labelledby="studentsTitle">
@@ -109,7 +112,7 @@
         <span class="hint" style="margin:0;">{{ preview.counts.new }} learner{{ preview.counts.new|pluralize }} will be enrolled in {{ parsed.section_name }}.</span>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
             <a class="btn btn-line" href="{% url 'registrars:upload_class_list' %}">Cancel</a>
-            <button type="submit" class="btn btn-main" id="confirmBtn"><i class="fi fi-rr-check"></i> Confirm and import</button>
+            <button type="submit" class="btn btn-main" id="confirmBtn" {% if preview.all_duplicate %}disabled{% endif %}><i class="fi fi-rr-check"></i> Confirm and import</button>
         </div>
     </section>
 </form>

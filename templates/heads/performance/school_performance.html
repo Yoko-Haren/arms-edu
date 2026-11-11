@@ -7,6 +7,24 @@
 
 {% block extra_css %}
 <style>
+    /* the trends card (static/heads/js/trend-chart.js) */
+    .trends [data-trends] { position: relative; }
+    .tr-bar { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+    .tr-note { margin: 0.55rem 0 0.4rem; }
+    .tr-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin: 0.2rem 0 0.4rem; font-size: 0.78rem; color: var(--ink); }
+    .tr-legend:empty { display: none; }
+    .tr-key { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .tr-key i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .tr-stage { min-height: 120px; }
+    .tr-stage svg { display: block; overflow: visible; font-family: inherit; }
+    .tr-table { width: 100%; margin-top: 0.3rem; font-size: 0.82rem; }
+    .tr-table th.num, .tr-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .tr-tip { position: absolute; z-index: 5; pointer-events: none; background: #fff; border: 1px solid var(--line); border-radius: 10px;
+              box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12); padding: 0.5rem 0.65rem; font-size: 0.76rem; min-width: 190px; }
+    .tr-tip .tr-row { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.2rem; color: var(--muted); }
+    .tr-tip .tr-row b { margin-left: auto; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .tr-tip .tr-row i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
     /* Shared parts (filters, status, tables, dialogs, forecast charts) are in static/heads/css/head-portal.css. */
     .guide-summary .btn-outline { margin-left: auto; }
     .guide-summary .btn-outline + .reset { margin-left: 0.7rem; }
@@ -196,12 +214,23 @@
         <div class="card-head" style="margin-bottom:0.3rem">
             <div>
                 <h3 id="spFcTitle"><i class="fi fi-rr-chart-line-up" style="color:#123499;"></i> {{ scope_name }}: school performance forecast &middot; SY {{ sy.year_label }}</h3>
-                <p class="hint explain">{% if grade %}{{ grade.grade_name }}{% else %}The whole school{% endif %} across every learning area first; choose a {{ forecast.word }} under Show. The blue line is the actual grade, the green dashed line the grade the model predicted.</p>
+                <p class="hint explain">{% if grade %}{{ grade.grade_name }}{% else %}The whole school{% endif %} across every learning area first; choose a {{ forecast.word }} under Show. The blue line is the actual grade, the green line the grade the model predicted.</p>
             </div>
         </div>
         <div data-forecast="spForecast"></div>
     </section>
     {{ forecast|json_script:"spForecast" }}
+    {% endif %}
+
+    {% if trends and trends.performance %}
+    <!-- Trends of the school year: learner performance, grades and attendance (heads/views_performance._trends) -->
+    <section class="card chart-card trends" aria-labelledby="trTitle">
+        <div class="card-head" style="margin-bottom:0.5rem">
+            <div><h3 id="trTitle"><i class="fi fi-rr-chart-histogram" style="color:#123499;"></i> {{ trends.scope }}: trends &middot; SY {{ trends.year }}</h3></div>
+        </div>
+        <div data-trends="spTrends"></div>
+    </section>
+    {{ trends|json_script:"spTrends" }}
     {% endif %}
 
     <!-- 4. Grade levels (or the sections of the chosen grade level) -->
@@ -296,6 +325,7 @@
 
 {% block extra_js %}
 <script src="{% static 'heads/js/forecast-chart.js' %}?v=20261111b"></script>
+<script src="{% static 'heads/js/trend-chart.js' %}?v=20261112"></script>
 <script>
 (function () {
     var form = document.getElementById('filterForm');

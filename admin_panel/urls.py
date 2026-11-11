@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, views_audit
 
 app_name = 'admin_panel'
 
@@ -53,6 +53,7 @@ urlpatterns = [
     path('requests/<int:request_id>/send-sign-in/', views.request_send_accounts, name='request_send_accounts'),
 
     # Grade forecaster: status, accuracy and retraining
+    path('audit-trail/', views_audit.audit_trail, name='audit_trail'),
     path('forecaster/', views.forecaster, name='forecaster'),
     path('forecaster/retrain/', views.forecaster_retrain, name='forecaster_retrain'),
     path('forecaster/status/', views.forecaster_status, name='forecaster_status'),

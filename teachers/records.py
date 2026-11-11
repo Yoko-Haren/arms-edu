@@ -206,10 +206,43 @@ def analyse_upload(uploaded, assignment, period, school):
         row['learner'] = {'id': p['id'], 'lrn': p['lrn'], 'name': display_name(p), 'sex': p['sex']} if p else None
         row['candidates'] = [dict(c, name=display_name(people_by_id[c['id']]), lrn=people_by_id[c['id']]['lrn'])
                              for c in row.get('candidates', []) if c['id'] in people_by_id]
+    _mark_duplicates(result, existing, period)
     in_file = {row.get('enrollment') for row in result['rows'] if row.get('enrollment')}
     result['missing'] = [display_name(p) for p in people if p['active'] and p['id'] not in in_file]
     result['roster'] = [{'id': p['id'], 'name': display_name(p), 'lrn': p['lrn'], 'sex': p['sex']} for p in people if p['active']]
     return result
+
+
+def _same_grade(old, row):
+    """The row's grade is the one ARMS already keeps for the learner (and its initial grade too, when the file has one)."""
+    if old['transmuted_grade'] is None or row['quarterly'] is None or Decimal(str(old['transmuted_grade'])) != Decimal(str(row['quarterly'])):
+        return False
+    return row.get('initial') is None or old['initial_grade'] is None or Decimal(str(old['initial_grade'])) == Decimal(str(row['initial']))
+
+
+def _mark_duplicates(result, existing, period):
+    """No record twice (objective 1): a second row for a learner the file already has a row for is an error, and a row
+    whose grade is already the learner's saved grade (draft, submitted or validated) is marked 'duplicate'; neither is
+    saved. A validated grade the file would change stays 'frozen' (the registrar returns it first). When every grade the file
+    could save is already in ARMS, the whole file is refused as a duplicate."""
+    first = {}
+    for row in result['rows']:
+        target = row.get('enrollment') if row.get('status') == 'matched' else None
+        if target is None or row['quarterly'] is None or row['errors']:
+            continue
+        if target in first:
+            row['errors'].append(f'Duplicated: row {first[target]} of this file is already this learner\'s.')
+            continue
+        first[target] = row['row']
+        old = existing.get(target)
+        if old and _same_grade(old, row):             # validated or not: the same grade is already there
+            row['duplicate'] = True
+    usable = [r for r in result['rows'] if r['quarterly'] is not None and not r['errors']]
+    duplicates = [r for r in usable if r.get('duplicate')]
+    if duplicates and len(duplicates) == len(usable):
+        result['checks'].insert(0, ('error', f'Duplicated: every grade in this file is already in ARMS for {P.name(period)} '
+                                             '(the same grades were uploaded before), so there is nothing new to save.'))
+    result['duplicates'] = len(duplicates)
 
 
 def _analyse_csv(uploaded, people):
@@ -292,7 +325,7 @@ def decide(result, choices):
     active = {p['id'] for p in result['roster']}
     plan, problems, taken = [], [], {}
     for row in result['rows']:
-        if row['quarterly'] is None or row['errors'] or row.get('frozen'):
+        if row['quarterly'] is None or row['errors'] or row.get('frozen') or row.get('duplicate'):
             continue
         choice = choices.get(str(row['row']))
         if choice == 'skip':

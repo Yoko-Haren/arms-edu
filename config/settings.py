@@ -94,6 +94,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'audit.trail.AuditMiddleware',                       # who adds, edits or deletes what (objective 4)
     'django.contrib.messages.middleware.MessageMiddleware',
     'accounts.middleware.ForcePasswordChangeMiddleware',
     'core.caching.DataVersionMiddleware',                # a write invalidates cached pages

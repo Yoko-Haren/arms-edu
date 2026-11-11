@@ -70,8 +70,8 @@
             <div><span>Ready to save</span><b>{{ groups.ready|length }}</b><small>matched to one learner</small></div></div>
         <div class="card tile {% if groups.settle %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-user-pen"></i></span>
             <div><span>To settle</span><b>{{ groups.settle|length }}</b><small>need you to choose</small></div></div>
-        <div class="card tile {% if groups.skipped %}risk{% endif %}"><span class="tile-ico"><i class="fi fi-rr-ban"></i></span>
-            <div><span>Not imported</span><b>{{ groups.skipped|length }}</b><small>problems or validated</small></div></div>
+        <div class="card tile {% if groups.skipped or groups.duplicate %}risk{% endif %}"><span class="tile-ico"><i class="fi fi-rr-ban"></i></span>
+            <div><span>Not imported</span><b>{{ not_imported }}</b><small>{% if groups.duplicate %}{{ groups.duplicate|length }} duplicated{% if groups.skipped %}, {{ groups.skipped|length }} with problems{% endif %}{% else %}problems or validated{% endif %}</small></div></div>
         <div class="card tile {% if result.missing %}warn{% endif %}"><span class="tile-ico"><i class="fi fi-rr-user-time"></i></span>
             <div><span>Not in the file</span><b>{{ result.missing|length }}</b><small>learner{{ result.missing|length|pluralize }} of the class</small></div></div>
     </div>
@@ -133,6 +133,26 @@
         </div>
         {% else %}<p class="hint">No row could be matched with certainty.</p>{% endif %}
     </section>
+
+    {% if groups.duplicate %}
+    <section class="card rv-sec" aria-labelledby="dupTitle">
+        <div class="head"><div><h3 id="dupTitle"><i class="fi fi-rr-copy" style="color:#C62828;"></i> Duplicated &middot; {{ groups.duplicate|length }}</h3>
+            <p class="hint">ARMS already has these grades for {{ period_name }}, exactly as in the file, so they are not saved again.</p></div></div>
+        <div class="rv-table">
+            <table class="table">
+                <thead><tr><th>Row</th><th>In the file</th><th>Learner</th><th class="center">Grade</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for r in groups.duplicate %}
+                    <tr><td class="muted">{{ r.row }}</td><td class="who"><b>{{ r.name }}</b></td>
+                        <td class="who"><b>{{ r.learner.name }}</b><small class="lrn">{{ r.learner.lrn|default:"no LRN" }}</small></td>
+                        <td class="center"><span class="grade {% if r.quarterly >= 75 %}pass{% else %}fail{% endif %}">{{ r.grade_text }}</span></td>
+                        <td><span class="pill risk">Duplicated</span> <span class="was">already saved{% if r.current_status %} ({{ r.current_status|lower }}){% endif %}</span></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
 
     {% if groups.skipped %}
     <section class="card rv-sec" aria-labelledby="skippedTitle">

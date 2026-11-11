@@ -23,6 +23,7 @@
         <a class="btn btn-line btn-sm" href="{% url 'teachers:form_upload' %}?kind={{ result.kind }}&amp;section={{ section.id }}"><i class="fi fi-rr-arrow-small-left"></i> Choose another file</a>
     </section>
 
+    {% for text in errors %}<div class="note risk" role="alert"><i class="fi fi-rr-copy"></i><span><b>{{ text }}</b></span></div>{% endfor %}
     {% for text in problems %}<div class="note risk" role="alert"><i class="fi fi-rr-exclamation"></i><span>{{ text }}</span></div>{% endfor %}
     {% for text in warns %}<div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span>{{ text }}</span></div>{% endfor %}
     {% if missing %}<div class="note warn"><i class="fi fi-rr-triangle-warning"></i><span><b>{{ missing|length }} learner{{ missing|length|pluralize }} of the class {{ missing|length|pluralize:"is,are" }} not in this file:</b> {{ missing|slice:":6"|join:", " }}{% if missing|length > 6 %}, and more{% endif %}. Anything saved for them stays as it is.</span></div>{% endif %}
@@ -32,6 +33,7 @@
         {% for label, value in result.facts %}<div><small>{{ label }}</small><b>{{ value }}</b></div>{% endfor %}
         <div><small>Ready</small><b>{{ ready|length }} learner{{ ready|length|pluralize }}</b></div>
         <div><small>To settle</small><b>{{ settle|length }}</b></div>
+        {% if duplicate %}<div><small>Duplicated</small><b>{{ duplicate|length }}</b></div>{% endif %}
     </div>
 
     <form method="post">
@@ -72,9 +74,22 @@
             {% else %}<p class="empty"><i class="fi fi-rr-users-alt"></i>No row matched a learner with certainty.</p>{% endif %}
         </section>
 
+        {% if duplicate %}
+        <section class="card panel" aria-labelledby="dupTitle">
+            <div class="panel-head"><div><h3 id="dupTitle"><i class="fi fi-rr-copy" style="color:#C62828;"></i> Duplicated &middot; {{ duplicate|length }}</h3>
+                <p class="hint">ARMS already has these exactly as in the file, so they are not saved again.</p></div></div>
+            <div class="rv-wrap"><table class="table rv-table">
+                <thead><tr><th scope="col">Learner</th><th scope="col">Found</th><th scope="col">Status</th></tr></thead>
+                <tbody>
+                    {% for r in duplicate %}<tr><td><b>{{ r.label|default:r.name }}</b></td><td>{{ r.summary }}</td><td><span class="pill risk">Duplicated</span></td></tr>{% endfor %}
+                </tbody>
+            </table></div>
+        </section>
+        {% endif %}
+
         <div class="rv-foot" style="margin-top:1rem;">
             <span class="hint" style="margin:0;">Saving replaces what was saved before for these learners.</span>
-            <button type="submit" class="btn btn-main"><i class="fi fi-rr-disk"></i> Save {{ result.kind }}</button>
+            <button type="submit" class="btn btn-main" {% if errors %}disabled{% endif %}><i class="fi fi-rr-disk"></i> Save {{ result.kind }}</button>
         </div>
     </form>
 </div>

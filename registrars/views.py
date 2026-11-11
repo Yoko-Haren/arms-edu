@@ -337,9 +337,9 @@ def _preview_class_list(school, current_sy, parsed):
     for s in parsed['students']:
         enrollment = enrolled.get(s['student_id'])
         if s['student_id'] in seen:
-            state, note = 'duplicate', 'Listed twice in this file'
+            state, note = 'duplicate', 'Duplicated: listed twice in this file'
         elif enrollment and section and enrollment.section_id == section.id:
-            state, note = 'existing', 'Already in this section'
+            state, note = 'duplicate', 'Duplicated: already enrolled in this section'
         elif enrollment:
             state, note = 'elsewhere', f'Already enrolled in {enrollment.section.section_name} — stays there'
         elif s['student_id'] in known:
@@ -357,12 +357,16 @@ def _preview_class_list(school, current_sy, parsed):
     else:
         family, match = family_for(school, parsed['subject_name'], parsed['subject_code'])
         discipline = {'name': family.family_name if family else DISCIPLINES[match.key][0], 'why': explain(match, family)} if match else None
+    # the whole file is a duplicate when its class is already in ARMS and every learner in it is already enrolled there
+    class_exists = bool(section and subject and ClassAssignment.objects.filter(
+        section=section, subject=subject, school_year=current_sy, is_active=True).exists())
     return {
         'grade_level': grade_level,
         'subject': subject,
         'section': section,
         'rows': rows,
         'counts': counts,
+        'all_duplicate': class_exists and not counts['new'] and not counts['elsewhere'],
         'discipline': discipline,
         'matched_teacher': _match_instructor(school, parsed['instructor_name']) if parsed['instructor_name'] else None,
     }
@@ -497,6 +501,10 @@ def upload_class_list(request):
             })
 
         # ----- confirmed: import -----
+        if _preview_class_list(school, current_sy, parsed)['all_duplicate']:
+            messages.error(request, f'Duplicated: the class {parsed["subject_code"]} of {parsed["section_name"]} and every learner in '
+                                    'this file are already in ARMS, so nothing was imported.')
+            return redirect('registrars:upload_class_list')
         choice = request.POST.get('teacher', '')
         teacher_user = _school_teacher_user(school, choice)
         try:
@@ -871,8 +879,14 @@ TEACHER_IMPORT_COLUMNS = ['first_name', 'last_name', 'email', 'employee_number',
 
 
 def _teacher_import_rows(school, raw_rows):
-    """Validate teacher rows as one batch (addresses and employee numbers must not collide)."""
-    reserved, seen_employee, results = set(), set(), []
+    """Validate teacher rows as one batch (addresses and employee numbers must not collide). No teacher twice (objective
+    1): a name that already has a teacher account in the school, or that the file lists twice, is Duplicated."""
+    reserved, seen_employee, seen_names, results = set(), set(), {}, []
+    accounts = {}                                     # every account of the school, whatever its role: one person, one account
+    for first, last, username, role in UserProfile.objects.filter(school=school).values_list(
+            'user__first_name', 'user__last_name', 'user__username', 'role'):
+        accounts.setdefault((' '.join((first or '').lower().split()), ' '.join((last or '').lower().split())),
+                            f'{username}, {dict(UserProfile.ROLE_CHOICES).get(role, role)}')
     for raw in raw_rows:
         data = {
             'first_name': raw.get('first_name', ''),
@@ -887,9 +901,15 @@ def _teacher_import_rows(school, raw_rows):
         errors = []
         if form.is_valid():
             cleaned = form.cleaned_data
-            if cleaned['employee_number'] and cleaned['employee_number'] in seen_employee:
-                errors.append('Employee number repeated in this file.')
+            name = (cleaned['first_name'].lower(), cleaned['last_name'].lower())
+            if name in accounts:
+                errors.append(f'Duplicated: {cleaned["first_name"]} {cleaned["last_name"]} already has an account ({accounts[name]}).')
+            elif name in seen_names:
+                errors.append(f'Duplicated: {cleaned["first_name"]} {cleaned["last_name"]} is listed twice in this file (row {seen_names[name]}).')
+            elif cleaned['employee_number'] and cleaned['employee_number'] in seen_employee:
+                errors.append('Duplicated: this employee number is listed twice in this file.')
             else:
+                seen_names[name] = len(results) + 1
                 reserved.add(cleaned['email'])
                 if cleaned['employee_number']:
                     seen_employee.add(cleaned['employee_number'])

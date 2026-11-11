@@ -1,0 +1,111 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Audit Trail - ARMS{% endblock %}
+{% block subtitle %}Admin Portal &bull; Audit Trail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tp .ap-audit-week { display: flex; gap: 1.4rem; flex-wrap: wrap; margin-top: 0.7rem; font-size: 0.82rem; color: var(--muted); }
+    .tp .ap-audit-week b { color: var(--ink); font-size: 1rem; margin-right: 0.25rem; }
+    .tp .ap-audit-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; margin-top: 0.9rem; }
+    .tp .ap-audit td { vertical-align: top; font-size: 0.82rem; }
+    .tp .ap-audit td.when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .tp .ap-audit td.when small, .tp .ap-audit td.who small { display: block; color: var(--muted); font-size: 0.72rem; }
+    .tp .ap-audit td.who b { display: block; font-weight: 650; }
+    .tp .ap-audit .rec b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+    .tp .ap-audit .rec small { color: var(--muted); font-size: 0.72rem; }
+    .tp .ap-audit .chg { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.15rem; }
+    .tp .ap-audit .chg li { overflow-wrap: anywhere; }
+    .tp .ap-audit .chg span { color: var(--muted); }
+    .tp .ap-audit .chg s { color: var(--risk); text-decoration-color: rgba(198, 40, 40, 0.5); }
+    .tp .ap-audit .chg ins { color: var(--good); text-decoration: none; font-weight: 600; }
+    .tp .ap-audit details summary { cursor: pointer; color: var(--brand); font-weight: 600; font-size: 0.78rem; }
+    .tp .ap-audit td.ip { font-family: Consolas, 'Courier New', monospace; font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+    .tp .ap-numbers { display: flex; gap: 0.3rem; flex-wrap: wrap; align-items: center; }
+    .tp .ap-numbers a, .tp .ap-numbers span.cur { min-width: 2rem; height: 2rem; padding: 0 0.5rem; display: inline-flex; align-items: center; justify-content: center;
+                                                 border-radius: 9px; border: 1px solid var(--line); font-size: 0.8rem; font-weight: 600; color: var(--ink); text-decoration: none; }
+    .tp .ap-numbers a:hover { border-color: var(--brand); color: var(--brand); }
+    .tp .ap-numbers span.cur { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .tp .ap-numbers .gap { color: var(--muted); padding: 0 0.2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tp">
+    <section class="card tp-head">
+        <div>
+            <h2><i class="fi fi-rr-time-past" style="color:#123499;"></i> Audit trail</h2>
+            <p class="hint">Every record anyone adds, edits or deletes in ARMS, every sign-in, and the actions the pages log. Each entry is chained to the one before by its SHA-256 hash.</p>
+            <div class="ap-audit-week" aria-label="The last seven days">
+                <span><b>{{ week.added }}</b>added</span><span><b>{{ week.edited }}</b>edited</span><span><b>{{ week.deleted }}</b>deleted</span>
+                <span><b>{{ week.signins }}</b>sign-ins</span>{% if week.failed %}<span><b>{{ week.failed }}</b>failed sign-ins</span>{% endif %}
+                <span>in the last 7 days</span>
+            </div>
+        </div>
+        <div class="actions">
+            <a class="btn btn-line btn-sm" href="?{% if query %}{{ query }}&amp;{% endif %}verify=1" title="Recompute every hash from the first entry"><i class="fi fi-rr-shield-check"></i> Check the chain</a>
+            <a class="btn btn-main btn-sm" href="?{% if query %}{{ query }}&amp;{% endif %}export=1"><i class="fi fi-rr-download"></i> Download report</a>
+        </div>
+    </section>
+
+    <section class="card panel" aria-label="Find entries">
+        <form method="get" class="ap-filters">
+            <label class="field"><span>Action</span>
+                <select name="kind">{% for key, label in kinds %}<option value="{{ key }}" {% if params.kind == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            </label>
+            <label class="field"><span>Role</span>
+                <select name="role">{% for key, label in roles %}<option value="{{ key }}" {% if params.role == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            </label>
+            <label class="field"><span>Record</span>
+                <select name="record"><option value="">Every record</option>{% for r in records %}<option value="{{ r }}" {% if params.record == r %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
+            </label>
+            <label class="field"><span>From</span><input type="date" name="from" value="{{ params.from|default:'' }}"></label>
+            <label class="field"><span>To</span><input type="date" name="to" value="{{ params.to|default:'' }}"></label>
+            <label class="search" style="flex:1 1 220px;"><i class="fi fi-rr-search"></i><input type="search" name="q" value="{{ params.q|default:'' }}" placeholder="Find a person, record or address" aria-label="Find a person, record or address"></label>
+            <button type="submit" class="btn btn-main btn-sm"><i class="fi fi-rr-filter"></i> Show</button>
+            {% if query %}<a class="btn btn-ghost btn-sm" href="{% url 'admin_panel:audit_trail' %}">Clear</a>{% endif %}
+        </form>
+
+        {% if entries %}
+        <div class="ap-audit-wrap">
+            <table class="table ap-audit">
+                <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Record</th><th scope="col">What changed</th><th scope="col">IP address</th></tr></thead>
+                <tbody>
+                    {% for e in entries %}
+                    <tr>
+                        <td class="when">{{ e.log.timestamp|date:"M j, Y" }}<small>{{ e.log.timestamp|date:"g:i:s A" }}</small></td>
+                        <td class="who"><b>{{ e.log.user_name|default:"System" }}</b><small>{{ e.role }}</small></td>
+                        <td><span class="pill {{ e.tone }}">{{ e.action }}</span></td>
+                        <td class="rec"><b>{{ e.record }}</b><small>{{ e.type }}{% if e.log.resource_id %} #{{ e.log.resource_id }}{% endif %}</small></td>
+                        <td>
+                            {% if e.changes %}
+                            {% if e.changes|length > 3 %}<details><summary>{{ e.changes|length }}{% if e.more %}+{% endif %} fields changed</summary>{% endif %}
+                            <ul class="chg">{% for c in e.changes %}<li><span>{{ c.field }}:</span> <s>{{ c.old }}</s> &rarr; <ins>{{ c.new }}</ins></li>{% endfor %}
+                                {% if e.more %}<li><span>and {{ e.more }} more</span></li>{% endif %}</ul>
+                            {% if e.changes|length > 3 %}</details>{% endif %}
+                            {% elif e.detail %}{{ e.detail }}{% else %}<span class="muted">&mdash;</span>{% endif %}
+                        </td>
+                        <td class="ip">{{ e.log.ip_address }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page.has_other_pages %}
+        <div class="ap-pages">
+            <p class="hint">{{ page.start_index }} to {{ page.end_index }} of {{ total }} entries</p>
+            <nav class="ap-numbers" aria-label="Pages">
+                {% if page.has_previous %}<a href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.previous_page_number }}" aria-label="Previous page"><i class="fi fi-rr-angle-small-left"></i></a>{% endif %}
+                {% for n in pages %}{% if n is None %}<span class="gap">&hellip;</span>{% elif n == page.number %}<span class="cur" aria-current="page">{{ n }}</span>{% else %}<a href="?{% if query %}{{ query }}&amp;{% endif %}page={{ n }}">{{ n }}</a>{% endif %}{% endfor %}
+                {% if page.has_next %}<a href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.next_page_number }}" aria-label="Next page"><i class="fi fi-rr-angle-small-right"></i></a>{% endif %}
+            </nav>
+        </div>
+        {% else %}
+        <p class="hint" style="margin-top:0.7rem;">{{ total }} entr{{ total|pluralize:"y,ies" }}</p>
+        {% endif %}
+        {% else %}
+        <p class="empty"><i class="fi fi-rr-time-past"></i>No entry matches.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

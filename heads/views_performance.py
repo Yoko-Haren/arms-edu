@@ -71,6 +71,66 @@ def _grades(school, sy, period, grade_level=None):
         'enrollment_id', 'enrollment__section_id', 'enrollment__section__section_name', 'enrollment__section__grade_level_id', GRADE)]
 
 
+MONTHS = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+
+
+def _trends(school, sy, periods, grade_level=None):
+    """The school year's trends for the scope (the whole school, or one grade level), for the Trends card:
+
+    - learner performance: in each grading period with grades, how many learners' averages fall in each level of the
+      school's DepEd order;
+    - grades: in each period, the average grade, the share of grades at 75 and above, and the grades below 75;
+    - attendance: in each month so far, the days present over the school days.
+    Kept in the cache until grades change (core.caching.data_version)."""
+    from django.core.cache import caches
+    from core.caching import data_version
+    if not sy:
+        return None
+    key = f'heads-trends:v2:{school.id}:{sy.id}:{grade_level.id if grade_level else "all"}:{policy.key_of(school)}:{data_version()}'
+    cache = caches['default']
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    levels = list(reversed(policy.levels()))                  # lowest first: the bars stack from the bottom
+    performance, grades = [], []
+    for p in periods:
+        rows = _grades(school, sy, p, grade_level)
+        if not rows:
+            continue
+        by = defaultdict(list)
+        for e, _, _, _, g in rows:
+            by[e].append(g)
+        counts = defaultdict(int)
+        for values in by.values():
+            counts[level_of(round(mean(values), 1))['key']] += 1
+        values = [g for *_, g in rows]
+        label = period_name(p)
+        performance.append({'label': label, 'short': p.quarter_label, 'total': len(by), 'counts': [counts[lv['key']] for lv in levels]})
+        grades.append({'label': label, 'short': p.quarter_label, 'average': round(mean(values), 1), 'grades': len(values),
+                       'passing': _pct(sum(1 for g in values if g >= PASSING), len(values)),
+                       'below': sum(1 for g in values if g < PASSING)})
+    qs = AttendanceSummary.objects.filter(school_year=sy, enrollment__status__in=ACTIVE, enrollment__section__school=school)
+    if grade_level:
+        qs = qs.filter(enrollment__section__grade_level=grade_level)
+    start = sy.date_start.month if getattr(sy, 'date_start', None) else 6
+    attendance = []
+    for r in sorted(qs.values('month').annotate(p=Sum('days_present'), t=Sum('total_school_days')), key=lambda r: (r['month'] - start) % 12):
+        if r['t']:
+            attendance.append({'label': MONTHS[r['month'] - 1], 'rate': _pct(r['p'] or 0, r['t']), 'present': r['p'] or 0, 'days': r['t']})
+    if attendance:                                            # a month with far fewer school days than the others is still going
+        typical = sorted(a['days'] for a in attendance)[len(attendance) // 2]
+        for a in attendance:
+            a['partial'] = a['days'] < 0.25 * typical
+    result = {
+        'scope': grade_level.grade_name if grade_level else 'Whole school', 'year': sy.year_label,
+        'order': policy.current()['short'],
+        'levels': [{'key': lv['key'], 'name': lv['name'], 'short': lv['short'], 'range': lv['range'], 'passing': lv['passing']} for lv in levels],
+        'performance': performance, 'grades': grades, 'attendance': attendance,
+    }
+    cache.set(key, result, 6 * 3600)
+    return result
+
+
 def _learners(rows, senior):
     """One entry per learner: quarterly average, learning areas below 75, promotion outlook and honors."""
     by = {}
@@ -266,6 +326,7 @@ def _performance_data(params, school):
         'period_name': period_name(period), 'prev_period_name': period_name(prev_period),
         'period_options': [{'value': q.quarter_label, 'name': period_name(q), 'current': q == P.current(periods), 'locked': q.is_grades_locked} for q in periods],
         'forecast': forecast_spec,
+        'trends': _trends(school, sy, periods, grade),
         'grade_levels': grade_levels, 'grade': grade, 'grade_id': str(grade.id) if grade else 'all', 'scope_name': scope_name,
         'status': status, 'table': table,
         'outlook': [dict(o, count=counts[o['key']], share=_pct(counts[o['key']], len(learners)) or 0) for o in OUTLOOK],

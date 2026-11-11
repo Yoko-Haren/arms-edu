@@ -1,0 +1,79 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Learners · {{ scope_name }} · {{ period_name }} - ARMS</title>
+    {% include 'shared/_favicon.html' %}
+    <style>
+        :root { --ink: #1a1a2e; --muted: #5a6478; --line: #d9dee8; --brand: #123499; --soft: #f4f6fb; --pass: #1f7a3d; --fail: #b42318; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef1f6; color: var(--ink); font: 13px/1.45 'Inter', 'Segoe UI', Arial, sans-serif; }
+        .sheet { max-width: 1100px; margin: 24px auto; background: #fff; padding: 28px 32px 32px; border-radius: 12px; box-shadow: 0 6px 24px rgba(16, 24, 40, 0.08); }
+        .bar { max-width: 1100px; margin: 18px auto 0; display: flex; gap: 8px; justify-content: flex-end; padding: 0 4px; }
+        .bar button, .bar a { font: 600 13px/1 inherit; padding: 10px 16px; border-radius: 10px; border: 1px solid #cfd8ea; background: #fff; color: var(--brand); cursor: pointer; text-decoration: none; }
+        .bar button { background: var(--brand); color: #fff; border-color: var(--brand); }
+        header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; border-bottom: 2px solid var(--brand); padding-bottom: 12px; margin-bottom: 14px; }
+        header h1 { margin: 0; font-size: 19px; }
+        header p { margin: 3px 0 0; color: var(--muted); }
+        header .brand { text-align: right; color: var(--muted); font-size: 12px; }
+        header .brand b { display: block; color: var(--brand); font-size: 15px; }
+        .facts { display: flex; gap: 24px; flex-wrap: wrap; margin: 0 0 14px; color: var(--muted); }
+        .facts b { color: var(--ink); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; }
+        th { background: var(--soft); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+        th.c, td.c { text-align: center; }
+        td.n { text-align: right; font-variant-numeric: tabular-nums; }
+        td.no { color: var(--muted); width: 28px; text-align: right; }
+        .fail { color: var(--fail); font-weight: 700; }
+        .pass { color: var(--pass); }
+        .legend { margin-top: 12px; color: var(--muted); font-size: 11.5px; }
+        .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+        @page { size: {% if with_grades and columns|length > 5 %}landscape{% else %}portrait{% endif %}; margin: 12mm; }
+        @media print {
+            body { background: #fff; }
+            .bar { display: none; }
+            .sheet { box-shadow: none; margin: 0; max-width: none; padding: 0; border-radius: 0; }
+            tr { break-inside: avoid; }
+            thead { display: table-header-group; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bar"><a href="javascript:window.close()">Close</a><button type="button" onclick="window.print()">Print or save as PDF</button></div>
+    <main class="sheet">
+        <header>
+            <div>
+                <h1>Learners &middot; {{ scope_name }}</h1>
+                <p>{{ period_name }}{% if sy %}, SY {{ sy.year_label }}{% endif %} &middot; {% if with_grades %}with the grade in each subject{% else %}average and performance level{% endif %}</p>
+            </div>
+            <div class="brand"><b>{{ school.school_name }}</b>{% if school.school_id %}School ID {{ school.school_id }}{% endif %}</div>
+        </header>
+        <div class="facts">
+            <span>Teacher: <b>{{ teacher }}</b></span>
+            <span>Learners: <b>{{ rows|length }}</b></span>
+            <span>Printed: <b>{{ printed|date:"F j, Y, g:i A" }}</b></span>
+        </div>
+        {% if rows %}
+        <table>
+            <thead><tr><th class="c">#</th><th>Learner</th><th>LRN</th>{% if many %}<th>Section</th>{% endif %}
+                {% for c in columns %}<th class="c" title="{{ c.name }}">{{ c.code }}</th>{% endfor %}
+                <th class="c">Average</th><th>Level</th></tr></thead>
+            <tbody>
+                {% for r in rows %}
+                <tr><td class="no">{{ forloop.counter }}</td><td>{{ r.name }}</td><td>{{ r.lrn }}</td>{% if many %}<td>{{ r.section_name }}</td>{% endif %}
+                    {% for g in r.grades %}{% if columns %}<td class="c">{% if g is None %}&mdash;{% else %}<span class="{% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g|floatformat:"-1" }}</span>{% endif %}</td>{% endif %}{% endfor %}
+                    <td class="n"><b>{% if r.average is not None %}{{ r.average }}{% else %}&mdash;{% endif %}</b></td>
+                    <td>{% if r.level %}{{ r.level.name }}{% endif %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="legend">Levels: {% for lv in levels %}{{ lv.name }} {{ lv.range }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}. Grades below 75 are in red.</p>
+        {% else %}
+        <p class="empty">No learner matches.</p>
+        {% endif %}
+    </main>
+    <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
+</body>
+</html>

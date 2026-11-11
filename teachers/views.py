@@ -9,16 +9,20 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils import timezone
 
 from academics.models import Section
+from core import grading_policy as policy
 from core import periods as P
 from core.caching import cache_page_for_user
 from grades.models import GradeComponent
 from heads import poro
 
+from . import learners
 from . import records as R
 from . import standing
-from .views_advisory import section_assignments, section_grades
+from .views_advisory import section_assignments
 from .views_records import _teacher, teacher_context
 
 
@@ -83,9 +87,79 @@ def dashboard(request):
                'has_classes': bool(assignments), 'todo': _todo(assignments, periods, current)}
     context.update(standing.build(school=school, sy=sy, periods=periods, period=period, assignments=scope_assignments,
                                   reader=reader, scope=scope, who=who, section=section))
-    if section is not None:
-        context.update(section_grades(school, sy, periods, period, section, scope_assignments))
+    # every learner of the teacher's sections, for the table under the forecast: filtered there by section, with or without
+    # the subject columns (learners.table)
+    context['table'] = learners.table(sy, periods, period, _table_scope(sy, advised, taught, assignments)) if sy else None
+    context['table_section'] = str(section.id) if section else 'all'
+    context['components'] = policy.components()
     return render(request, 'teachers/home.html', context)
+
+
+def _table_scope(sy, advised, taught, assignments):
+    """[(section, assignments)]: an advisory section with every subject, any other section with the teacher's own."""
+    return [(s, section_assignments(s, sy)) for s in advised] + \
+           [(s, [a for a in assignments if a.section_id == s.id]) for s in taught]
+
+
+def _teacher_sections(request):
+    """(school, sy, periods, current, the table's [(section, assignments)], advised ids) for the signed-in teacher."""
+    school, sy, periods, current, assignments = teacher_context(request)
+    advised = list(Section.objects.filter(school_year=sy, school=school, adviser=request.user, is_active=True)
+                   .select_related('grade_level').order_by('grade_level__sort_order', 'section_name')) if sy else []
+    taught = []
+    for a in assignments:
+        if a.section not in taught and a.section not in advised:
+            taught.append(a.section)
+    return school, sy, periods, current, _table_scope(sy, advised, taught, assignments), {s.id for s in advised}
+
+
+@login_required
+def learner_record(request, enrollment_id):
+    """One learner's record and a recommendation in every subject of the period (teachers/learners.record): every
+    subject for the learner's adviser, their own subjects for a subject teacher, nothing for anyone else."""
+    from academics.models import Quarter
+    from enrollment.models import Enrollment
+    if not _teacher(request):
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    school, sy, periods, current, scope, advised = _teacher_sections(request)
+    mine = {s.id: a for s, a in scope}
+    enrollment = Enrollment.objects.select_related('student', 'section', 'section__grade_level').filter(
+        id=enrollment_id, school_year=sy, status__in=R.ACTIVE, section_id__in=mine).first() if sy else None
+    if enrollment is None:
+        return JsonResponse({'error': 'Not one of your learners'}, status=404)
+    period = next((p for p in periods if str(p.id) == request.GET.get('period')), None) or current
+    policy.activate(school)
+    data = learners.record(enrollment, sy, periods, period, mine[enrollment.section_id],
+                           reader='adviser' if enrollment.section_id in advised else 'teacher')
+    data['poll'] = reverse('teachers:poro', args=[data['token']]) if data['token'] else ''
+    response = JsonResponse(data)
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
+@login_required
+def learners_print(request):
+    """The learner table as a page to print or save as PDF: the section chosen in the table (or all of them), with or
+    without the subject columns, in the table's order; no Action column."""
+    if not _teacher(request):
+        messages.error(request, 'Access denied. Teachers only.')
+        return redirect('signin')
+    school, sy, periods, current, scope, advised = _teacher_sections(request)
+    period = next((p for p in periods if str(p.id) == request.GET.get('period')), None) or current
+    policy.activate(school)
+    wanted = request.GET.get('section') or 'all'
+    chosen = [(s, a) for s, a in scope if wanted == 'all' or str(s.id) == wanted] or scope
+    data = learners.table(sy, periods, period, chosen) if sy else {'columns': [], 'rows': [], 'sections': []}
+    q = (request.GET.get('q') or '').strip().lower()
+    rows = [r for r in data['rows'] if not q or q in r['name'].lower() or q in r['lrn']]
+    with_grades = request.GET.get('view') != 'without'
+    many = len(chosen) > 1
+    return render(request, 'teachers/learners_print.html', {
+        'school': school, 'sy': sy, 'period_name': P.name(period), 'teacher': request.user.get_full_name() or request.user.username,
+        'scope_name': 'All my sections' if many else (data['sections'][0]['name'] if data['sections'] else ''),
+        'columns': data['columns'] if with_grades else [], 'rows': learners.sort_rows(rows, request.GET.get('sort')),
+        'with_grades': with_grades, 'many': many, 'levels': policy.levels(), 'printed': timezone.localtime(),
+    })
 
 
 @login_required

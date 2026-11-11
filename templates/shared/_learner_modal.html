@@ -1,0 +1,19 @@
+{% load static %}
+{# One learner: Poro AI's recommendation in every subject, and the record for the school year (static/shared/js/learner-record.js). #}
+<div class="tp-modal" id="lrModal" role="dialog" aria-modal="true" aria-labelledby="lrTitle" hidden data-poro-img="{% static 'shared/poro/Poro.png' %}">
+    <div class="tp-modal-card lr-card" tabindex="-1">
+        <div class="tp-modal-head">
+            <div><h3 id="lrTitle">Learner</h3><p class="hint" id="lrSub"></p></div>
+            <button type="button" class="icon-btn" data-close aria-label="Close"><i class="fi fi-rr-cross-small"></i></button>
+        </div>
+        <div class="tp-modal-body">
+            <div class="seg lr-tabs" role="tablist" aria-label="Show">
+                <button type="button" role="tab" data-lr-tab="advice" aria-selected="true">Recommendations</button>
+                <button type="button" role="tab" data-lr-tab="record" aria-selected="false">Record</button>
+            </div>
+            <div class="lr-pane" data-lr-pane="advice" role="tabpanel"></div>
+            <div class="lr-pane" data-lr-pane="record" role="tabpanel" hidden></div>
+        </div>
+    </div>
+</div>
+<script src="{% static 'shared/js/learner-record.js' %}?v=20261112"></script>

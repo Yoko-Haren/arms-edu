@@ -175,7 +175,7 @@ def _review_context(request, stash, token, problems=None):
     errors = [t for level, t in result['checks'] if level == 'error']
     warns = [t for level, t in result['checks'] if level == 'warn']
     infos = [t for level, t in result['checks'] if level == 'info']
-    groups = {'ready': [], 'settle': [], 'skipped': [], 'empty': []}
+    groups = {'ready': [], 'settle': [], 'skipped': [], 'empty': [], 'duplicate': []}
     for r in rows:
         r['grade_text'] = '' if r['quarterly'] is None else str(r['quarterly'])
         r['initial_text'] = '' if r['initial'] is None else f'{r["initial"]:.2f}'
@@ -187,6 +187,8 @@ def _review_context(request, stash, token, problems=None):
             r['components'] = [('WW', res['ww']['ps']), ('PT', res['pt']['ps']), ('QA', res['qa']['ps'])]
         if r['quarterly'] is None and not r['errors']:
             groups['empty'].append(r)
+        elif r.get('duplicate'):                       # the same grade is already in ARMS: shown, never saved again
+            groups['duplicate'].append(r)
         elif r['errors'] or r.get('frozen'):
             groups['skipped'].append(r)
         elif r['status'] == 'matched':
@@ -204,6 +206,7 @@ def _review_context(request, stash, token, problems=None):
         'roster_json': json.dumps(result['roster']),
         'other_periods': [f'{P.word(assignment.section.school, [period])} {n}' for n in result.get('other_periods', [])],
         'importable': len(groups['ready']) + len(groups['settle']),
+        'not_imported': len(groups['skipped']) + len(groups['duplicate']),
     }
 
 

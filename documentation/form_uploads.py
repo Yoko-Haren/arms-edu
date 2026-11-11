@@ -416,10 +416,62 @@ def save_sf8(section, sy, result, plan, user):
 SAVERS = {'SF2': save_sf2, 'SF3': save_sf3, 'SF8': save_sf8}
 
 
+def _dec(value):
+    return Decimal(str(value)).normalize() if value not in (None, '') else None
+
+
+def mark_duplicates(result, sy):
+    """No record twice (objective 1): a matched row whose form data ARMS already keeps exactly as in the file is marked
+    'duplicate' and not saved again (SF2: the month's marks and totals; SF3: the books; SF8: the stage's measures). When
+    every matched row is one, the file is refused as a duplicate. Returns how many rows are duplicates."""
+    rows = [r for r in result['rows'] if r.get('status') == 'matched' and r.get('enrollment')]
+    ids = [r['enrollment'] for r in rows]
+    same = set()
+    if result['kind'] == 'SF2' and ids:
+        from attendance.models import AttendanceRecord, AttendanceSummary
+        month, year, days = result['month'], result['year'], result['school_days']
+        totals = {s.enrollment_id: s for s in AttendanceSummary.objects.filter(enrollment_id__in=ids, school_year=sy, month=month)}
+        marks = {}
+        for e, d, status in AttendanceRecord.objects.filter(enrollment_id__in=ids, date__year=year, date__month=month).values_list(
+                'enrollment_id', 'date', 'status'):
+            marks.setdefault(e, {})[d.isoformat()] = status
+        for r in rows:
+            s = totals.get(r['enrollment'])
+            if s and s.total_school_days == days and s.days_absent == r['absent'] and s.days_late == r['tardy'] \
+                    and marks.get(r['enrollment'], {}) == r['marks']:
+                same.add(r['index'])
+    elif result['kind'] == 'SF3' and ids:
+        from documentation.models import BookRecord
+        books = {}
+        for e, title, issued, returned in BookRecord.objects.filter(enrollment_id__in=ids).values_list(
+                'enrollment_id', 'title', 'date_issued', 'date_returned'):
+            books.setdefault(e, set()).add((title, issued.isoformat() if issued else '', returned.isoformat() if returned else ''))
+        for r in rows:
+            mine = {(b['title'], b['issued'] or '', b['returned'] or '') for b in {b['title']: b for b in r['books']}.values()}
+            if mine and books.get(r['enrollment']) == mine:
+                same.add(r['index'])
+    elif result['kind'] == 'SF8' and ids:
+        from documentation.models import LearnerNutrition
+        saved = {n.enrollment_id: n for n in LearnerNutrition.objects.filter(enrollment_id__in=ids, stage=result['stage'])}
+        for r in rows:
+            n = saved.get(r['enrollment'])
+            if n and _dec(n.weight_kg) == _dec(r['weight']) and _dec(n.height_m) == _dec(r['height']) \
+                    and (n.bmi_category or '') == (r['bmi_category'] or '') and (n.height_for_age or '') == (r['height_for_age'] or ''):
+                same.add(r['index'])
+    for r in result['rows']:
+        r['duplicate'] = r['index'] in same
+    if same and len(same) == len(rows) and not [r for r in result['rows'] if r.get('status') != 'matched']:
+        result['checks'].insert(0, ('error', f'Duplicated: everything in this {result["kind"]} is already in ARMS exactly as in the file '
+                                             f'({result["label"]}), so there is nothing new to save.'))
+    return len(same)
+
+
 def decide(result, choices):
     """(rows paired with enrollments, problems). Certain rows go as matched; the adviser settles the others."""
     plan, problems, used = [], [], {}
     for row in result['rows']:
+        if row.get('duplicate'):                      # already in ARMS exactly as in the file: not saved again
+            continue
         choice = choices.get(str(row['index']))
         if row['status'] == 'matched' and choice in (None, ''):
             target = row['enrollment']

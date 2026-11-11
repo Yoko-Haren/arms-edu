@@ -64,7 +64,7 @@ class TeacherAccountForm(forms.Form):
     def clean_employee_number(self):
         number = (self.cleaned_data.get('employee_number') or '').strip()
         if number and UserProfile.objects.filter(employee_number=number).exists():
-            raise ValidationError('This employee number is already assigned to another account.')
+            raise ValidationError('Duplicated: this employee number already belongs to another account.')
         return number
 
     def clean(self):
@@ -74,7 +74,7 @@ class TeacherAccountForm(forms.Form):
         email = (cleaned_data.get('email') or '').strip().lower()
         if email:
             if _email_taken(email, self.reserved):
-                self.add_error('email', 'An account with this email already exists.')
+                self.add_error('email', 'Duplicated: an account with this email already exists.')
         else:
             email = suggest_teacher_email(self.school, cleaned_data.get('first_name'), cleaned_data.get('last_name'), self.reserved)
             if not email and cleaned_data.get('first_name') and cleaned_data.get('last_name'):

@@ -6,11 +6,35 @@
 {% block subtitle %}Academic Dashboard{% if sy %} &bull; SY {{ sy.year_label }}{% endif %}{% if period_name %} &bull; {{ period_name }}{% endif %}{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'shared/css/portal-pages.css' %}">
+<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112">
 <style>
     /* Shared parts (filters, status, dialogs, forecast charts, level ladder) are in static/heads/css/head-portal.css. */
 
     /* one discipline's grade levels sit between the status and the forecast */
     .dash-grid.with-table { grid-template-areas: "status advice" "table advice" "chart advice"; }
+
+    /* the selection's learners (heads/views_learners.py) */
+    .hl-scope { margin-top: 1rem; }
+    .hl-tools { margin: 0 0 0.8rem; flex-wrap: wrap; justify-content: flex-start; gap: 0.6rem 1rem; }
+    .hl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; transition: opacity 0.2s; }
+    .hl.is-loading .hl-wrap { opacity: 0.55; }
+    .hl-table th, .hl-table td { white-space: nowrap; }
+    .hl-table tbody tr { cursor: pointer; }
+    .hl-table tbody tr:hover td { background: #f7f9ff; }
+    .hl-table td.muted { color: var(--muted); font-size: 0.8rem; }
+    .hl-table td.risk { color: var(--risk); font-weight: 700; }
+    .hl-table .hl-lrn { display: block; color: var(--faint); font-size: 0.7rem; font-weight: 500; }
+    .hl-table .lvl { font-size: 0.72rem; padding: 0.15rem 0.55rem; background: var(--lv-bg); color: var(--lv); border-radius: 9px; font-weight: 650; }
+    .hl-table:not(:has(tbody tr)) thead { display: none; }
+    .hl-pages { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; justify-content: flex-end; margin-top: 0.8rem; }
+    .hl-pages .hl-count { margin-right: auto; color: var(--muted); font-size: 0.8rem; }
+    .hl-pages button { min-width: 2rem; height: 2rem; padding: 0 0.55rem; border-radius: 9px; border: 1px solid var(--line); background: #fff;
+                       color: var(--ink); font-weight: 600; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .hl-pages button:hover:not([disabled]) { border-color: var(--brand); color: var(--brand); }
+    .hl-pages button[aria-current="page"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .hl-pages button[disabled] { opacity: 0.4; cursor: default; }
+    .hl-pages .gap { color: var(--muted); padding: 0 0.2rem; }
     .dash-grid > .levels-card { grid-area: table; padding: 1.1rem 1.25rem; }
     .levels-card .lvl { background: var(--lv-bg); color: var(--lv); }
     @media (max-width: 1100px) { .dash-grid.with-table { grid-template-areas: "status" "advice" "table" "chart"; } }
@@ -219,7 +243,7 @@
             <div class="card-head" style="margin-bottom:0.3rem">
                 <div>
                     <h3 id="fcTitle"><i class="fi fi-rr-chart-line-up" style="color:#123499;"></i> {{ scope_name }}: averages and forecast{% if sy %} &middot; SY {{ sy.year_label }}{% endif %}</h3>
-                    <p class="hint explain">The blue line is the actual grade, the green dashed line the grade the model predicted. The whole selection first; choose a {{ forecast.word }} under Show. Point at a period to read both values, or switch to Table.</p>
+                    <p class="hint explain">The blue line is the actual grade, the green line the grade the model predicted. The whole selection first; choose a {{ forecast.word }} under Show. Point at a period to read both values, or switch to Table.</p>
                 </div>
             </div>
             <div data-forecast="dashForecast"></div>
@@ -227,6 +251,41 @@
         {% endif %}
     </div>
     {% if forecast and forecast.series %}{{ forecast|json_script:"dashForecast" }}{% endif %}
+
+    {% if status %}
+    <div class="tp hl-scope">
+    <!-- 3. The learners of the selection, page by page (heads/views_learners.py); a learner opens with a recommendation in every subject -->
+    <section class="card panel hl" id="headLearners" aria-labelledby="hlTitle"
+             data-url="{% url 'heads-learners' %}?{{ selection_query }}" data-record="{% url 'heads-learner-record' 0 %}?{{ selection_query }}">
+        <div class="panel-head">
+            <div><h3 id="hlTitle"><i class="fi fi-rr-users-alt" style="color:#123499;"></i> Learners &middot; {{ scope_name }} &middot; {{ period_name }}</h3>
+                <p class="hint" id="hlHint">Each learner's average in the selection and performance level. Action shows Poro AI's recommendation in each subject.</p></div>
+        </div>
+        <div class="toolbar hl-tools">
+            <div class="seg" role="tablist" aria-label="Columns">
+                <button type="button" role="tab" data-hl-cols="with" aria-selected="false">With grades</button>
+                <button type="button" role="tab" data-hl-cols="without" aria-selected="true">Without grades</button>
+            </div>
+            <label class="sort">Section <select id="hlSection"><option value="">All sections</option></select></label>
+            <label class="sort">Level <select id="hlLevel"><option value="">All levels</option></select></label>
+            <label class="search"><i class="fi fi-rr-search"></i><input type="search" id="hlSearch" placeholder="Find a learner or LRN" aria-label="Find a learner or LRN"></label>
+            <label class="sort">Sort by
+                <select id="hlSort">
+                    <option value="name">Surname A to Z</option>
+                    <option value="section">Grade level and section</option>
+                    <option value="below">Most subjects below 75</option>
+                    <option value="low">Lowest average first</option>
+                    <option value="high">Highest average first</option>
+                </select>
+            </label>
+        </div>
+        <div class="hl-wrap"><table class="table hl-table" aria-describedby="hlHint"><thead></thead><tbody id="hlBody"></tbody></table></div>
+        <p class="empty" id="hlNone" hidden>No learner matches.</p>
+        <nav class="hl-pages" id="hlPages" aria-label="Pages of learners"></nav>
+    </section>
+    {% include 'shared/_learner_modal.html' %}
+    </div>
+    {% endif %}
 
     {% if status and ladder %}
     <div class="ap-modal" id="ladderModal" role="dialog" aria-modal="true" aria-labelledby="ladderModalTitle" hidden>
@@ -268,6 +327,100 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+// ---------- the selection's learners, page by page: filters, search, sort, with or without the grade components ----------
+(function () {
+    'use strict';
+    var card = document.getElementById('headLearners');
+    if (!card) return;
+    var body = document.getElementById('hlBody'), head = card.querySelector('thead'), pagesEl = document.getElementById('hlPages');
+    var section = document.getElementById('hlSection'), level = document.getElementById('hlLevel');
+    var search = document.getElementById('hlSearch'), sort = document.getElementById('hlSort');
+    var poroImg = (document.getElementById('lrModal') || {}).dataset ? document.getElementById('lrModal').dataset.poroImg : '';
+    var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+    var fmt = function (n) { return n == null ? '&mdash;' : Number(n).toFixed(1); };
+    var state = { page: 1, cols: 'without' }, filled = false, ticket = 0, timer = null;
+    try { if (localStorage.getItem('arms:hl:cols') === 'with') state.cols = 'with'; } catch (e) {}
+
+    function pageList(page, pages) {                 // 1 … 4 5 6 … 30
+        var out = [], add = function (n) { if (out[out.length - 1] !== n) out.push(n); };
+        add(1);
+        if (page > 3) add('…');
+        for (var n = Math.max(2, page - 1); n <= Math.min(pages - 1, page + 1); n++) add(n);
+        if (page < pages - 2) add('…');
+        if (pages > 1) add(pages);
+        return out;
+    }
+    function draw(d) {
+        var withCols = state.cols === 'with';
+        head.innerHTML = '<tr><th scope="col">Learner</th><th scope="col">Grade and section</th>' +
+            (withCols ? d.components.map(function (c) { return '<th scope="col" class="num" title="' + esc(c.name) + '">' + esc(c.abbr) + '</th>'; }).join('') : '') +
+            '<th scope="col" class="num">Average</th><th scope="col">Level</th><th scope="col" class="num">Below 75</th><th scope="col" class="center">Action</th></tr>';
+        body.innerHTML = d.rows.map(function (r) {
+            return '<tr tabindex="0" data-id="' + r.id + '"><td><b>' + esc(r.name) + '</b><small class="hl-lrn">' + esc(r.lrn) + '</small></td>' +
+                '<td class="muted">' + esc(r.section_name) + '</td>' +
+                (withCols ? ['ww', 'pt', 'qa'].map(function (k) { return '<td class="num">' + fmt(r[k]) + '</td>'; }).join('') : '') +
+                '<td class="num"><span class="grade ' + (r.average >= 75 ? 'pass' : 'fail') + '">' + fmt(r.average) + '</span></td>' +
+                '<td><span class="lvl level-' + esc(r.level.key) + '">' + esc(r.level.short) + '</span></td>' +
+                '<td class="num' + (r.below ? ' risk' : '') + '">' + r.below + '</td>' +
+                '<td class="center"><button type="button" class="act-btn" data-advice title="Recommend" aria-label="Poro AI\'s recommendations for ' + esc(r.name) + '">' +
+                (poroImg ? '<img src="' + esc(poroImg) + '" alt="">' : '') + '<span>Recommend</span></button></td></tr>';
+        }).join('');
+        document.getElementById('hlNone').hidden = d.rows.length > 0;
+        var first = (d.page - 1) * d.per_page + 1, last = first + d.rows.length - 1;
+        pagesEl.innerHTML = d.pages <= 1 ? (d.total ? '<span class="hl-count">' + d.total + ' learner' + (d.total === 1 ? '' : 's') + '</span>' : '') :
+            '<span class="hl-count">' + first + ' to ' + last + ' of ' + d.total + '</span>' +
+            '<button type="button" data-page="' + (d.page - 1) + '"' + (d.page === 1 ? ' disabled' : '') + ' aria-label="Previous page"><i class="fi fi-rr-angle-small-left"></i></button>' +
+            pageList(d.page, d.pages).map(function (n) {
+                return n === '…' ? '<span class="gap">…</span>' : '<button type="button" data-page="' + n + '"' + (n === d.page ? ' aria-current="page"' : '') + '>' + n + '</button>';
+            }).join('') +
+            '<button type="button" data-page="' + (d.page + 1) + '"' + (d.page === d.pages ? ' disabled' : '') + ' aria-label="Next page"><i class="fi fi-rr-angle-small-right"></i></button>';
+        card.querySelectorAll('[data-hl-cols]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.hlCols === state.cols ? 'true' : 'false'); });
+        card.querySelector('.hl-table').classList.toggle('with-grades', withCols);
+        if (!filled) {                                 // the Section and Level choices come with the first page
+            filled = true;
+            section.insertAdjacentHTML('beforeend', d.sections.map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join(''));
+            level.insertAdjacentHTML('beforeend', d.levels.map(function (l) { return '<option value="' + esc(l.key) + '">' + esc(l.name) + ' (' + l.count + ')</option>'; }).join(''));
+        }
+    }
+    function load() {
+        var mine = ++ticket;
+        card.classList.add('is-loading');
+        var q = new URLSearchParams({ q: search.value.trim(), section: section.value, level: level.value, sort: sort.value, page: state.page });
+        fetch(card.dataset.url + '&' + q.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) { if (d && mine === ticket) { state.page = d.page; draw(d); } })
+            .finally(function () { if (mine === ticket) card.classList.remove('is-loading'); });
+    }
+    function again() { state.page = 1; load(); }
+    [section, level, sort].forEach(function (el) { el.addEventListener('change', again); });
+    search.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(again, 300); });
+    card.querySelectorAll('[data-hl-cols]').forEach(function (b) {
+        b.addEventListener('click', function () { state.cols = b.dataset.hlCols; try { localStorage.setItem('arms:hl:cols', state.cols); } catch (e) {} load(); });
+    });
+    pagesEl.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-page]');
+        if (b && !b.disabled) { state.page = +b.dataset.page; load(); card.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+    });
+    var record = card.dataset.record.split('?');
+    function learner(r, tab) {
+        if (window.ArmsLearner) ArmsLearner.open(record[0].replace(/0\/$/, '') + r.dataset.id + '/?' + (record[1] || ''), tab, r);
+    }
+    body.addEventListener('click', function (e) {
+        var r = e.target.closest('tr[data-id]');
+        if (r) learner(r, e.target.closest('[data-advice]') ? 'advice' : 'record');
+    });
+    body.addEventListener('keydown', function (e) {
+        var r = e.target.closest('tr[data-id]');
+        if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); learner(r, 'record'); }
+    });
+    // the table loads when it comes into view: the dashboard above it comes first
+    if ('IntersectionObserver' in window) {
+        var seen = new IntersectionObserver(function (entries) { if (entries[0].isIntersecting) { seen.disconnect(); load(); } }, { rootMargin: '300px' });
+        seen.observe(card);
+    } else { load(); }
+})();
+</script>
 <script src="{% static 'heads/js/forecast-chart.js' %}?v=20261111b"></script>
 <script src="{% static 'heads/js/poro-advice.js' %}?v=20261111"></script>
 <script>
