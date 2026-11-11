@@ -1,7 +1,7 @@
 /*
  * Forecast charts: the School Head's Academic Dashboard and School Performance, and the teacher home.
  * Two solid lines only: Actual Performance (blue, the recorded averages, filled dots) and Predicted Performance
- * (green, the predictive model's averages, hollow dots). The grade axis is zoomed to the values shown.
+ * (green, the predictive model's averages, solid dots like the actual line). The grade axis is zoomed to the values shown.
  *
  * The server builds one spec per chart (heads/forecasts.py) into a JSON script tag; an element with
  * data-forecast="<id of that tag>" becomes the chart. Each chart has two lines over the school year's
@@ -133,7 +133,7 @@
         });
         if (predicted.length > 1) el('path', { class: 'fc-line', d: pathOf(predicted), stroke: PREDICTED }, svg);
         if (actual.length > 1) el('path', { class: 'fc-line', d: pathOf(actual), stroke: ACTUAL }, svg);
-        predicted.forEach(function (c) { if (!c[3]) el('circle', { class: 'fc-dot is-fc', cx: c[0], cy: c[1], r: 4.5, stroke: PREDICTED }, svg); });
+        predicted.forEach(function (c) { if (!c[3]) el('circle', { class: 'fc-dot', cx: c[0], cy: c[1], r: 4.5, fill: PREDICTED }, svg); });
         actual.forEach(function (c) { el('circle', { class: 'fc-dot', cx: c[0], cy: c[1], r: 4.5, fill: ACTUAL }, svg); });
 
         // pointing at a period (or moving to it with the keyboard) shows both values
