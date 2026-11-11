@@ -106,10 +106,17 @@ def recompute(g, mapeh=False, policy=None):
         return (int(ecr.xround(Decimal(sum(parts)) / len(parts), 0)), None) if parts else None
     if quarterly is None or initial is None or Decimal(initial) == Decimal(quarterly):
         return None
-    weighted = [g.get(f) for f in ('written_work_weighted', 'performance_task_weighted', 'quarterly_assessment_weighted')]
-    if any(w is not None for w in weighted):
-        initial = ecr.xround(sum((Decimal(w) for w in weighted if w is not None), Decimal(0)))
-    return ecr.transmuter(policy)(Decimal(initial)), Decimal(initial)
+    initial = Decimal(initial)
+    weighted = [Decimal(w) for w in (g.get(f) for f in ('written_work_weighted', 'performance_task_weighted',
+                                                        'quarterly_assessment_weighted')) if w is not None]
+    if weighted:
+        summed = ecr.xround(sum(weighted, Decimal(0)))
+        # Each weighted score is kept rounded to the cent, but the three-term record adds them unrounded and rounds
+        # once (15.7849 + 42.9150 + 21.8350 = 80.53, kept as 15.78, 42.92 and 21.84 = 80.54), so their sum may be a
+        # cent off per score. Within that, the record's own initial grade stands; beyond it, the weighted scores decide.
+        if abs(summed - initial) > Decimal('0.01') * len(weighted):
+            initial = summed
+    return ecr.transmuter(policy)(initial), initial
 
 
 def _s(n, many='s', one=''):
