@@ -234,6 +234,10 @@ def _check_size(uploaded):
 
 def _grid(ws):
     """All values of a sheet as rows of a list, 1-based through padding."""
+    if hasattr(ws, 'reset_dimensions'):
+        # A read-only sheet stops at the range the file declares. A record ARMS made and nobody re-saved still declares
+        # the template's (A1:Y69 in the SSHS INPUT DATA), which leaves out the LRN columns ARMS added (AK, AL).
+        ws.reset_dimensions()
     rows = [[None]]
     for row in ws.iter_rows(values_only=True):
         rows.append([None] + list(row))
