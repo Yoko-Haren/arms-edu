@@ -6,6 +6,9 @@
 .tp .lr-loading { color: var(--muted); font-size: 0.86rem; text-align: center; padding: 2.4rem 1rem; }
 .tp .lr-loading i { display: block; font-size: 1.5rem; color: #a0aec0; margin-bottom: 0.4rem; }
 
+.tp .lr-lead { margin: 0 0 0.6rem; }
+.tp .lr-rec[hidden] { display: none; }
+.tp .lr-more { margin-top: 0.8rem; }
 .tp .lr-recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.7rem; }
 .tp .lr-rec { border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem;
               box-shadow: inset 3px 0 0 var(--lv, var(--brand)); }
@@ -29,8 +32,8 @@
 .tp .lr-table .muted { color: var(--muted); font-size: 0.76rem; }
 
 /* the Action column of a learner table */
-.tp .act-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.28rem 0.65rem; border-radius: 9px; border: 1px solid #cfd8ea;
-               background: #fff; color: var(--brand); font-size: 0.76rem; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.tp .act-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 10px;
+               border: 1px solid #cfd8ea; background: #fff; cursor: pointer; }
 .tp .act-btn:hover { border-color: var(--brand); background: #f3f6ff; }
-.tp .act-btn img { width: 18px; height: 18px; border-radius: 5px; object-fit: cover; }
+.tp .act-btn img { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; }
 .tp .act-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

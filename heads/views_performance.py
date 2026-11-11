@@ -264,7 +264,9 @@ def _performance_data(params, school):
                 name = per_section[unit]['section__section_name'] if unit in per_section else group_learners[0]['section']
                 unit_enrolled = per_section.get(unit, {}).get('n', len(group_learners))
                 att = attendance_by_section.get(unit)
-                url = ''
+                # its learners: the Academic Dashboard's table for every discipline of the grade level, filtered to the section
+                url = reverse('heads-ai-dashboard') + '?' + urlencode({'view_mode': 'family', 'subject_family': 'all', 'grade_level': grade.id,
+                                                                     'learners_section': unit, **query}) + '#headLearners'
             else:
                 name = level_name.get(unit, '')
                 unit_enrolled = sum(v['n'] for v in per_section.values() if v['section__grade_level_id'] == unit)

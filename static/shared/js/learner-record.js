@@ -18,6 +18,7 @@
     var fmt = function (n) { return n == null ? '&mdash;' : (Number.isInteger(n) ? String(n) : Number(n).toFixed(1)); };
     var grade = function (n) { return n == null ? '<span class="grade none">&mdash;</span>' : '<span class="grade ' + (n >= 75 ? 'pass' : 'fail') + '">' + fmt(n) + '</span>'; };
     var opener = null, current = 0, cache = {};
+    var FIRST = 3;                                              // recommendations shown before "Show the other N"
 
     function show(tab) {
         Object.keys(panes).forEach(function (k) { panes[k].hidden = k !== tab; tabs[k].setAttribute('aria-selected', k === tab ? 'true' : 'false'); });
@@ -39,8 +40,9 @@
             panes.advice.innerHTML = '<p class="lr-none">No subject has a ' + esc(d.period_name) + ' grade yet, so there is nothing to recommend.</p>';
             return;
         }
-        panes.advice.innerHTML = '<div class="lr-recs">' + d.recs.map(function (r) {
-            return '<section class="lr-rec level-' + esc(r.level.key) + '">' +
+        // the most urgent first (remediation, then keeping a pass, moving up, enrichment); FIRST of them show, the rest on demand
+        var card = function (r, i) {
+            return '<section class="lr-rec level-' + esc(r.level.key) + '"' + (i >= FIRST && !d.all ? ' hidden' : '') + '>' +
                 '<div class="lr-rec-head"><b>' + esc(r.code) + '<small>' + esc(r.name) + '</small></b>' + grade(r.grade) +
                 '<span class="lr-lvl">' + esc(r.level.name) + '</span></div>' +
                 '<div class="lr-parts">' + r.parts.map(function (c) {
@@ -48,7 +50,16 @@
                 }).join('') + '</div>' +
                 '<div class="lr-advice">' + (poroImg ? '<img src="' + esc(poroImg) + '" alt="">' : '') +
                 '<p data-field="' + esc(r.key) + '">' + esc((d.written || {})[r.key] || r.text) + '</p></div></section>';
-        }).join('') + '</div><p class="lr-src">' + esc(d.done || 'Decided from the grades by rules a person can check') + '</p>';
+        };
+        var rest = d.recs.length - FIRST;
+        panes.advice.innerHTML = '<p class="hint lr-lead">' + (d.recs.length > FIRST ? 'The ' + FIRST + ' subjects that need the most attention first.' :
+                'Every subject, the one that needs the most attention first.') + '</p>' +
+            '<div class="lr-recs">' + d.recs.map(card).join('') + '</div>' +
+            (rest > 0 ? '<button type="button" class="btn btn-line btn-sm lr-more" aria-expanded="' + (d.all ? 'true' : 'false') + '">' +
+                (d.all ? 'Show fewer' : 'Show the other ' + rest + ' subject' + (rest === 1 ? '' : 's')) + '</button>' : '') +
+            '<p class="lr-src">' + esc(d.done || 'Decided from the grades by rules a person can check') + '</p>';
+        var more = panes.advice.querySelector('.lr-more');
+        if (more) more.addEventListener('click', function () { d.all = !d.all; drawAdvice(d); });
         if (d.done) source(d.done, d.ai);
     }
 

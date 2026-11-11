@@ -6,7 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'heads/css/head-portal.css' %}?v=20261111">
-<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112">
+<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112b">
 <style>
     /* The status, Poro AI's recommendations and the forecast share the School Head dashboard's look (head-portal.css). */
     .home-pick { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
@@ -86,8 +86,6 @@
     .gtools { margin: 0 0 0.8rem; flex-wrap: wrap; justify-content: flex-start; gap: 0.6rem 1rem; }
     .gtable td.muted { color: var(--muted); font-size: 0.8rem; }
     .gtable th[hidden], .gtable td[hidden] { display: none; }
-    .gtable.with-grades .act-btn span { display: none; }       /* the subject columns need the room: Poro's face only */
-    .gtable.with-grades .act-btn { padding: 0.28rem 0.4rem; }
 </style>
 {% endblock %}
 
@@ -305,7 +303,7 @@
             <label class="sort">Sort by
                 <select id="gSort">
                     <option value="name">Surname A to Z</option>
-                    <option value="below">Most subjects below 75</option>
+                    <option value="below">Most failing subjects first</option>
                     <option value="low">Lowest average first</option>
                     <option value="high">Highest average first</option>
                 </select>
@@ -325,7 +323,7 @@
                         {% for g in l.grades %}<td class="center" data-col="grade">{% if g is None %}<span class="grade none">&mdash;</span>{% else %}<span class="grade {% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g|floatformat:"-1" }}</span>{% endif %}</td>{% endfor %}
                         <td class="num avg">{% if l.average is not None %}{{ l.average }}{% else %}&mdash;{% endif %}</td>
                         <td>{% if l.level %}<span class="lvl level-{{ l.level.key }}">{{ l.level.short }}</span>{% endif %}</td>
-                        <td class="center"><button type="button" class="act-btn" data-advice title="Recommend" aria-label="Poro AI's recommendations for {{ l.name }}"><img src="{% static 'shared/poro/Poro.png' %}" alt="" onerror="this.remove()"><span>Recommend</span></button></td>
+                        <td class="center"><button type="button" class="act-btn" data-advice title="Poro AI's recommendations" aria-label="Poro AI's recommendations for {{ l.name }}"><img src="{% static 'shared/poro/Poro.png' %}" alt="" onerror="this.remove()"></button></td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -7,7 +7,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'shared/css/portal-pages.css' %}">
-<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112">
+<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112b">
 <style>
     /* Shared parts (filters, status, dialogs, forecast charts, level ladder) are in static/heads/css/head-portal.css. */
 
@@ -273,7 +273,7 @@
                 <select id="hlSort">
                     <option value="name">Surname A to Z</option>
                     <option value="section">Grade level and section</option>
-                    <option value="below">Most subjects below 75</option>
+                    <option value="below">Most failing subjects first</option>
                     <option value="low">Lowest average first</option>
                     <option value="high">Highest average first</option>
                 </select>
@@ -340,6 +340,7 @@
     var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
     var fmt = function (n) { return n == null ? '&mdash;' : Number(n).toFixed(1); };
     var state = { page: 1, cols: 'without' }, filled = false, ticket = 0, timer = null;
+    var asked = new URLSearchParams(location.search).get('learners_section') || '';   // a section clicked on this page or on School Status
     try { if (localStorage.getItem('arms:hl:cols') === 'with') state.cols = 'with'; } catch (e) {}
 
     function pageList(page, pages) {                 // 1 … 4 5 6 … 30
@@ -355,16 +356,15 @@
         var withCols = state.cols === 'with';
         head.innerHTML = '<tr><th scope="col">Learner</th><th scope="col">Grade and section</th>' +
             (withCols ? d.components.map(function (c) { return '<th scope="col" class="num" title="' + esc(c.name) + '">' + esc(c.abbr) + '</th>'; }).join('') : '') +
-            '<th scope="col" class="num">Average</th><th scope="col">Level</th><th scope="col" class="num">Below 75</th><th scope="col" class="center">Action</th></tr>';
+            '<th scope="col" class="num">Average</th><th scope="col">Level</th><th scope="col" class="center">Action</th></tr>';
         body.innerHTML = d.rows.map(function (r) {
             return '<tr tabindex="0" data-id="' + r.id + '"><td><b>' + esc(r.name) + '</b><small class="hl-lrn">' + esc(r.lrn) + '</small></td>' +
                 '<td class="muted">' + esc(r.section_name) + '</td>' +
                 (withCols ? ['ww', 'pt', 'qa'].map(function (k) { return '<td class="num">' + fmt(r[k]) + '</td>'; }).join('') : '') +
                 '<td class="num"><span class="grade ' + (r.average >= 75 ? 'pass' : 'fail') + '">' + fmt(r.average) + '</span></td>' +
                 '<td><span class="lvl level-' + esc(r.level.key) + '">' + esc(r.level.short) + '</span></td>' +
-                '<td class="num' + (r.below ? ' risk' : '') + '">' + r.below + '</td>' +
-                '<td class="center"><button type="button" class="act-btn" data-advice title="Recommend" aria-label="Poro AI\'s recommendations for ' + esc(r.name) + '">' +
-                (poroImg ? '<img src="' + esc(poroImg) + '" alt="">' : '') + '<span>Recommend</span></button></td></tr>';
+                '<td class="center"><button type="button" class="act-btn" data-advice title="Poro AI\'s recommendations" aria-label="Poro AI\'s recommendations for ' + esc(r.name) + '">' +
+                (poroImg ? '<img src="' + esc(poroImg) + '" alt="">' : '') + '</button></td></tr>';
         }).join('');
         document.getElementById('hlNone').hidden = d.rows.length > 0;
         var first = (d.page - 1) * d.per_page + 1, last = first + d.rows.length - 1;
@@ -381,12 +381,13 @@
             filled = true;
             section.insertAdjacentHTML('beforeend', d.sections.map(function (s) { return '<option value="' + s.id + '">' + esc(s.name) + '</option>'; }).join(''));
             level.insertAdjacentHTML('beforeend', d.levels.map(function (l) { return '<option value="' + esc(l.key) + '">' + esc(l.name) + ' (' + l.count + ')</option>'; }).join(''));
+            if (asked) section.value = asked;
         }
     }
     function load() {
         var mine = ++ticket;
         card.classList.add('is-loading');
-        var q = new URLSearchParams({ q: search.value.trim(), section: section.value, level: level.value, sort: sort.value, page: state.page });
+        var q = new URLSearchParams({ q: search.value.trim(), section: filled ? section.value : asked, level: level.value, sort: sort.value, page: state.page });
         fetch(card.dataset.url + '&' + q.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) { if (d && mine === ticket) { state.page = d.page; draw(d); } })
@@ -414,8 +415,11 @@
         var r = e.target.closest('tr[data-id]');
         if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); learner(r, 'record'); }
     });
-    // the table loads when it comes into view: the dashboard above it comes first
-    if ('IntersectionObserver' in window) {
+    // the table loads when it comes into view: the dashboard above it comes first (at once when a section was clicked)
+    if (asked) {
+        load();
+        card.scrollIntoView({ block: 'start' });
+    } else if ('IntersectionObserver' in window) {
         var seen = new IntersectionObserver(function (entries) { if (entries[0].isIntersecting) { seen.disconnect(); load(); } }, { rootMargin: '300px' });
         seen.observe(card);
     } else { load(); }

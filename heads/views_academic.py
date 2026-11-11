@@ -207,7 +207,9 @@ def _dashboard_data(params, school):
         item_word = 'section'
         names = {r['enrollment__section_id']: (f'{r["enrollment__section__grade_level__grade_name"] or ""} ' if mode == 'family' else '')
                  + r['enrollment__section__section_name'] for r in rows}
-        key_of, name_of, link = (lambda r: r['enrollment__section_id']), names.get, (lambda k: '')
+        here = {'view_mode': 'subject', 'subject': subject.id} if mode == 'subject' and subject else             {'view_mode': 'family', 'subject_family': family.id if family else 'all', 'grade_level': grade_key}
+        key_of, name_of = (lambda r: r['enrollment__section_id']), names.get
+        link = lambda k: '?' + urlencode({**here, **query, 'learners_section': k}) + '#headLearners'      # its learners, in the table
     groups, whole = defaultdict(lambda: {'grades': [], 'ww': [], 'pt': [], 'qa': []}), {'grades': [], 'ww': [], 'pt': [], 'qa': []}
     for r in rows:
         for g in (groups[key_of(r)], whole):
