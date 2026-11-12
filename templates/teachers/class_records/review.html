@@ -87,8 +87,9 @@
                     {% for r in groups.settle %}
                     <tr>
                         <td class="muted">{{ r.row }}</td>
-                        <td class="who"><b>{{ r.name }}</b><small>{% if r.sex == 'M' %}Male list{% elif r.sex == 'F' %}Female list{% endif %}{% if r.lrn %} &middot; LRN {{ r.lrn }}{% endif %}</small></td>
-                        <td><ul class="reasons">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}{% for x in r.warnings %}<li>{{ x }}</li>{% endfor %}</ul></td>
+                        <td class="who"><b>{{ r.name }}</b><small>{% if r.sex == 'M' %}Male list{% elif r.sex == 'F' %}Female list{% endif %}{% if r.lrn %} &middot; LRN {{ r.lrn }}{% endif %}</small>
+                            {% if r.duplicated %}<span class="pill risk" style="margin-top:0.3rem;display:inline-block;">Duplicated</span>{% endif %}</td>
+                        <td><ul class="reasons{% if r.duplicated %} risk{% endif %}">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}{% for x in r.warnings %}<li>{{ x }}</li>{% endfor %}</ul></td>
                         <td class="center"><span class="grade {% if r.quarterly >= 75 %}pass{% else %}fail{% endif %}">{{ r.grade_text }}</span>{% if r.initial_text %}<span class="was">initial {{ r.initial_text }}</span>{% endif %}</td>
                         <td>
                             <select name="row-{{ r.row }}" class="choice" data-row="{{ r.row }}" aria-label="Learner for row {{ r.row }}">
@@ -225,7 +226,7 @@
         document.getElementById('rvN').textContent = n;
         document.getElementById('rvS').textContent = n === 1 ? '' : 's';
         var summary = document.getElementById('rvSummary');
-        if (summary) summary.textContent = open ? open + ' row' + (open === 1 ? '' : 's') + ' still to settle.' : (dupes ? 'Two rows point to the same learner.' : 'Ready.');
+        if (summary) summary.textContent = open ? open + ' row' + (open === 1 ? '' : 's') + ' still to settle.' : (dupes ? 'Duplicated: two rows are the same learner. Keep one and skip the other.' : 'Ready.');
         save.disabled = blocked || open > 0 || dupes || n === 0 || (ack && !ack.checked);
     }
     choices.forEach(function (s) { s.addEventListener('change', update); });

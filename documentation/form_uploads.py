@@ -480,7 +480,7 @@ def decide(result, choices):
         else:
             target = int(choice)
         if target in used:
-            problems.append(f'{row["name"]} and {used[target]} are the same learner. Choose one of them.')
+            problems.append(f'Duplicated: {row["name"]} and {used[target]} are the same learner. Keep one of them and skip the other.')
             continue
         used[target] = row['name']
         plan.append((row, target))

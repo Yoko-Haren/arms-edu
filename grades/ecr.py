@@ -568,7 +568,7 @@ def match_rows(rows, roster):
                 row['status'] = 'check'
                 row['reasons'].append('This learner is no longer enrolled in the class.')
 
-    # one learner, one row: a second claim needs a person to decide
+    # one learner, one row: a second claim is a duplicate, and a person decides which row is the learner's
     claimed = {}
     for row in rows:
         if row.get('enrollment') and row['status'] in ('matched', 'check', 'suggested'):
@@ -576,8 +576,10 @@ def match_rows(rows, roster):
     for twins in claimed.values():
         if len(twins) > 1:
             for row in twins:
+                others = ', '.join(str(r['row']) for r in twins if r is not row)
                 row['status'] = 'check'
-                row['reasons'].append('Two rows of the file point to the same learner.')
+                row['duplicated'] = True
+                row['reasons'].append(f'Duplicated: row {others} of the file is the same learner. Keep one row and skip the other.')
     return rows
 
 

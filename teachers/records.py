@@ -341,7 +341,7 @@ def decide(result, choices):
             problems.append(f'Row {row["row"]} ({row["name"]}): that learner is not in this class.')
             continue
         if target in taken:
-            problems.append(f'Rows {taken[target]} and {row["row"]} both point to the same learner.')
+            problems.append(f'Duplicated: rows {taken[target]} and {row["row"]} are the same learner. Keep one and skip the other.')
             continue
         taken[target] = row['row']
         plan.append((row, target))
