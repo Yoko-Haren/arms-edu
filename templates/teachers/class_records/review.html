@@ -23,6 +23,7 @@
     .settle select.dupe { border-color: var(--risk); background: var(--risk-bg); }
     .skip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
     .was { font-size: 0.74rem; color: var(--muted); display: block; }
+    .rv-table td.ini { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 0.84rem; }
     .was .up { color: var(--good); } .was .down { color: var(--risk); }
     /* the save bar is the shared .sticky-bar: a class named .bar here would become the 6px progress bar of portal-pages.css */
     .sticky-bar label.ack { display: inline-flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; max-width: 560px; }
@@ -82,7 +83,7 @@
             <p class="hint">ARMS could not be certain who these rows belong to. Choose the learner, or skip the row. Suggestions come first.</p></div></div>
         <div class="rv-table">
             <table class="table">
-                <thead><tr><th>Row</th><th>In the file</th><th>Why</th><th class="center">Grade</th><th>Learner</th></tr></thead>
+                <thead><tr><th>Row</th><th>In the file</th><th>Why</th><th class="center">Initial Grade</th><th class="center">Grade</th><th>Learner</th></tr></thead>
                 <tbody>
                     {% for r in groups.settle %}
                     <tr>
@@ -90,7 +91,8 @@
                         <td class="who"><b>{{ r.name }}</b><small>{% if r.sex == 'M' %}Male list{% elif r.sex == 'F' %}Female list{% endif %}{% if r.lrn %} &middot; LRN {{ r.lrn }}{% endif %}</small>
                             {% if r.duplicated %}<span class="pill risk" style="margin-top:0.3rem;display:inline-block;">Duplicated</span>{% endif %}</td>
                         <td><ul class="reasons{% if r.duplicated %} risk{% endif %}">{% for x in r.reasons %}<li>{{ x }}</li>{% endfor %}{% for x in r.warnings %}<li>{{ x }}</li>{% endfor %}</ul></td>
-                        <td class="center"><span class="grade {% if r.quarterly >= 75 %}pass{% else %}fail{% endif %}">{{ r.grade_text }}</span>{% if r.initial_text %}<span class="was">initial {{ r.initial_text }}</span>{% endif %}</td>
+                        <td class="center ini">{% if r.initial_text %}{{ r.initial_text }}{% else %}&mdash;{% endif %}</td>
+                        <td class="center"><span class="grade {% if r.quarterly >= 75 %}pass{% else %}fail{% endif %}">{{ r.grade_text }}</span></td>
                         <td>
                             <select name="row-{{ r.row }}" class="choice" data-row="{{ r.row }}" aria-label="Learner for row {{ r.row }}">
                                 <option value="">Choose&hellip;</option>
@@ -115,7 +117,7 @@
         {% if groups.ready %}
         <div class="rv-table">
             <table class="table">
-                <thead><tr><th>Row</th><th>In the file</th><th>Learner</th><th>Scores (percent)</th><th class="center">Grade</th><th class="center">Skip</th></tr></thead>
+                <thead><tr><th>Row</th><th>In the file</th><th>Learner</th><th>Scores (percent)</th><th class="center">Initial Grade</th><th class="center">Grade</th><th class="center">Skip</th></tr></thead>
                 <tbody>
                     {% for r in groups.ready %}
                     <tr>
@@ -124,8 +126,9 @@
                         <td class="who"><b>{{ r.learner.name }}</b><small class="lrn">{{ r.learner.lrn|default:"no LRN" }}</small></td>
                         <td><div class="comps">{% for label, ps in r.components %}{% if ps is not None %}<span>{{ label }} {{ ps }}</span>{% endif %}{% endfor %}
                             {% for p in r.parts_text %}<span>{{ p.name }} {{ p.grade|default:"—" }}</span>{% endfor %}</div></td>
+                        <td class="center ini">{% if r.initial_text %}{{ r.initial_text }}{% else %}&mdash;{% endif %}</td>
                         <td class="center"><span class="grade {% if r.quarterly >= 75 %}pass{% else %}fail{% endif %}">{{ r.grade_text }}</span>
-                            {% if r.current is not None %}<span class="was">now {{ r.current|floatformat:0 }}{% if r.current_status %} ({{ r.current_status|lower }}){% endif %}</span>{% elif r.initial_text %}<span class="was">initial {{ r.initial_text }}</span>{% endif %}</td>
+                            {% if r.current is not None %}<span class="was">now {{ r.current|floatformat:0 }}{% if r.current_status %} ({{ r.current_status|lower }}){% endif %}</span>{% endif %}</td>
                         <td class="center"><label class="skip"><input type="checkbox" name="row-{{ r.row }}" value="skip"> skip</label></td>
                     </tr>
                     {% endfor %}
@@ -141,11 +144,12 @@
             <p class="hint">ARMS already has these grades for {{ period_name }}, exactly as in the file, so they are not saved again.</p></div></div>
         <div class="rv-table">
             <table class="table">
-                <thead><tr><th>Row</th><th>In the file</th><th>Learner</th><th class="center">Grade</th><th>Status</th></tr></thead>
+                <thead><tr><th>Row</th><th>In the file</th><th>Learner</th><th class="center">Initial Grade</th><th class="center">Grade</th><th>Status</th></tr></thead>
                 <tbody>
                     {% for r in groups.duplicate %}
                     <tr><td class="muted">{{ r.row }}</td><td class="who"><b>{{ r.name }}</b></td>
                         <td class="who"><b>{{ r.learner.name }}</b><small class="lrn">{{ r.learner.lrn|default:"no LRN" }}</small></td>
+                        <td class="center ini">{% if r.initial_text %}{{ r.initial_text }}{% else %}&mdash;{% endif %}</td>
                         <td class="center"><span class="grade {% if r.quarterly >= 75 %}pass{% else %}fail{% endif %}">{{ r.grade_text }}</span></td>
                         <td><span class="pill risk">Duplicated</span> <span class="was">already saved{% if r.current_status %} ({{ r.current_status|lower }}){% endif %}</span></td></tr>
                     {% endfor %}
