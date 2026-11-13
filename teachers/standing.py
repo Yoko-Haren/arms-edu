@@ -185,15 +185,16 @@ def _parts(values):
     return {key: round(mean(values[key]), 1) if values[key] else None for key in ('ww', 'pt', 'qa')}
 
 
-def build(*, school, sy, periods, period, assignments, reader, scope, who, section=None):
-    """Status, ladder, recommendations and forecast for one grading period.
+def build(*, school, sy, periods, view, assignments, reader, scope, who, section=None):
+    """Status, ladder, recommendations and forecast for what the Period picker shows (core/periods.View): one grading
+    period, all of them (each subject's grade the mean of its periods so far) or the final grades.
 
     assignments: the classes in scope (the section's, or the teacher's own); reader: 'adviser' (items are the section's
     subjects) or 'teacher' (items are the classes); scope: how the status names the whole ("Grade 11 Academic-A", "Your
     classes"); who: how a recommendation names it ("your advisory class", "your classes").
     """
     empty = {'status': None, 'items': [], 'ladder': [], 'main': None, 'decisions': [], 'forecast': None, 'poro_token': ''}
-    if not assignments or period is None:
+    if not assignments or view is None:
         return empty
     pairs = {(a.section_id, a.subject_id) for a in assignments}
     subjects = {a.subject_id: a.subject for a in assignments}
@@ -213,15 +214,18 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
 
     base = GradeComponent.objects.filter(P.HAS_GRADE, enrollment__school_year=sy, enrollment__status__in=R.ACTIVE,
                                          enrollment__section_id__in=sections, subject_id__in=subjects)
-    rows = [r for r in base.filter(quarter=period).values(
+    raw = [r for r in base.filter(quarter__in=view.quarters).values(
         'enrollment_id', 'enrollment__student_id', 'enrollment__section_id', 'subject_id', 'enrollment__student__last_name',
         'enrollment__student__first_name', 'enrollment__student__middle_name', 'enrollment__student__lrn',
-        'enrollment__section__section_name', grade=P.GRADE,
+        'enrollment__section__section_name', 'quarter__quarter_number', grade=P.GRADE,
         ww=F('written_work_percent'), pt=F('performance_task_percent'), qa=F('quarterly_assessment_percent'))
         if (r['enrollment__section_id'], r['subject_id']) in pairs]
+    counts = {(a.section_id, a.subject_id): len(P.for_class(a, periods)) for a in assignments}
+    rows = P.merge(raw, view, count_of=lambda r: counts[(r['enrollment__section_id'], r['subject_id'])])
     if not rows:
         return empty
-    earlier = [p for p in periods if p.quarter_number < period.quarter_number]
+    period = view.period
+    earlier = [p for p in periods if period and p.quarter_number < period.quarter_number]
     prev = earlier[-1] if earlier else None
     prev_grades = [float(g) for s, subj, g in base.filter(quarter=prev).values_list('enrollment__section_id', 'subject_id', P.GRADE)
                    if (s, subj) in pairs] if prev else []
@@ -250,7 +254,9 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
               'below': len({r['enrollment__student_id'] for r in rows if float(r['grade']) < PASSING}),
               'learners': len({r['enrollment__student_id'] for r in rows})}
 
-    after = next((p for p in periods if p.quarter_number == period.quarter_number + 1), None)
+    # what comes next: the period after the one shown; for all periods, the one after the latest with grades; none after the final
+    last = period.quarter_number if period else (max(r['quarter__quarter_number'] for r in raw) if view.kind == 'all' else None)
+    after = next((p for p in periods if last is not None and p.quarter_number == last + 1), None)
     found = decisions(items, reader=reader, item_word=item_word, next_period_name=P.name(after))
     main, found = main_decision(found, reader=reader, scope=scope, who=who, average=status['average'],
                                 overall=_parts(whole), next_period_name=P.name(after))
@@ -277,7 +283,7 @@ def build(*, school, sy, periods, period, assignments, reader, scope, who, secti
                       for a in assignments]
         spec = forecasts.chart(table=table, meta=meta, periods=periods, items=series, level='class',
                                step_sd=insights.typical_step_sd(school.id), reference={'key': 'all', 'name': scope, 'keys': keys},
-                               selected=period.quarter_number, period_name=P.name)
+                               selected=period.quarter_number if period else None, period_name=P.name)
         spec['word'] = item_word
     return {'status': status, 'items': items, 'ladder': ladder(items), 'main': main, 'decisions': found,
             'forecast': spec if spec and spec['series'] else None, 'poro_token': poro_token(main, found, items, reader),

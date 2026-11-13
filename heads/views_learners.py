@@ -15,17 +15,21 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import caches
 from django.db.models import F
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.urls import reverse
 
 from academics.models import Section
 from core import grading_policy as policy
+from core import periods as P
 from core.caching import data_version
 from core.periods import GRADE, HAS_GRADE
 from enrollment.models import Enrollment
 from grades.models import GradeComponent
 from teachers import learners
+from teachers.views import print_page
 from teachers.views_advisory import section_assignments
 
+from . import poro
 from .views_academic import ACTIVE, _head_school, _selection
 
 PAGE = 25
@@ -117,6 +121,18 @@ def learner_list(request):
     return response
 
 
+def _learner(request, school):
+    """(selection, the view it shows, the enrollment) for a learner of the school in the dashboard's selection, or None."""
+    s = _selection(request.GET, school)
+    enrollment = Enrollment.objects.select_related('student', 'section', 'section__grade_level').filter(
+        id=request.resolver_match.kwargs['enrollment_id'], school_year=s['sy'], section__school=school).first() if s['sy'] else None
+    period = s['period'] or s['ref_period']
+    shown = P.View('all', s['periods'], span=s['span']) if s['all_periods'] else (P.View('period', s['periods'], period) if period else None)
+    if enrollment is None or shown is None:
+        return None
+    return s, shown, enrollment
+
+
 @login_required
 def learner_record(request, enrollment_id):
     """One learner of the school: the record and a recommendation in every subject (teachers/learners.record)."""
@@ -124,14 +140,31 @@ def learner_record(request, enrollment_id):
     if school is None:
         return JsonResponse({'error': 'Access denied'}, status=403)
     policy.activate(school)
-    s = _selection(request.GET, school)
-    enrollment = Enrollment.objects.select_related('student', 'section', 'section__grade_level').filter(
-        id=enrollment_id, school_year=s['sy'], section__school=school).first() if s['sy'] else None
-    if enrollment is None:
+    found = _learner(request, school)
+    if found is None:
         return JsonResponse({'error': 'Not a learner of this school year'}, status=404)
-    period = s['period'] or s['ref_period']
-    data = learners.record(enrollment, s['sy'], s['periods'], period, section_assignments(enrollment.section, s['sy']), reader='head')
+    s, shown, enrollment = found
+    data = learners.record(enrollment, s['sy'], s['periods'], shown, section_assignments(enrollment.section, s['sy']), reader='head')
     data['poll'] = reverse('heads-poro', args=[data['token']]) if data['token'] else ''
+    data['print'] = reverse('heads-learner-print', args=[enrollment.id]) + '?' + request.GET.urlencode()
     response = JsonResponse(data)
     response['Cache-Control'] = 'no-store'
     return response
+
+
+@login_required
+def learner_print(request, enrollment_id):
+    """One learner's record and recommendations, as the dialog shows them, to print or save as PDF."""
+    school = _head_school(request)
+    if school is None:
+        return redirect('signin')
+    policy.activate(school)
+    found = _learner(request, school)
+    if found is None:
+        return redirect('heads-ai-dashboard')
+    s, shown, enrollment = found
+    data = learners.record(enrollment, s['sy'], s['periods'], shown, section_assignments(enrollment.section, s['sy']),
+                           reader='head', register=False)
+    learners.with_written(data, poro.written(data['token']))
+    return print_page(request, school=school, sy=s['sy'], shown=shown, records=[data], scope_name=data['section'], one=True,
+                      by_role='School Head')

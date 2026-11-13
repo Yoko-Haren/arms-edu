@@ -1,0 +1,144 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if one %}{{ records.0.name }}{% else %}Learner records &middot; {{ scope_name }}{% endif %} &middot; {{ period_name }} - ARMS</title>
+    {% include 'shared/_favicon.html' %}
+    {# One learner's record and recommendations (View, then Print), or every learner of a teacher's table (Print all records). #}
+    <style>
+        :root { --ink: #1a1a2e; --muted: #5a6478; --line: #d9dee8; --brand: #123499; --soft: #f4f6fb; --pass: #1f7a3d; --fail: #b42318; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef1f6; color: var(--ink); font: 12.5px/1.45 'Inter', 'Segoe UI', Arial, sans-serif; }
+        .sheet { max-width: 1000px; margin: 24px auto; background: #fff; padding: 28px 32px 32px; border-radius: 12px; box-shadow: 0 6px 24px rgba(16, 24, 40, 0.08); }
+        .bar { max-width: 1000px; margin: 18px auto 0; display: flex; gap: 8px; justify-content: flex-end; align-items: center; padding: 0 4px; }
+        .bar span { margin-right: auto; color: var(--muted); }
+        .bar button, .bar a { font: 600 13px/1 inherit; padding: 10px 16px; border-radius: 10px; border: 1px solid #cfd8ea; background: #fff; color: var(--brand); cursor: pointer; text-decoration: none; }
+        .bar button { background: var(--brand); color: #fff; border-color: var(--brand); }
+        header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; border-bottom: 2px solid var(--brand); padding-bottom: 10px; margin-bottom: 12px; }
+        header h1 { margin: 0; font-size: 18px; }
+        header p { margin: 3px 0 0; color: var(--muted); }
+        header .brand { text-align: right; color: var(--muted); font-size: 12px; }
+        header .brand b { display: block; color: var(--brand); font-size: 15px; }
+        .facts { display: flex; gap: 22px; flex-wrap: wrap; margin: 0 0 14px; color: var(--muted); }
+        .facts b { color: var(--ink); }
+        .learner + .learner { margin-top: 26px; padding-top: 18px; border-top: 1px dashed var(--line); }
+        .who { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+        .who h2 { margin: 0; font-size: 16px; }
+        .who p { margin: 2px 0 0; color: var(--muted); }
+        .sum { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        .sum div { padding: 6px 12px; display: flex; flex-direction: column; }
+        .sum div + div { border-left: 1px solid var(--line); }
+        .sum small { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+        .sum b { font-size: 15px; }
+        h3 { margin: 12px 0 6px; font-size: 13px; color: var(--brand); text-transform: uppercase; letter-spacing: 0.04em; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; }
+        th { background: var(--soft); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+        th.c, td.c { text-align: center; }
+        td.comp { color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+        tfoot td { font-weight: 700; }
+        td small { display: block; color: var(--muted); }
+        .fail { color: var(--fail); font-weight: 700; }
+        .pass { color: var(--pass); }
+        .lvl { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 8px; white-space: nowrap; background: var(--lv-bg, var(--soft)); color: var(--lv, var(--ink)); }
+        .level-advanced { --lv: #2E7D32; --lv-bg: #e8f5e9; }
+        .level-proficient { --lv: #123499; --lv-bg: #e3f2fd; }
+        .level-approaching { --lv: #1565C0; --lv-bg: #e8eaf6; }
+        .level-developing { --lv: #B45309; --lv-bg: #fff3e0; }
+        .level-beginning { --lv: #C62828; --lv-bg: #ffebee; }
+        .by { margin: 0 0 6px; color: var(--brand); font-weight: 600; }
+        .note { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+        .rec td:last-child { width: 55%; }
+        .empty { color: var(--muted); padding: 10px 0; }
+        .legend { margin-top: 16px; color: var(--muted); font-size: 11px; }
+        @page { size: portrait; margin: 12mm; }
+        @media print {
+            body { background: #fff; }
+            .bar { display: none; }
+            .sheet { box-shadow: none; margin: 0; max-width: none; padding: 0; border-radius: 0; }
+            .learner + .learner { break-before: page; margin-top: 0; padding-top: 0; border-top: 0; }
+            tr { break-inside: avoid; }
+            thead { display: table-header-group; }
+            .lvl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bar">{% if not one %}<span>{{ records|length }} learner{{ records|length|pluralize }}, one a page when printed</span>{% endif %}
+        <a href="javascript:window.close()">Close</a><button type="button" onclick="window.print()">Print or save as PDF</button></div>
+    <main class="sheet">
+        <header>
+            <div>
+                <h1>{% if one %}Learner record and recommendations{% else %}Learner records and recommendations &middot; {{ scope_name }}{% endif %}</h1>
+                <p>{{ period_name }}{% if sy %}, SY {{ sy.year_label }}{% endif %}</p>
+            </div>
+            <div class="brand"><b>{{ school.school_name }}</b>{% if school.school_id %}School ID {{ school.school_id }}{% endif %}</div>
+        </header>
+        <div class="facts">
+            <span>{{ by_role }}: <b>{{ by }}</b></span>
+            {% if not one %}<span>Learners: <b>{{ records|length }}</b></span>{% endif %}
+            <span>Printed: <b>{{ printed|date:"F j, Y, g:i A" }}</b></span>
+        </div>
+
+        {% for d in records %}
+        <section class="learner">
+            <div class="who">
+                <div><h2>{{ d.name }}</h2><p>{% if d.lrn %}LRN {{ d.lrn }} &middot; {% endif %}{{ d.section }}</p></div>
+                {% if d.average is not None %}
+                <div class="sum">
+                    <div><small>Average{% if d.view == 'final' %} of the final grades{% endif %}</small><b class="{% if d.average >= 75 %}pass{% else %}fail{% endif %}">{{ d.average }}</b></div>
+                    <div><small>Performance level</small><b><span class="lvl level-{{ d.level.key }}">{{ d.level.name }}</span></b></div>
+                </div>
+                {% endif %}
+            </div>
+
+            <h3>Record &middot; {{ d.view_label }}</h3>
+            {% if d.rows %}
+            <table>
+                <thead><tr><th>Subject</th>{% for h in d.heads %}<th class="c" title="{{ h.name }}">{{ h.label }}</th>{% endfor %}
+                    {% for c in d.components %}<th class="c" title="{{ c.name }}">{{ c.abbr }}</th>{% endfor %}</tr></thead>
+                <tbody>
+                    {% for r in d.rows %}
+                    <tr><td><b>{{ r.code }}</b> {{ r.name }}</td>
+                        {% for g in r.grades %}<td class="c">{% if g is None %}&mdash;{% else %}<span class="{% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g|floatformat:"-1" }}</span>{% endif %}</td>{% endfor %}
+                        {% if r.parts %}{% for v in r.parts %}<td class="comp">{% if v is None %}&mdash;{% else %}{{ v|floatformat:"-1" }}{% endif %}</td>{% endfor %}
+                        {% else %}{% for c in d.components %}<td class="comp">&mdash;</td>{% endfor %}{% endif %}</tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot><tr><td>General average</td>{% for a in d.averages %}<td class="c">{% if a is None %}&mdash;{% else %}{{ a }}{% endif %}</td>{% endfor %}
+                    {% for c in d.components %}<td></td>{% endfor %}</tr></tfoot>
+            </table>
+            <p class="note">{% for c in d.components %}{{ c.abbr }}{% if not forloop.last %}, {% endif %}{% endfor %} are {{ d.parts_note }}, in percent.</p>
+            {% else %}
+            <p class="empty">No subject in this view.</p>
+            {% endif %}
+
+            <h3>Recommendations</h3>
+            {% if d.recs %}
+            <p class="by">Recommended by {{ d.model }}.</p>
+            <table class="rec">
+                <thead><tr><th>Subject</th><th class="c">Grade</th><th>Level</th><th>Recommendation</th></tr></thead>
+                <tbody>
+                    {% for r in d.recs %}
+                    <tr><td><b>{{ r.code }}</b><small>{{ r.name }}</small></td>
+                        <td class="c"><span class="{% if r.grade >= 75 %}pass{% else %}fail{% endif %}">{{ r.grade|floatformat:"-1" }}</span></td>
+                        <td><span class="lvl level-{{ r.level.key }}">{{ r.level.name }}</span>{% if r.weak %}<small>Weakest: {{ r.weak }}</small>{% endif %}</td>
+                        <td>{{ r.text }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p class="note">{% if d.ai %}Written by Poro AI for {{ d.ai }} of {{ d.recs|length }} subject{{ d.recs|length|pluralize }} and checked before it is shown{% if d.ai < d.recs|length %}; the rest are decided from the grades by rules a person can check{% endif %}.{% else %}Decided from the grades by rules a person can check.{% endif %}</p>
+            {% else %}
+            <p class="empty">No subject has a grade in this view yet, so there is nothing to recommend.</p>
+            {% endif %}
+        </section>
+        {% empty %}
+        <p class="empty">No learner matches.</p>
+        {% endfor %}
+
+        <p class="legend">Levels: {% for lv in levels %}{{ lv.name }} {{ lv.range }}{% if not forloop.last %} &middot; {% endif %}{% endfor %}. Grades below 75 are in red.</p>
+    </main>
+    <script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 300); });</script>
+</body>
+</html>

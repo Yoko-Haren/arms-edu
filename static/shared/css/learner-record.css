@@ -1,39 +1,63 @@
-/* One learner: recommendations in every subject and the record for the school year (templates/shared/_learner_modal.html).
+/* One learner (View): the average and level, the record, and a recommendation in every subject (templates/shared/_learner_modal.html).
    Used by the teacher's home page and the School Head's Academic Dashboard. */
 .tp .lr-card { width: min(1080px, 100%); }
-.tp .lr-tabs { margin: 0 0 0.9rem; }
-.tp .lr-pane[hidden] { display: none; }
+.tp .lr-head-acts { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.tp .lr-head-acts .btn[hidden] { display: none; }
 .tp .lr-loading { color: var(--muted); font-size: 0.86rem; text-align: center; padding: 2.4rem 1rem; }
 .tp .lr-loading i { display: block; font-size: 1.5rem; color: #a0aec0; margin-bottom: 0.4rem; }
+.tp .lr-none { color: var(--muted); font-size: 0.86rem; margin: 0; }
 
-.tp .lr-lead { margin: 0 0 0.6rem; }
-.tp .lr-rec[hidden] { display: none; }
-.tp .lr-more { margin-top: 0.8rem; }
-.tp .lr-recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.7rem; }
-.tp .lr-rec { border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem;
-              box-shadow: inset 3px 0 0 var(--lv, var(--brand)); }
-.tp .lr-rec-head { display: flex; align-items: center; gap: 0.55rem; }
-.tp .lr-rec-head b { font-size: 0.88rem; flex: 1 1 auto; min-width: 0; }
-.tp .lr-rec-head b small { display: block; font-weight: 500; color: var(--muted); font-size: 0.74rem; }
-.tp .lr-lvl { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9px; background: var(--lv-bg); color: var(--lv); white-space: nowrap; }
-.tp .lr-parts { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-.tp .lr-parts span { font-size: 0.72rem; padding: 0.12rem 0.45rem; border-radius: 9px; background: var(--soft); color: var(--muted); font-variant-numeric: tabular-nums; }
-.tp .lr-parts span.weak { background: var(--warn-bg); color: var(--warn); font-weight: 700; }
-.tp .lr-advice { display: flex; gap: 0.55rem; align-items: flex-start; background: #fcfdff; border-radius: 10px; padding: 0.5rem 0.6rem; }
-.tp .lr-advice img { width: 26px; height: 26px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
-.tp .lr-advice p { margin: 0; font-size: 0.84rem; line-height: 1.55; transition: opacity 0.25s; }
-.tp .lr-advice p.fading { opacity: 0.35; }
-.tp .lr-src { font-size: 0.72rem; color: var(--muted); margin: 0.8rem 0 0; }
-.tp .lr-src.ai { color: var(--brand); font-weight: 600; }
-.tp .lr-none { color: var(--muted); font-size: 0.86rem; }
+/* the learner's performance level and average */
+.tp .lr-summary { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; padding: 0.75rem 0.95rem; border: 1px solid var(--line);
+                  border-radius: 14px; box-shadow: inset 4px 0 0 var(--lv, var(--brand)); margin: 0 0 1.1rem; }
+.tp .lr-badge { min-width: 46px; height: 46px; padding: 0 0.45rem; border-radius: 13px; background: var(--lv-bg); color: var(--lv);
+                display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.05rem; }
+.tp .lr-sum-level { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; }
+.tp .lr-sum-level b { font-size: 1.05rem; color: var(--lv, var(--ink)); }
+.tp .lr-sum-level span, .tp .lr-stat span { font-size: 0.76rem; color: var(--muted); }
+.tp .lr-stat { display: flex; flex-direction: column; align-items: flex-end; padding-left: 0.9rem; border-left: 1px solid var(--line); }
+.tp .lr-stat b { font-size: 1.35rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
 
-.tp .lr-table td.cur, .tp .lr-table th.cur { background: #f3f6ff; }
+/* the record, then the recommendations */
+.tp .lr-sec + .lr-sec { margin-top: 1.3rem; }
+.tp .lr-sec h4 { margin: 0 0 0.2rem; font-size: 0.95rem; display: flex; align-items: center; gap: 0.45rem; }
+.tp .lr-sec h4 i { color: var(--brand); display: inline-flex; }
+.tp .lr-sec h4 img { width: 24px; height: 24px; border-radius: 7px; object-fit: cover; }
+.tp .lr-sec > .hint { margin: 0 0 0.6rem; }
+.tp .lr-scroll { overflow-x: auto; }
 .tp .lr-table tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
 .tp .lr-table .muted { color: var(--muted); font-size: 0.76rem; }
+.tp .lr-table th.comp, .tp .lr-table td.comp { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tp .lr-table th.comp { border-left: 1px solid var(--line); }
+.tp .lr-table th.comp ~ th.comp { border-left: 0; }
 
-/* the Action column of a learner table */
+.tp .lr-rtable td { vertical-align: top; }
+.tp .lr-rtable tr[hidden] { display: none; }
+.tp .lr-rtable td:first-child { box-shadow: inset 3px 0 0 var(--lv, var(--brand)); min-width: 9rem; }
+.tp .lr-rtable td small { display: block; font-weight: 500; color: var(--muted); font-size: 0.74rem; margin-top: 0.1rem; }
+.tp .lr-rtable td p { margin: 0; font-size: 0.84rem; line-height: 1.55; min-width: 18rem; transition: opacity 0.25s; }
+.tp .lr-rtable td p.fading { opacity: 0.35; }
+.tp .lr-lvl { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9px; background: var(--lv-bg); color: var(--lv); white-space: nowrap; }
+.tp .lr-by { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.25rem; font-size: 0.8rem; font-weight: 650; color: var(--brand); }
+.tp .lr-by i { display: inline-flex; }
+.tp .lr-more { margin-top: 0.7rem; }
+.tp .lr-src { font-size: 0.72rem; color: var(--muted); margin: 0.7rem 0 0; }
+.tp .lr-src.ai { color: var(--brand); font-weight: 600; }
+
+/* phones: each recommendation is a block of its own */
+@media (max-width: 640px) {
+    .tp .lr-stat { align-items: flex-start; }
+    .tp .lr-rtable thead { display: none; }
+    .tp .lr-rtable, .tp .lr-rtable tbody, .tp .lr-rtable tr, .tp .lr-rtable td { display: block; width: 100%; }
+    .tp .lr-rtable tr { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 0.6rem; padding: 0.5rem 0.65rem;
+                        box-shadow: inset 3px 0 0 var(--lv, var(--brand)); }
+    .tp .lr-rtable td { border: 0; padding: 0.15rem 0; text-align: left; box-shadow: none !important; }
+    .tp .lr-rtable td p { min-width: 0; }
+}
+
+/* the Action column of a learner table: View */
 .tp .act-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 10px;
-               border: 1px solid #cfd8ea; background: #fff; cursor: pointer; }
+               border: 1px solid #cfd8ea; background: #fff; color: var(--brand); cursor: pointer; }
+.tp .act-btn i { display: inline-flex; font-size: 1rem; }
 .tp .act-btn:hover { border-color: var(--brand); background: #f3f6ff; }
-.tp .act-btn img { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; }
 .tp .act-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

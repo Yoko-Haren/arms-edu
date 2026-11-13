@@ -89,16 +89,37 @@ def ask(prompt, schema, *, num_predict, temperature, timeout):
 # Recommendations to write, and one background worker (Ollama runs one model at a time anyway)
 # --------------------------------------------------------------------------------------------
 
+def _pretty(model):
+    """'qwen2.5:3b' -> 'Qwen2.5 3B', 'poro' -> 'Poro'."""
+    name, _, size = (model or '').partition(':')
+    return (name[:1].upper() + name[1:] + (f' {size.upper()}' if size else '')).strip()
+
+
+def model_label():
+    """Who recommends, as the pages say it: 'Poro AI, the Poro model built on Qwen2.5 3B'."""
+    conf = _conf()
+    return f"Poro AI, the {_pretty(conf.get('MODEL', 'poro'))} model built on {_pretty(conf.get('BASE_MODEL', 'qwen2.5:3b'))}"
+
+
+def _payload(recs, names):
+    rules = policy.current()
+    payload = {'v': 5, 'recs': [[field, text, facts] for field, (text, facts) in recs.items()],
+               'names': sorted({n for n in names if n}), 'levels': [lv['name'] for lv in rules['levels']]}
+    return payload, hashlib.sha1(json.dumps(payload, sort_keys=True).encode('utf-8')).hexdigest()[:24]
+
+
 def register(recs, *, names=()):
     """Remember the recommendations for Poro to write and return the token the page polls with. recs: {field: (computed
     text, facts)} with facts from insights.poro_facts. Only what the server decided can be written up, so the endpoint
     is no open AI proxy. names: every discipline, subject or section on the page (advice may name only its own)."""
-    rules = policy.current()
-    payload = {'v': 5, 'recs': [[field, text, facts] for field, (text, facts) in recs.items()],
-               'names': sorted({n for n in names if n}), 'levels': [lv['name'] for lv in rules['levels']]}
-    token = hashlib.sha1(json.dumps(payload, sort_keys=True).encode('utf-8')).hexdigest()[:24]
+    payload, token = _payload(recs, names)
     _cache().set(f'poro:src:{token}', payload, TTL)
     return token
+
+
+def token_for(recs, *, names=()):
+    """The token register() gives these recommendations, remembering nothing (to read what Poro already wrote)."""
+    return _payload(recs, names)[1]
 
 
 def status(token):
@@ -120,6 +141,13 @@ def written(token):
     not. Starts nothing (for downloads)."""
     done = _cache().get(f'poro:out:{token}') if token else None
     return (done or {}).get('fields') or {}
+
+
+def written_many(tokens):
+    """{token: written fields} for several tokens at once (a printout of many learners); starts nothing."""
+    tokens = [t for t in tokens if t]
+    found = _cache().get_many([f'poro:out:{t}' for t in tokens]) if tokens else {}
+    return {t: (found.get(f'poro:out:{t}') or {}).get('fields') or {} for t in tokens}
 
 
 _jobs = queue.Queue()

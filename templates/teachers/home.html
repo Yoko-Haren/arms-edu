@@ -6,7 +6,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'heads/css/head-portal.css' %}?v=20261111">
-<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112b">
+<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261113">
 <style>
     /* The status, Poro AI's recommendations and the forecast share the School Head dashboard's look (head-portal.css). */
     .home-pick { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin: 0; }
@@ -86,6 +86,7 @@
     .gtools { margin: 0 0 0.8rem; flex-wrap: wrap; justify-content: flex-start; gap: 0.6rem 1rem; }
     .gtable td.muted { color: var(--muted); font-size: 0.8rem; }
     .gtable th[hidden], .gtable td[hidden] { display: none; }
+    .gprint { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 </style>
 {% endblock %}
 
@@ -109,7 +110,7 @@
             {% if periods %}
             <label>Period
                 <select name="period" data-go>
-                    {% for p in periods %}<option value="{{ p.id }}" {% if p == period %}selected{% endif %}>{{ p.quarter_label }}{% if p == current %} (current){% endif %}</option>{% endfor %}
+                    {% for o in period_options %}<option value="{{ o.value }}" {% if o.value == shown.key %}selected{% endif %}>{{ o.label }}</option>{% endfor %}
                 </select>
             </label>
             {% endif %}
@@ -222,7 +223,7 @@
             </aside>
             {% else %}
             <section class="card empty-card" style="padding:1.1rem 1.25rem;">
-                <p class="hint">{% if view == 'advisory' %}No subject of {{ scope }} has {{ period_name|default:"grades" }} grades yet.{% elif view == 'section' %}Your classes in {{ scope }} have no {{ period_name|default:"grades" }} grades yet.{% else %}None of your classes has {{ period_name|default:"grades" }} grades yet.{% endif %} Choose another grading period above.</p>
+                <p class="hint">{% with phrase=shown.phrase|default:"grades" %}{% if view == 'advisory' %}No subject of {{ scope }} has {{ phrase }} yet.{% elif view == 'section' %}Your classes in {{ scope }} have no {{ phrase }} yet.{% else %}None of your classes has {{ phrase }} yet.{% endif %}{% endwith %}{% if shown.kind == 'final' %} A final grade shows once every period of the subject has a grade.{% endif %} Choose another grading period above.</p>
             </section>
             {% endif %}
 
@@ -282,15 +283,15 @@
     <section class="card panel" id="learners" aria-labelledby="gradesTitle">
         <div class="panel-head">
             <div><h3 id="gradesTitle"><i class="fi fi-rr-table-list" style="color:#123499;"></i> Learners &middot; {{ period_name }}</h3>
-                <p class="hint">Open a learner for every subject and period; Action shows Poro AI's recommendation in each subject.</p></div>
-            <a class="btn btn-line btn-sm" id="gPrint" href="{% url 'teachers:learners_print' %}?period={{ period.id }}" target="_blank" rel="noopener"
-               title="The table as a page to print or save as PDF"><i class="fi fi-rr-print"></i> Print</a>
+                <p class="hint">View a learner for their average, level, record and Poro AI's recommendation in each subject.</p></div>
+            <div class="gprint">
+                <a class="btn btn-line btn-sm" id="gPrint" href="{% url 'teachers:learners_print' %}?period={{ shown.key }}" target="_blank" rel="noopener"
+                   title="The table as a page to print or save as PDF"><i class="fi fi-rr-print"></i> Print</a>
+                <a class="btn btn-line btn-sm" id="gPrintAll" href="{% url 'teachers:learners_print_all' %}?period={{ shown.key }}" target="_blank" rel="noopener"
+                   title="Every learner of the table: their record and recommendations, to print or save as PDF"><i class="fi fi-rr-copy"></i> Print all records</a>
+            </div>
         </div>
         <div class="toolbar gtools">
-            <div class="seg" role="tablist" aria-label="Columns">
-                <button type="button" role="tab" data-cols="with" aria-selected="true">With grades</button>
-                <button type="button" role="tab" data-cols="without" aria-selected="false">Without grades</button>
-            </div>
             {% if table.sections|length > 1 %}
             <label class="sort">Section
                 <select id="gSection">
@@ -323,7 +324,7 @@
                         {% for g in l.grades %}<td class="center" data-col="grade">{% if g is None %}<span class="grade none">&mdash;</span>{% else %}<span class="grade {% if g >= 75 %}pass{% else %}fail{% endif %}">{{ g|floatformat:"-1" }}</span>{% endif %}</td>{% endfor %}
                         <td class="num avg">{% if l.average is not None %}{{ l.average }}{% else %}&mdash;{% endif %}</td>
                         <td>{% if l.level %}<span class="lvl level-{{ l.level.key }}">{{ l.level.short }}</span>{% endif %}</td>
-                        <td class="center"><button type="button" class="act-btn" data-advice title="Poro AI's recommendations" aria-label="Poro AI's recommendations for {{ l.name }}"><img src="{% static 'shared/poro/Poro.png' %}" alt="" onerror="this.remove()"></button></td>
+                        <td class="center"><button type="button" class="act-btn" data-view title="View" aria-label="View {{ l.name }}"><i class="fi fi-rr-eye" aria-hidden="true"></i></button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -347,7 +348,7 @@ function belowDialog() {
     'use strict';
     var modal = document.getElementById('belowModal'), dataEl = document.getElementById('belowData');
     if (!modal || !dataEl) return;
-    var people = JSON.parse(dataEl.textContent), period = '{{ period.id|default:"" }}';
+    var people = JSON.parse(dataEl.textContent), period = '{{ shown.key|default:"" }}';
     var adviceUrl = '{% url "teachers:learner_advice" %}', pollUrl = '{% url "teachers:poro" "TOKEN" %}';
     var poroImg = '{% static "shared/poro/Poro.png" %}';
     var list = document.getElementById('bmList'), detail = document.getElementById('bmDetail'), split = document.getElementById('bmSplit');
@@ -442,14 +443,12 @@ function belowDialog() {
 
     belowDialog();
 
-    // ---------- every learner of the teacher's sections: with or without the subject columns, by section, search, sort ----------
+    // ---------- every learner of the teacher's sections: by section, search, sort ----------
     var body = document.getElementById('gBody');
     if (!body) return;
     var table = body.closest('table'), rows = Array.prototype.slice.call(body.querySelectorAll('tr'));
     var search = document.getElementById('gSearch'), sort = document.getElementById('gSort'), section = document.getElementById('gSection');
-    var printLink = document.getElementById('gPrint'), printBase = printLink.getAttribute('href');
-    var cols = 'with';
-    try { if (localStorage.getItem('arms:learners:cols') === 'without') cols = 'without'; } catch (e) {}
+    var prints = ['gPrint', 'gPrintAll'].map(function (id) { var a = document.getElementById(id); return { a: a, base: a.getAttribute('href') }; });
     var avg = function (r) { return r.dataset.avg === '' ? null : +r.dataset.avg; };
     var SORTS = {
         name: function (a, b) { return a.dataset.name.localeCompare(b.dataset.name); },
@@ -460,14 +459,13 @@ function belowDialog() {
     var heads = Array.prototype.slice.call(table.querySelectorAll('thead th'));
     function draw() {
         var q = search.value.trim().toLowerCase(), sec = section ? section.value : 'all', shown = 0;
-        // a subject column shows when the section chosen has it; Without grades hides them all; Section shows for all sections
+        // a subject column shows when the section chosen has it; Section shows for all sections
         var visible = heads.map(function (th) {
-            if (th.dataset.col === 'grade') return cols === 'with' && (sec === 'all' || (' ' + th.dataset.sections).indexOf(' ' + sec + ' ') > -1);
+            if (th.dataset.col === 'grade') return sec === 'all' || (' ' + th.dataset.sections).indexOf(' ' + sec + ' ') > -1;
             if (th.dataset.col === 'section') return !!section && sec === 'all';
             return true;
         });
         heads.forEach(function (th, i) { th.hidden = !visible[i]; });
-        table.classList.toggle('with-grades', cols === 'with');
         rows.sort(SORTS[sort.value] || SORTS.name).forEach(function (r) {
             r.hidden = (sec !== 'all' && r.dataset.section !== sec) || (q && r.dataset.name.indexOf(q) === -1 && r.dataset.lrn.indexOf(q) === -1);
             if (!r.hidden) {
@@ -477,27 +475,24 @@ function belowDialog() {
             body.appendChild(r);
         });
         document.getElementById('gNone').hidden = shown > 0;
-        document.querySelectorAll('[data-cols]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.cols === cols ? 'true' : 'false'); });
-        printLink.href = printBase + '&' + new URLSearchParams({ section: sec, view: cols, sort: sort.value, q: q }).toString();
+        var query = new URLSearchParams({ section: sec, sort: sort.value, q: q }).toString();
+        prints.forEach(function (p) { p.a.href = p.base + '&' + query; });
     }
-    document.querySelectorAll('[data-cols]').forEach(function (b) {
-        b.addEventListener('click', function () { cols = b.dataset.cols; try { localStorage.setItem('arms:learners:cols', cols); } catch (e) {} draw(); });
-    });
     search.addEventListener('input', draw);
     sort.addEventListener('change', draw);
     if (section) section.addEventListener('change', draw);
     draw();
 
-    // a learner: the row opens the record, Action the recommendations (static/shared/js/learner-record.js)
-    var url = '{% url "teachers:learner_record" 0 %}'.replace(/0\/$/, ''), period = '{{ period.id|default:"" }}';
-    function learner(r, tab) { if (window.ArmsLearner) ArmsLearner.open(url + r.dataset.id + '/?period=' + period, tab, r); }
+    // a learner: the row or View opens them, for the Period choice (static/shared/js/learner-record.js)
+    var url = '{% url "teachers:learner_record" 0 %}'.replace(/0\/$/, ''), period = '{{ shown.key|default:"" }}';
+    function learner(r, from) { if (window.ArmsLearner) ArmsLearner.open(url + r.dataset.id + '/?period=' + period, from || r); }
     body.addEventListener('click', function (e) {
         var r = e.target.closest('tr[data-id]');
-        if (r) learner(r, e.target.closest('[data-advice]') ? 'advice' : 'record');
+        if (r) learner(r, e.target.closest('[data-view]'));
     });
     body.addEventListener('keydown', function (e) {
         var r = e.target.closest('tr[data-id]');
-        if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); learner(r, 'record'); }
+        if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); learner(r); }
     });
 })();
 </script>

@@ -7,7 +7,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'shared/css/portal-pages.css' %}">
-<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261112b">
+<link rel="stylesheet" href="{% static 'shared/css/learner-record.css' %}?v=20261113">
 <style>
     /* Shared parts (filters, status, dialogs, forecast charts, level ladder) are in static/heads/css/head-portal.css. */
 
@@ -259,7 +259,7 @@
              data-url="{% url 'heads-learners' %}?{{ selection_query }}" data-record="{% url 'heads-learner-record' 0 %}?{{ selection_query }}">
         <div class="panel-head">
             <div><h3 id="hlTitle"><i class="fi fi-rr-users-alt" style="color:#123499;"></i> Learners &middot; {{ scope_name }} &middot; {{ period_name }}</h3>
-                <p class="hint" id="hlHint">Each learner's average in the selection and performance level. Action shows Poro AI's recommendation in each subject.</p></div>
+                <p class="hint" id="hlHint">Each learner's average in the selection and performance level. View a learner for their record and Poro AI's recommendation in each subject.</p></div>
         </div>
         <div class="toolbar hl-tools">
             <div class="seg" role="tablist" aria-label="Columns">
@@ -336,7 +336,6 @@
     var body = document.getElementById('hlBody'), head = card.querySelector('thead'), pagesEl = document.getElementById('hlPages');
     var section = document.getElementById('hlSection'), level = document.getElementById('hlLevel');
     var search = document.getElementById('hlSearch'), sort = document.getElementById('hlSort');
-    var poroImg = (document.getElementById('lrModal') || {}).dataset ? document.getElementById('lrModal').dataset.poroImg : '';
     var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
     var fmt = function (n) { return n == null ? '&mdash;' : Number(n).toFixed(1); };
     var state = { page: 1, cols: 'without' }, filled = false, ticket = 0, timer = null;
@@ -363,8 +362,8 @@
                 (withCols ? ['ww', 'pt', 'qa'].map(function (k) { return '<td class="num">' + fmt(r[k]) + '</td>'; }).join('') : '') +
                 '<td class="num"><span class="grade ' + (r.average >= 75 ? 'pass' : 'fail') + '">' + fmt(r.average) + '</span></td>' +
                 '<td><span class="lvl level-' + esc(r.level.key) + '">' + esc(r.level.short) + '</span></td>' +
-                '<td class="center"><button type="button" class="act-btn" data-advice title="Poro AI\'s recommendations" aria-label="Poro AI\'s recommendations for ' + esc(r.name) + '">' +
-                (poroImg ? '<img src="' + esc(poroImg) + '" alt="">' : '') + '</button></td></tr>';
+                '<td class="center"><button type="button" class="act-btn" data-view title="View" aria-label="View ' + esc(r.name) + '">' +
+                '<i class="fi fi-rr-eye" aria-hidden="true"></i></button></td></tr>';
         }).join('');
         document.getElementById('hlNone').hidden = d.rows.length > 0;
         var first = (d.page - 1) * d.per_page + 1, last = first + d.rows.length - 1;
@@ -404,16 +403,16 @@
         if (b && !b.disabled) { state.page = +b.dataset.page; load(); card.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
     });
     var record = card.dataset.record.split('?');
-    function learner(r, tab) {
-        if (window.ArmsLearner) ArmsLearner.open(record[0].replace(/0\/$/, '') + r.dataset.id + '/?' + (record[1] || ''), tab, r);
+    function learner(r, from) {
+        if (window.ArmsLearner) ArmsLearner.open(record[0].replace(/0\/$/, '') + r.dataset.id + '/?' + (record[1] || ''), from || r);
     }
     body.addEventListener('click', function (e) {
         var r = e.target.closest('tr[data-id]');
-        if (r) learner(r, e.target.closest('[data-advice]') ? 'advice' : 'record');
+        if (r) learner(r, e.target.closest('[data-view]'));
     });
     body.addEventListener('keydown', function (e) {
         var r = e.target.closest('tr[data-id]');
-        if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); learner(r, 'record'); }
+        if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); learner(r); }
     });
     // the table loads when it comes into view: the dashboard above it comes first (at once when a section was clicked)
     if (asked) {

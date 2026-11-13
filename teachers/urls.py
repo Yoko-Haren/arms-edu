@@ -9,6 +9,8 @@ urlpatterns = [
     path('api/learner-advice/', views.learner_advice, name='learner_advice'),
     path('api/learners/<int:enrollment_id>/', views.learner_record, name='learner_record'),
     path('learners/print/', views.learners_print, name='learners_print'),
+    path('learners/print/records/', views.learners_print_all, name='learners_print_all'),
+    path('learners/<int:enrollment_id>/print/', views.learner_print, name='learner_print'),
 
     # Class records: progress per grading period, uploads (check first, then save), submission
     path('class-records/', views_records.class_records, name='class_record_list'),

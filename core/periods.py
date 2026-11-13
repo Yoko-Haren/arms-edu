@@ -146,3 +146,98 @@ def due_text(period, field='grade_encoding_deadline'):
     if days == 0:
         return ' Due today.'
     return f' Due in {days} day{"s" if days != 1 else ""}.'
+
+
+# --------------------------------------------------------------------------------------------
+# What a Period picker shows: one period, all of them, or the final grades
+# --------------------------------------------------------------------------------------------
+
+class View:
+    """One grading period ('period'); all of them ('all': a subject's grade is the mean of its periods so far, each grade
+    component too); or the final grades ('final': the rounded mean of the period grades, only once every period of the
+    class has one). span: the periods 'all' reads (every period of the year unless given)."""
+
+    def __init__(self, kind, periods, period=None, span=None):
+        self.kind = kind if kind in ('all', 'final') else 'period'
+        self.periods = list(periods)
+        self.period = period if self.kind == 'period' else None
+        self.span = list(span) if span else self.periods
+
+    @property
+    def key(self):
+        return str(self.period.id) if self.period else self.kind
+
+    @property
+    def label(self):
+        """'Term 2', 'All terms', 'Final grades'."""
+        if self.period:
+            return name(self.period)
+        if self.kind == 'all':
+            return f'All {word(periods=self.periods, plural=True).lower()}'
+        return 'Final grades'
+
+    @property
+    def short(self):
+        """'T2', 'All', 'Final'."""
+        return short(self.period) if self.period else ('All' if self.kind == 'all' else 'Final')
+
+    @property
+    def phrase(self):
+        """How a sentence names the grades: 'Term 2 grades', 'grades', 'final grades'."""
+        return f'{name(self.period)} grades' if self.period else ('grades' if self.kind == 'all' else 'final grades')
+
+    @property
+    def quarters(self):
+        """The periods whose grades the view reads."""
+        if self.period:
+            return [self.period]
+        return self.span if self.kind == 'all' else self.periods
+
+
+def pick(periods, wanted, default=None):
+    """The View a picker asks for: 'all', 'final' or a period id; else one period, `default`. None without periods."""
+    periods = list(periods)
+    if not periods:
+        return None
+    if wanted in ('all', 'final'):
+        return View(wanted, periods)
+    chosen = next((p for p in periods if str(p.id) == str(wanted or '')), None) or default
+    return View('period', periods, chosen) if chosen else None
+
+
+def picker(periods, current=None):
+    """The Period picker's options: All, every period by name (the current one marked), Final."""
+    periods = list(periods)
+    if not periods:
+        return []
+    return ([{'value': 'all', 'label': 'All'}] +
+            [{'value': str(p.id), 'label': name(p) + (' (current)' if current and p.id == current.id else '')} for p in periods] +
+            [{'value': 'final', 'label': 'Final'}])
+
+
+def merge(rows, view, count_of=None):
+    """Grade rows (dicts with enrollment_id, subject_id, grade and the parts ww, pt, qa when present) as the view reads
+    them. One period: as they are. All: one row per learner and subject, the grade and each part the mean of its periods.
+    Final: the final grade (final_grade) with the parts' means; a subject without every period's grade is left out.
+    count_of(row): how many periods the row's class is graded in (default: every period of the year)."""
+    if view is None or view.kind == 'period':
+        return list(rows)
+    by = {}
+    for r in rows:
+        by.setdefault((r['enrollment_id'], r['subject_id']), []).append(r)
+    out = []
+    for found in by.values():
+        grades = [float(r['grade']) for r in found]
+        if view.kind == 'final':
+            grade = final_grade(grades, count_of(found[0]) if count_of else len(view.periods))
+            if grade is None:
+                continue
+        else:
+            grade = sum(grades) / len(grades)
+        merged = dict(found[0], grade=grade)
+        for k in ('ww', 'pt', 'qa'):
+            if k in found[0]:
+                values = [float(r[k]) for r in found if r[k] is not None]
+                merged[k] = sum(values) / len(values) if values else None
+        out.append(merged)
+    return out

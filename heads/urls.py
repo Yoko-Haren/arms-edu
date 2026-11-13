@@ -9,6 +9,7 @@ urlpatterns = [
     path('ai-dashboard/export/', views_academic.dashboard_export, name='heads-ai-dashboard-export'),
     path('ai-dashboard/learners/', views_learners.learner_list, name='heads-learners'),
     path('ai-dashboard/learners/<int:enrollment_id>/', views_learners.learner_record, name='heads-learner-record'),
+    path('ai-dashboard/learners/<int:enrollment_id>/print/', views_learners.learner_print, name='heads-learner-print'),
     path('api/poro/<str:token>/', views_academic.poro_status, name='heads-poro'),
     # The section brief moved to the advisers (teacher portal, My Advisory); old links open the subject on the dashboard.
     path('ai-section/<int:section_id>/<int:subject_id>/<int:quarter_id>/', views_academic.section_moved),
